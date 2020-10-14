@@ -1,0 +1,17 @@
+language: cpp
+
+compiler: gcc
+
+dist: bionic
+
+addons:
+  apt:
+    update: true
+    packages:
+      - libeigen3-dev
+
+install:
+  - pip install cpplint
+
+script:
+  - make

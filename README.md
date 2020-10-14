@@ -1,5 +1,10 @@
 # HomLib
+
+[![Build Status](https://travis-ci.com/marcusvaltonen/HomLib.svg?branch=main)](https://travis-ci.com/marcusvaltonen/HomLib)
+![GitHub](https://img.shields.io/github/license/marcusvaltonen/HomLib)
+
 C++ library for computing homographies with support in MATLAB and Python.
+More solvers and documentation will be added soon.
 
 ## Dependencies
 The source code depends on Eigen 3 (older versions not compatible).
@@ -15,7 +20,11 @@ It is possible to MEX-compile the solver and use it in MATLAB. Check the
 e.g. `/usr/local/include/eigen3`.
 
 ## Using the solver in Python
-This is in the process of being package and will be available on PyPi shortly.
+The official python repository is [python-homlib](https://github.com/marcusvaltonen/python-homlib).
+A pre-alpha release is available at PyPi, and can be installed using
+```bash
+    $ pip install homlib
+```
 
 ## About the solvers
 Many of the solvers were generated using the automatic generator proposed by
