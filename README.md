@@ -1,4 +1,8 @@
 # HomLib
+
+[![Build Status](https://travis-ci.com/marcusvaltonen/HomLib.svg?branch=main)](https://travis-ci.com/marcusvaltonen/HomLib)
+![GitHub](https://img.shields.io/github/license/marcusvaltonen/HomLib)
+
 C++ library for computing homographies with support in MATLAB and Python.
 More solvers and documentation will be added soon.
 
