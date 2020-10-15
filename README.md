@@ -3,6 +3,7 @@
 [![Build Status](https://travis-ci.com/marcusvaltonen/HomLib.svg?branch=main)](https://travis-ci.com/marcusvaltonen/HomLib)
 ![GitHub](https://img.shields.io/github/license/marcusvaltonen/HomLib)
 [![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/marcusvaltonen/HomLib.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/marcusvaltonen/HomLib/context:cpp)
+[![codecov](https://codecov.io/gh/marcusvaltonen/HomLib/branch/main/graph/badge.svg)](https://codecov.io/gh/marcusvaltonen/HomLib)
 
 C++ library for computing homographies with support in MATLAB and Python.
 More solvers and documentation will be added soon.
