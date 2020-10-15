@@ -47,15 +47,14 @@ OBJS = $(patsubst %.cpp,%.o,$(SRCS))
 EXAMPLE_OBJS = $(patsubst %.cpp,%.o,$(EXAMPLE_SRCS))
 TEST_OBJS = $(patsubst %.cpp,%.o,$(TEST_SRCS))
 
-all: example test lint
+all: example
 
 %.o: %.cpp
 	$(CXX) $(CPPFLAGS) $(INCLUDES) $(TEST_INCLUDES) -c -o $@ $<
 
-test: clean debug_compile
-debug_compile: CPPFLAGS += $(CPPTESTFLAGS)
-debug_compile: CPPFLAGS:=$(filter-out -O2,$(CPPFLAGS))
-debug_compile: $(OBJS) $(TEST_OBJS)
+test: CPPFLAGS += $(CPPTESTFLAGS)
+test: CPPFLAGS:=$(filter-out -O2,$(CPPFLAGS))
+test: $(OBJS) $(TEST_OBJS)
 	$(CXX) -o run_tests $(OBJS) $(TEST_OBJS) $(LDTESTFLAGS)
 	@./run_tests
 
