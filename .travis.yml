@@ -15,3 +15,5 @@ install:
 
 script:
   - make
+  - gcov tests/test_main.gcno
+  - bash <(curl -s https://codecov.io/bash)

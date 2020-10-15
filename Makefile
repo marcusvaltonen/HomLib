@@ -2,7 +2,9 @@
 
 CXX=g++
 RM=rm -f
-CPPFLAGS=-O2
+CPPFLAGS=--std=c++11 -O2
+CPPTESTFLAGS=--coverage -g -O0
+LDTESTFLAGS=-lgcov
 INCLUDES=\
     -I/usr/include/eigen3 \
 	-I./includes/HomLib \
@@ -50,8 +52,11 @@ all: example test lint
 %.o: %.cpp
 	$(CXX) $(CPPFLAGS) $(INCLUDES) $(TEST_INCLUDES) -c -o $@ $<
 
-test: $(OBJS) $(TEST_OBJS)
-	$(CXX) -o run_tests $(OBJS) $(TEST_OBJS)
+test: clean debug_compile
+debug_compile: CPPFLAGS += $(CPPTESTFLAGS)
+debug_compile: CPPFLAGS:=$(filter-out -O2,$(CPPFLAGS))
+debug_compile: $(OBJS) $(TEST_OBJS)
+	$(CXX) -o run_tests $(OBJS) $(TEST_OBJS) $(LDTESTFLAGS)
 	@./run_tests
 
 example: $(OBJS) $(EXAMPLE_OBJS)
@@ -64,5 +69,10 @@ clean:
 	$(RM) $(OBJS)
 	$(RM) $(TEST_OBJS)
 	$(RM) $(EXAMPLE_OBJS)
+	$(RM) $(patsubst %.cpp,%.gcno,$(EXAMPLE_SRCS))
+	$(RM) $(patsubst %.cpp,%.gcno,$(TEST_SRCS))
+	$(RM) $(patsubst %.cpp,%.gcda,$(TEST_SRCS))
+	$(RM) $(patsubst %.cpp,%.gcno,$(SRCS))
+	$(RM) $(patsubst %.cpp,%.gcda,$(SRCS))
 	$(RM) example
 	$(RM) run_tests
