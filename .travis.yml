@@ -1,6 +1,7 @@
 language: cpp
-sudo: false
+
 dist: bionic
+
 os:
   - linux
 
@@ -19,10 +20,9 @@ install:
   - pip install cpplint
 
 script:
-  - if [[ $CXX = clang++ ]]; then export CXX="clang++"; fi
-  - make
+  - make CXX=$CXX
   - make clean
-  - make test
+  - make test CXX=$CXX
   - make lint
 
 after_success:
