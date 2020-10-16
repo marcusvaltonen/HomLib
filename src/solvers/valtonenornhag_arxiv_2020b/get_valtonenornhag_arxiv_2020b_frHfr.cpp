@@ -30,7 +30,8 @@
 #include "gj.hpp"
 
 
-namespace HomLib::ValtonenOrnhagArxiv2020B {
+namespace HomLib {
+namespace ValtonenOrnhagArxiv2020B {
     inline Eigen::Matrix<double, 5, 1> construct_sols(
         const Eigen::VectorXd& xx,
         const Eigen::VectorXd& input,
@@ -243,4 +244,5 @@ namespace HomLib::ValtonenOrnhagArxiv2020B {
 
         return abs(error);
     }
-}  // namespace HomLib::ValtonenOrnhagArxiv2020B
+}  // namespace ValtonenOrnhagArxiv2020B
+}  // namespace HomLib

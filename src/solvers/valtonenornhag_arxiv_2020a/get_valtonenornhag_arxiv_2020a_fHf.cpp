@@ -26,8 +26,8 @@
 #include "solver_valtonenornhag_arxiv_2020a_fHf.hpp"
 #include "normalize2dpts.hpp"
 
-namespace HomLib::ValtonenOrnhagArxiv2020A {
-
+namespace HomLib {
+namespace ValtonenOrnhagArxiv2020A {
     inline double get_algebraic_error_floor_fHf(const Eigen::VectorXd &data);
 
     HomLib::PoseData get_fHf(
@@ -145,4 +145,5 @@ namespace HomLib::ValtonenOrnhagArxiv2020A {
             + d[3]*d[14]*d[17]*d[19]*d[30] + d[3]*d[15]*d[16]*d[22]*d[27] + d[3]*d[15]*d[17]*d[22]*d[30];
         return abs(error);
     }
-}  // namespace HomLib::ValtonenOrnhagArxiv2020A
+}  // namespace ValtonenOrnhagArxiv2020A
+}  // namespace HomLib

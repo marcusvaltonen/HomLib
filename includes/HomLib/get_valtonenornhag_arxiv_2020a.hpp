@@ -24,12 +24,14 @@
 #include <Eigen/Dense>
 #include "posedata.hpp"
 
-namespace HomLib::ValtonenOrnhagArxiv2020A {
-    HomLib::PoseData get_fHf(
-        const Eigen::MatrixXd &x1,
-        const Eigen::MatrixXd &x2,
-        const Eigen::Matrix3d &R1,
-        const Eigen::Matrix3d &q2);
+namespace HomLib {
+namespace ValtonenOrnhagArxiv2020A {
+HomLib::PoseData get_fHf(
+    const Eigen::MatrixXd &x1,
+    const Eigen::MatrixXd &x2,
+    const Eigen::Matrix3d &R1,
+    const Eigen::Matrix3d &q2);
+}
 }
 
 #endif  // INCLUDES_HOMLIB_GET_VALTONENORNHAG_ARXIV_2020A_HPP_

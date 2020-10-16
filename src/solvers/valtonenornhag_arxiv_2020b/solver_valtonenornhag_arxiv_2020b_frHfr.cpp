@@ -21,7 +21,8 @@
 #include "solver_valtonenornhag_arxiv_2020b_frHfr.hpp"
 #include <Eigen/Dense>
 
-namespace HomLib::ValtonenOrnhagArxiv2020B {
+namespace HomLib {
+namespace ValtonenOrnhagArxiv2020B {
     Eigen::MatrixXcd solver_frHfr(const Eigen::VectorXd& data) {
         // Compute coefficients
         const double* d = data.data();
@@ -182,4 +183,5 @@ namespace HomLib::ValtonenOrnhagArxiv2020B {
 
         return sols;
     }
-}  // namespace HomLib::ValtonenOrnhagArxiv2020B
+}  // namespace ValtonenOrnhagArxiv2020B
+}  // namespace HomLib

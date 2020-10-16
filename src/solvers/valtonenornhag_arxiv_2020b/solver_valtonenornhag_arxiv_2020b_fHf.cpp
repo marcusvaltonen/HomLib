@@ -22,7 +22,8 @@
 #include <Eigen/Dense>
 #include "roots.hpp"
 
-namespace HomLib::ValtonenOrnhagArxiv2020B {
+namespace HomLib {
+namespace ValtonenOrnhagArxiv2020B {
     inline Eigen::VectorXd compute_coeffs_fHf(const Eigen::VectorXd& data);
 
     Eigen::VectorXcd solver_fHf(const Eigen::VectorXd& data) {
@@ -85,4 +86,5 @@ namespace HomLib::ValtonenOrnhagArxiv2020B {
 
         return coeffs;
     }
-}  // namespace HomLib::ValtonenOrnhagArxiv2020B
+}  // namespace ValtonenOrnhagArxiv2020B
+}  // namespace HomLib

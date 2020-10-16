@@ -25,7 +25,8 @@
 #include <vector>
 #include "posedata.hpp"
 
-namespace HomLib::ValtonenOrnhagArxiv2020B {
+namespace HomLib {
+namespace ValtonenOrnhagArxiv2020B {
 std::vector<PoseData> get_fHf(
     const Eigen::MatrixXd &p1,
     const Eigen::MatrixXd &p2,
@@ -36,6 +37,7 @@ HomLib::PoseData get_frHfr(
     const Eigen::MatrixXd &p2,
     const Eigen::Matrix3d &R1,
     const Eigen::Matrix3d &R2);
-}  // namespace HomLib::ValtonenOrnhagArxiv2020B
+}  // namespace ValtonenOrnhagArxiv2020B
+}  // namespace HomLib
 
 #endif  // INCLUDES_HOMLIB_GET_VALTONENORNHAG_ARXIV_2020B_HPP_

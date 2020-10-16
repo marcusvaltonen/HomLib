@@ -23,8 +23,10 @@
 
 #include <Eigen/Dense>
 
-namespace HomLib::ValtonenOrnhagArxiv2020B {
-  Eigen::VectorXcd solver_fHf(const Eigen::VectorXd& data);
+namespace HomLib {
+namespace ValtonenOrnhagArxiv2020B {
+Eigen::VectorXcd solver_fHf(const Eigen::VectorXd& data);
+}
 }
 
 #endif  // SRC_SOLVERS_VALTONENORNHAG_ARXIV_2020B_SOLVER_VALTONENORNHAG_ARXIV_2020B_FHF_HPP_

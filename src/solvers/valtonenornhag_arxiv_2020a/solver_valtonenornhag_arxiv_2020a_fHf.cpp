@@ -19,10 +19,10 @@
 // SOFTWARE.
 
 #include <Eigen/Dense>
-
 #include "solver_valtonenornhag_arxiv_2020a_fHf.hpp"
 
-namespace HomLib::ValtonenOrnhagArxiv2020A {
+namespace HomLib {
+namespace ValtonenOrnhagArxiv2020A {
     Eigen::MatrixXcd solver_fHf(const Eigen::VectorXd& data) {
         // Compute coefficients
         const double* d = data.data();
@@ -122,4 +122,5 @@ namespace HomLib::ValtonenOrnhagArxiv2020A {
 
         return sols;
     }
-}  // namespace HomLib::ValtonenOrnhagArxiv2020A
+}  // namespace ValtonenOrnhagArxiv2020A
+}  // namespace HomLib
