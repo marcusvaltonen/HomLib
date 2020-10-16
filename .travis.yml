@@ -80,15 +80,19 @@ matrix:
             - lcov
             - clang-9
     - os: osx
-      osx_image: xcode7.2
+      osx_image: xcode9
       env:
         - CXX=clang++
     - os: osx
-      osx_image: xcode8
+      osx_image: xcode10
       env:
         - CXX=clang++
     - os: osx
-      osx_image: xcode8.1
+      osx_image: xcode11
+      env:
+        - CXX=clang++
+    - os: osx
+      osx_image: xcode12
       env:
         - CXX=clang++
 
