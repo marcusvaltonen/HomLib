@@ -54,7 +54,7 @@ matrix:
             - lcov
             - clang-7
     - os: linux
-      compiler: clang
+      compiler: clang++
       env:
         - CXX=clang++-8
       addons:
@@ -67,7 +67,7 @@ matrix:
             - lcov
             - clang-8
     - os: linux
-      compiler: clang
+      compiler: clang++
       env:
         - CXX=clang++-9
       addons:
@@ -97,6 +97,7 @@ addons:
     update: true
     packages:
       - eigen
+      - lcov
 
 install:
   - pip install cpplint
