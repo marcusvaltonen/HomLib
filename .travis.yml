@@ -1,12 +1,16 @@
 language: cpp
-
-compiler: gcc
-
+sudo: false
 dist: bionic
+os:
+  - linux
+
+compiler:
+  - gcc
+  - clang
 
 addons:
   apt:
-    update: true
+    # update: true
     packages:
       - libeigen3-dev
       - lcov
@@ -15,6 +19,7 @@ install:
   - pip install cpplint
 
 script:
+  - if [[ $CXX = clang++ ]]; then export CXX="clang++"; fi
   - make
   - make clean
   - make test
