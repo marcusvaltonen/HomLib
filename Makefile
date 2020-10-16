@@ -4,7 +4,7 @@ CXX=g++
 RM=rm -f
 CPPFLAGS=--std=c++11 -O2
 CPPTESTFLAGS=--coverage -g -O0
-LDTESTFLAGS=-lgcov
+LDTESTFLAGS=--coverage
 INCLUDES=\
     -I/usr/include/eigen3 \
 	-I./includes/HomLib \
