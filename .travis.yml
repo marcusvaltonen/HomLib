@@ -2,45 +2,83 @@ language: cpp
 
 dist: bionic
 
-os:
-  - linux
-  - osx
-
-compiler:
-  - gcc
-  - clang
-
-
 matrix:
-  exclude:
-    os:
-    - linux
-    - osx
   include:
     - os: linux
       compiler: g++
       env:
         - CXX=g++-7
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - libeigen3-dev
+            - lcov
+            - g++-7
     - os: linux
       compiler: g++
       env:
         - CXX=g++-8
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - libeigen3-dev
+            - lcov
+            - g++-8
     - os: linux
       compiler: g++
       env:
         - CXX=g++-9
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - libeigen3-dev
+            - lcov
+            - g++-9
     - os: linux
       compiler: clang++
       env:
         - CXX=clang++-7
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-7
+          packages:
+            - libeigen3-dev
+            - lcov
+            - clang-7
     - os: linux
       compiler: clang
       env:
         - CXX=clang++-8
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-8
+          packages:
+            - libeigen3-dev
+            - lcov
+            - clang-8
     - os: linux
       compiler: clang
       env:
         - CXX=clang++-9
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-9
+          packages:
+            - libeigen3-dev
+            - lcov
+            - clang-9
     - os: osx
       osx_image: xcode7.2
       env:
@@ -55,21 +93,6 @@ matrix:
         - CXX=clang++
 
 addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-      - llvm-toolchain-7
-      - llvm-toolchain-8
-      - llvm-toolchain-9
-    packages:
-      - libeigen3-dev
-      - lcov
-      - g++-7
-      - g++-8
-      - g++-9
-      - clang-7
-      - clang-8
-      - clang-9
   homebrew:
     packages:
       - eigen
