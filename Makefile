@@ -6,13 +6,20 @@ CPPFLAGS=--std=c++11 -O2
 CPPTESTFLAGS=--coverage -g -O0
 LDTESTFLAGS=--coverage
 INCLUDES=\
-    -I/usr/include/eigen3 \
 	-I./includes/HomLib \
 	-I./src/helpers \
 	-I./src/solvers/fitzgibbon_cvpr_2001 \
 	-I./src/solvers/kukelova_cvpr_2015 \
 	-I./src/solvers/valtonenornhag_arxiv_2020a \
 	-I./src/solvers/valtonenornhag_arxiv_2020b
+
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+	INCLUDES += -I/usr/include/eigen3
+endif
+ifeq ($(UNAME_S),Darwin)
+	INCLUDES += -I/usr/local/Cellar/eigen/3.3.7/include
+endif
 
 SRCS=\
 	src/helpers/generate_problem_instance.cpp \
