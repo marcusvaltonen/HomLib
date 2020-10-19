@@ -18,7 +18,7 @@ ifeq ($(UNAME_S),Linux)
 	INCLUDES += -I/usr/include/eigen3
 endif
 ifeq ($(UNAME_S),Darwin)
-	INCLUDES += -I/usr/local/Cellar/eigen/3.3.7/include
+	INCLUDES += -I/usr/local/Cellar/eigen/3.3.8_1/include
 endif
 
 SRCS=\
