@@ -69,5 +69,5 @@ octave-workspace
 *.app
 
 # Project specific
-example
-run_tests
+build/
+coverage.info

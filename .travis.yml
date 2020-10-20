@@ -107,10 +107,8 @@ install:
   - pip install cpplint
 
 script:
-  - make CXX=$CXX
-  - make clean
-  - make test CXX=$CXX
-  - make lint
+  - ./build.sh
+  - cpplint --linelength=119 --verbose=1 --exclude=lib --exclude=tests/catch2 --recursive --quiet .
 
 after_success:
   # From: https://github.com/codecov/example-cpp11-cmake/blob/master/.travis.yml
