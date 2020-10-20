@@ -14,7 +14,8 @@ Installation for Ubuntu/Debian:
 ```bash
     $ apt-get install libeigen3-dev
 ```
-Tested on Eigen 3.3.4.
+The source code has been compiled and tested on Ubuntu 18.04 (Bionic Beaver) with g++-7 to g++-9 as well
+as clang++-7 to clang++-9. Furthermore, it is tested on OSX with Xcode 10-12.
 
 ## Using the solver in MATLAB
 It is possible to MEX-compile the solver and use it in MATLAB. Check the
