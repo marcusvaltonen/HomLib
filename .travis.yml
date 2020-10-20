@@ -1,15 +1,8 @@
 language: cpp
 
-os:
- - linux
- - osx
-
 dist: bionic
 
 matrix:
-  exclude:
-    - os: linux
-    - os: osx
   include:
     - os: linux
       compiler: g++
