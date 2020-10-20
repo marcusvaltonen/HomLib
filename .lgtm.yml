@@ -1,6 +1,0 @@
-extraction:
-  cpp:
-    prepare:
-      packages: "libeigen3-dev"
-    index:
-      build_command: "make example && make test"
