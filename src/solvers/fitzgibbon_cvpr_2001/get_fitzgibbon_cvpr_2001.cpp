@@ -26,7 +26,8 @@
 #include "posedata.hpp"
 #include "radial.hpp"
 
-namespace HomLib::FitzgibbonCVPR2001 {
+namespace HomLib {
+namespace FitzgibbonCVPR2001 {
     inline Eigen::Matrix3d vec2asym(const Eigen::Vector3d& t);
 
     HomLib::PoseData get(const Eigen::MatrixXd& x1n, const Eigen::MatrixXd& x2n) {
@@ -141,4 +142,5 @@ namespace HomLib::FitzgibbonCVPR2001 {
                 -t(1), t(0), 0;
         return t_hat;
     }
-}  // namespace HomLib::FitzgibbonCVPR2001
+}  // namespace FitzgibbonCVPR2001
+}  // namespace HomLib

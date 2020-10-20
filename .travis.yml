@@ -1,24 +1,92 @@
 language: cpp
 
-compiler: gcc
-
 dist: bionic
 
+matrix:
+  include:
+    - os: linux
+      compiler: g++
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - libeigen3-dev
+            - lcov
+            - g++-7
+    - os: linux
+      compiler: g++
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - libeigen3-dev
+            - lcov
+            - g++-8
+    - os: linux
+      compiler: g++
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - libeigen3-dev
+            - lcov
+            - g++-9
+    - os: linux
+      compiler: clang++
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-7
+          packages:
+            - libeigen3-dev
+            - lcov
+            - clang-7
+    - os: linux
+      compiler: clang++
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-8
+          packages:
+            - libeigen3-dev
+            - lcov
+            - clang-8
+    - os: linux
+      compiler: clang++
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-9
+          packages:
+            - libeigen3-dev
+            - lcov
+            - clang-9
+    - os: osx
+      osx_image: xcode10
+    - os: osx
+      osx_image: xcode11
+    - os: osx
+      osx_image: xcode12
+
 addons:
-  apt:
-    update: true
+  homebrew:
+    # update: true
     packages:
-      - libeigen3-dev
+      - eigen
       - lcov
 
 install:
   - pip install cpplint
 
 script:
-  - make
-  - make clean
-  - make test
-  - make lint
+  - ./build.sh
+  - cpplint --linelength=119 --verbose=1 --exclude=lib --exclude=tests/catch2 --exclude=build --recursive --quiet .
 
 after_success:
   # From: https://github.com/codecov/example-cpp11-cmake/blob/master/.travis.yml

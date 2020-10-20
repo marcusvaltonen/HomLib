@@ -25,8 +25,10 @@
 #include <vector>
 #include "posedata.hpp"
 
-namespace HomLib::KukelovaCVPR2015 {
-  std::vector<HomLib::PoseData> get(const Eigen::MatrixXd &p1, const Eigen::MatrixXd &p2);
+namespace HomLib {
+namespace KukelovaCVPR2015 {
+std::vector<HomLib::PoseData> get(const Eigen::MatrixXd &p1, const Eigen::MatrixXd &p2);
+}
 }
 
 #endif  // INCLUDES_HOMLIB_GET_KUKELOVA_CVPR_2015_HPP_

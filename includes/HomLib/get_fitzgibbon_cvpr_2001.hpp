@@ -24,8 +24,10 @@
 #include <Eigen/Dense>
 #include "posedata.hpp"
 
-namespace HomLib::FitzgibbonCVPR2001 {
+namespace HomLib {
+namespace FitzgibbonCVPR2001 {
 HomLib::PoseData get(const Eigen::MatrixXd& x1, const Eigen::MatrixXd& x2);
+}
 }
 
 #endif  // INCLUDES_HOMLIB_GET_FITZGIBBON_CVPR_2001_HPP_

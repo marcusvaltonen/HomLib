@@ -26,7 +26,8 @@
 #include "posedata.hpp"
 #include "gj.hpp"
 
-namespace HomLib::KukelovaCVPR2015 {
+namespace HomLib {
+namespace KukelovaCVPR2015 {
     inline Eigen::Matrix3d construct_homography_from_sols(
         const Eigen::VectorXd& xx,
         const Eigen::VectorXd& tmp,
@@ -175,4 +176,5 @@ namespace HomLib::KukelovaCVPR2015 {
 
         return H;
     }
-}  // namespace HomLib::KukelovaCVPR2015
+}  // namespace KukelovaCVPR2015
+}  // namespace HomLib

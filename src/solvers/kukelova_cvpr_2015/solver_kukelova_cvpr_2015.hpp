@@ -23,8 +23,10 @@
 
 #include <Eigen/Dense>
 
-namespace HomLib::KukelovaCVPR2015 {
-  Eigen::MatrixXcd solver_kukelova_cvpr_2015(const Eigen::VectorXd& data);
+namespace HomLib {
+namespace KukelovaCVPR2015 {
+Eigen::MatrixXcd solver_kukelova_cvpr_2015(const Eigen::VectorXd& data);
+}
 }
 
 #endif  // SRC_SOLVERS_KUKELOVA_CVPR_2015_SOLVER_KUKELOVA_CVPR_2015_HPP_

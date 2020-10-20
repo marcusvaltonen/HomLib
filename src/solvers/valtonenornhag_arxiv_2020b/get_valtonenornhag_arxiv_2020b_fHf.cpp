@@ -26,7 +26,8 @@
 #include "normalize2dpts.hpp"
 #include "posedata.hpp"
 
-namespace HomLib::ValtonenOrnhagArxiv2020B {
+namespace HomLib {
+namespace ValtonenOrnhagArxiv2020B {
     inline Eigen::Vector4d construct_hvector(double w, const Eigen::VectorXd input);
 
     std::vector<HomLib::PoseData> get_fHf(
@@ -153,4 +154,5 @@ namespace HomLib::ValtonenOrnhagArxiv2020B {
 
         return h;
     }
-}  // namespace HomLib::ValtonenOrnhagArxiv2020B
+}  // namespace ValtonenOrnhagArxiv2020B
+}  // namespace HomLib

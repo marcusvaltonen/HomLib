@@ -21,7 +21,8 @@
 #include "solver_kukelova_cvpr_2015.hpp"
 #include <Eigen/Dense>
 
-namespace HomLib::KukelovaCVPR2015 {
+namespace HomLib {
+namespace KukelovaCVPR2015 {
     Eigen::MatrixXcd solver_kukelova_cvpr_2015(const Eigen::VectorXd& data) {
         // Compute coefficients
         const double* d = data.data();
@@ -87,4 +88,5 @@ namespace HomLib::KukelovaCVPR2015 {
 
         return sols;
     }
-}  // namespace HomLib::KukelovaCVPR2015
+}  // namespace KukelovaCVPR2015
+}  // namespace HomLib
