@@ -6,7 +6,43 @@
 [![codecov](https://codecov.io/gh/marcusvaltonen/HomLib/branch/main/graph/badge.svg)](https://codecov.io/gh/marcusvaltonen/HomLib)
 
 C++ library for computing homographies with support in MATLAB and Python.
-More solvers and documentation will be added soon.
+
+## Solvers
+This repository contains four solvers for computing homographies with
+simultaneous radial distortion correction and/or incorporating IMU data.
+
+| Authors (year)                | Number of points | Minimal            | Radial distortion coeff. | IMU data           | General homography | Separarate intrinsic/extrinsic
+| ----------------------------- | ---------------- | ------------------ | ------------------------ | ------------------ | ------------------ |
+| Fitzgibbon (2001)             | 5                |                    | :heavy_check_mark:       |                    | :heavy_check_mark: |
+| Kukelova et al. (2015)        | 5                | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: |
+| Valtonen Örnhag et al. (2020) | 4                | :heavy_check_mark: |                          | :heavy_check_mark: |                    | :heavy_check_mark:
+| Valtonen Örnhag et al. (2021) | 3                | :heavy_check_mark: |                          | :heavy_check_mark: |                    | :heavy_check_mark:
+|                               | 4                | :heavy_check_mark: | :heavy_check_mark:       | :heavy_check_mark: |                    | :heavy_check_mark:
+
+The solvers by Valtonen Örnhag et al. are original implementations, the
+other are re-implementations. If you use the code in your work, please cite
+the following articles:
+
+```
+@InProceedings {valtonen-ornhag-etal-2020-icpr,
+    author    = {Valtonen~{\"O}rnhag, Marcus and Persson, Patrik and Wadenb{\"a}ck, M{\aa}rten and {\AA}str{\"o}m, Kalle and Heyden, Anders},
+    title     = {Minimal Solvers for Indoor UAV Positioning},
+    booktitle = {Proceedings of the 25th International Conference on Pattern Recognition (ICPR)},
+    month     = {January},
+    year      = {2021},
+    pages     = {1136-1143}
+}
+
+
+@InProceedings{valtonen-ornhag-etal-2021-wacv,
+    author    = {Valtonen~{\"O}rnhag, Marcus and Persson, Patrik and Wadenb{\"a}ck, M{\aa}rten and {\AA}str{\"o}m, Kalle and Heyden, Anders},
+    title     = {Efficient Real-Time Radial Distortion Correction for UAVs},
+    booktitle = {Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)},
+    month     = {January},
+    year      = {2021},
+    pages     = {1751-1760}
+}
+```
 
 ## Dependencies
 The source code depends on Eigen 3 (older versions not compatible).
