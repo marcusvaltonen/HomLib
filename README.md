@@ -11,13 +11,13 @@ C++ library for computing homographies with support in MATLAB and Python.
 This repository contains four solvers for computing homographies with
 simultaneous radial distortion correction and/or incorporating IMU data.
 
-| Authors (year)                | Number of points | Minimal            | Radial distortion coeff. | IMU data           | General homography | Separarate intrinsic/extrinsic
-| ----------------------------- | ---------------- | ------------------ | ------------------------ | ------------------ | ------------------ |
-| Fitzgibbon (2001)             | 5                |                    | :heavy_check_mark:       |                    | :heavy_check_mark: |
-| Kukelova et al. (2015)        | 5                | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: |
-| Valtonen Örnhag et al. (2020) | 4                | :heavy_check_mark: |                          | :heavy_check_mark: |                    | :heavy_check_mark:
-| Valtonen Örnhag et al. (2021) | 3                | :heavy_check_mark: |                          | :heavy_check_mark: |                    | :heavy_check_mark:
-|                               | 4                | :heavy_check_mark: | :heavy_check_mark:       | :heavy_check_mark: |                    | :heavy_check_mark:
+| Authors (year)                | Number of points | Minimal            | Radial distortion coeff. | IMU data           | General homography | Separarate intrinsic/extrinsic |
+| ----------------------------- | ---------------- | ------------------ | ------------------------ | ------------------ | ------------------ | ------------------------------ |
+| Fitzgibbon (2001)             | 5                |                    | :heavy_check_mark:       |                    | :heavy_check_mark: |                                |
+| Kukelova et al. (2015)        | 5                | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: |                                |
+| Valtonen Örnhag et al. (2020) | 4                | :heavy_check_mark: |                          | :heavy_check_mark: |                    | :heavy_check_mark:             |
+| Valtonen Örnhag et al. (2021) | 3                | :heavy_check_mark: |                          | :heavy_check_mark: |                    | :heavy_check_mark:             |
+|                               | 4                | :heavy_check_mark: | :heavy_check_mark:       | :heavy_check_mark: |                    | :heavy_check_mark:             |
 
 The solvers by Valtonen Örnhag et al. are original implementations, the
 other are re-implementations. If you use the code in your work, please cite
