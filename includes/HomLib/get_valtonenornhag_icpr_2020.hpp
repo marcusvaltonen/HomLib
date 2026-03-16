@@ -22,15 +22,16 @@
 #define INCLUDES_HOMLIB_GET_VALTONENORNHAG_ICPR_2020_HPP_
 
 #include <Eigen/Dense>
+#include <vector>
 #include "posedata.hpp"
 
 namespace HomLib {
 namespace ValtonenOrnhagICPR2020 {
 HomLib::PoseData get_fHf(
-    const Eigen::MatrixXd &x1,
-    const Eigen::MatrixXd &x2,
+    const std::vector<Eigen::Vector2d> &p1,
+    const std::vector<Eigen::Vector2d> &p2,
     const Eigen::Matrix3d &R1,
-    const Eigen::Matrix3d &q2);
+    const Eigen::Matrix3d &R2);
 }
 }
 

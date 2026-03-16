@@ -31,9 +31,9 @@ namespace HomLib {
     double normalize2dpts(const std::vector<Eigen::Vector2d> &pts) {
         double scale = 0.0;
         for (size_t i = 0; i < pts.size(); i++) {
-            scale += pts[i].squaredNorm();
+            scale += pts[i].norm();
         }
-        scale = std::sqrt(scale) / pts.size();
+        scale = scale / pts.size();
         scale = M_SQRT2 / scale;
         return scale;
     }

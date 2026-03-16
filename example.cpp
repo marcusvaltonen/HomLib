@@ -266,7 +266,6 @@ int main(int argc, char *argv[]) {
     
     std::cout << "\n\nNOTE: Errors are log10" << std::endl;
 
-    /*
     std::cout << "\n\nTesting nonlinear refinement - one sided" << std::endl;
     config.number_points = 12;
     HomLib::ProblemInstance inst = HomLib::generate_problem_instance(config);
@@ -351,65 +350,6 @@ int main(int argc, char *argv[]) {
     HomLib::refinement_twosided(inst.x1, inst.x2, pd);
     error_after = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter, pd.distortion_parameter2);
     std::cout << "before after: " << error_after << std::endl;
-    
 
-    std::cout << "\n\n==== Testing Guo's method vs DLT ====" << std::endl;
-    config.number_points = 4;
-    config.no_distortion = true;
-    inst = HomLib::generate_problem_instance(config);
-    
-    int n_prob = 1e4;
-    
-    std::vector<long> runtimes_guo;
-    runtimes_guo.reserve(n_prob);
-    std::vector<double> err_guo;
-    err_guo.reserve(n_prob);
-    std::vector<long> runtimes_dlt;
-    runtimes_dlt.reserve(n_prob);
-    std::vector<double> err_dlt;
-    err_dlt.reserve(n_prob);
-
-    
-    for (int i = 0; i < n_prob; i++) {
-        auto start = std::chrono::high_resolution_clock::now();
-        Eigen::Matrix3d H1 = HomLib::Wadenback2025::homography_4pt_guo(inst.x1, inst.x2);
-        auto end = std::chrono::high_resolution_clock::now();
-        runtimes_guo.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
-        err_guo.push_back(inst.hom_error(H1));
-        Eigen::Matrix3d H2;
-        
-        std::vector<Eigen::Vector3d> x1, x2;
-        Eigen::Vector3d tmp;
-        for (int i = 0; i < 4; i++) {
-            tmp = inst.x1[i].homogeneous();
-            x1.push_back(tmp);
-            tmp = inst.x2[i].homogeneous();
-            x2.push_back(tmp);
-        }
-        start = std::chrono::high_resolution_clock::now();
-        poselib::homography_4pt(x1, x2, &H2, false);
-        end = std::chrono::high_resolution_clock::now();
-        runtimes_dlt.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
-        err_dlt.push_back(inst.hom_error(H2));
-    }
-    
-    std::sort(runtimes_guo.begin(), runtimes_guo.end());
-    long runtime_guo_median = runtimes_guo[runtimes_guo.size() / 2];
-    std::sort(err_guo.begin(), err_guo.end());
-    double err_guo_median = err_guo[err_guo.size() / 2];
-    
-    std::sort(runtimes_dlt.begin(), runtimes_dlt.end());
-    long runtime_dlt_median = runtimes_dlt[runtimes_dlt.size() / 2];
-    std::sort(err_dlt.begin(), err_dlt.end());
-    double err_dlt_median = err_dlt[err_dlt.size() / 2];
-    
-    
-    std::cout << "Guo's method:" << std::endl;
-    std::cout << "\tMedian execution time: " << runtime_guo_median << " ns" << std::endl;
-    std::cout << "\tHomography error: " << err_guo_median << " (median)" << std::endl;
-    std::cout << "DLT  method:" << std::endl;
-    std::cout << "\tMedian execution time: " << runtime_dlt_median << " ns" << std::endl;
-    std::cout << "\tHomography error: " << err_dlt_median << " (median)" << std::endl;
-    */
     return 0;
 }

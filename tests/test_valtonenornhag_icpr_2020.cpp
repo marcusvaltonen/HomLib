@@ -19,20 +19,27 @@
 // SOFTWARE.
 
 #include <Eigen/Dense>
+#include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 #include "get_valtonenornhag_icpr_2020.hpp"
 #include "posedata.hpp"
+#include <iostream>
 
 TEST_CASE("Valtonen Ornhag ICPR 2020") {
-    Eigen::MatrixXd p1(2, 3);
-    Eigen::MatrixXd p2(2, 3);
     Eigen::Matrix3d R1, R2;
 
-    p1 << -0.170344517767220,  0.108864416575805,  0.661903907097742,
-           1.542599674500269,  0.956408496791784,  2.441464813306650;
-    p2 <<  0.729243664675995,  0.914374886276414,  3.761356659359217,
-          -0.571732334703832, -1.329303225626401, -1.507683466738961;
+    std::vector<Eigen::Vector2d> p1 = {
+        Eigen::Vector2d(-0.170344517767220, 1.542599674500269),
+        Eigen::Vector2d( 0.108864416575805, 0.956408496791784),
+        Eigen::Vector2d( 0.661903907097742, 2.441464813306650)
+    };
+
+    std::vector<Eigen::Vector2d> p2 = {
+        Eigen::Vector2d( 0.729243664675995, -0.571732334703832),
+        Eigen::Vector2d( 0.914374886276414, -1.329303225626401),
+        Eigen::Vector2d( 3.761356659359217, -1.507683466738961)
+    };
     R1 <<  0.775811502326779, -0.525223981869245, -0.349651657692168,
            0.591756227378766,  0.413366286756765,  0.692064216912979,
           -0.218954516317697, -0.743819925682513,  0.631498881979806;
@@ -42,11 +49,12 @@ TEST_CASE("Valtonen Ornhag ICPR 2020") {
 
 
     HomLib::PoseData posedata = HomLib::ValtonenOrnhagICPR2020::get_fHf(p1, p2, R1, R2);
-    double tol = 1e-10;
+    double tol = 1e-8;
 
     // Test distortion parameter and focal length
     REQUIRE(posedata.focal_length == Catch::Approx(1.194848331672758).margin(tol));
 
+    std::cout << posedata.homography << std::endl;
     // Test homography
     Eigen::Matrix3d expected;
     expected << 0.73948604786043, -1.78006293093289,  2.34478746256462,

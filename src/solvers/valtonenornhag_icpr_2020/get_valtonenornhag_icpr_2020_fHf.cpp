@@ -20,6 +20,7 @@
 
 #include "get_valtonenornhag_icpr_2020.hpp"
 #include <float.h>  // DBL_MAX
+#include <vector>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <cmath>  // abs
@@ -31,8 +32,8 @@ namespace ValtonenOrnhagICPR2020 {
     inline double get_algebraic_error_floor_fHf(const Eigen::VectorXd &data);
 
     HomLib::PoseData get_fHf(
-        const Eigen::MatrixXd &p1,
-        const Eigen::MatrixXd &p2,
+        const std::vector<Eigen::Vector2d> &p1,
+        const std::vector<Eigen::Vector2d> &p2,
         const Eigen::Matrix3d &R1,
         const Eigen::Matrix3d &R2
     ) {
@@ -45,32 +46,16 @@ namespace ValtonenOrnhagICPR2020 {
 
         // Compute normalization matrix
         double scale = normalize2dpts(p1);
-        Eigen::Vector3d s;
-        s << scale, scale, 1.0;
-        Eigen::DiagonalMatrix<double, 3> S = s.asDiagonal();
-
-        // Normalize data
-        Eigen::Matrix3d x1;
-        Eigen::Matrix3d x2;
-        x1 = p1.colwise().homogeneous();
-        x2 = p2.colwise().homogeneous();
-
-        x1 = S * x1;
-        x2 = S * x2;
-
-        Eigen::MatrixXd x1t(2, 3);
-        x1t << x1.colwise().hnormalized();
-        Eigen::MatrixXd x2t(2, 3);
-        x2t << x2.colwise().hnormalized();
+        Eigen::DiagonalMatrix<double, 3> S(Eigen::Vector3d(scale, scale, 1.0));
 
         // Wrap input data to expected format
         Eigen::VectorXd input(nbr_coeffs);
-        input << x1t.col(0),
-                 x2t.col(0),
-                 x1t.col(1),
-                 x2t.col(1),
-                 x1t.col(2),
-                 x2t.col(2),
+        input << scale * p1[0],
+                 scale * p2[0],
+                 scale * p1[1],
+                 scale * p2[1],
+                 scale * p1[2],
+                 scale * p2[2],
                  Eigen::Map<Eigen::VectorXd>(R1T.data(), 9),
                  Eigen::Map<Eigen::VectorXd>(R2T.data(), 9);
 
