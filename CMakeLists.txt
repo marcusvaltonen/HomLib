@@ -62,7 +62,6 @@ set(SRCS
     src/solvers/wadenback_2025/get_wadenback_2025_double_sided.cpp
     src/solvers/wadenback_2025/get_wadenback_2025_double_sided_equal.cpp
     src/solvers/wadenback_2025/get_wadenback_2025_one_sided.cpp
-    src/solvers/wadenback_2025/get_wadenback_2025_unsided.cpp
     src/solvers/wadenback_2025/wadenback_common.cpp
 )
 

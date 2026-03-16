@@ -26,36 +26,6 @@ std::vector<HomLib::PoseData> get_one_sided(
     const std::vector<Eigen::Vector2d> &y,
     bool extra_check
 );
-std::vector<HomLib::PoseData> get_unsided(
-    const std::vector<Eigen::Vector2d> &x,
-    const std::vector<Eigen::Vector2d> &y,
-    bool extra_check
-);
-class SolverUnsided : public PoseEstimator<SolverUnsided> {
-    public:
-        SolverUnsided() = default;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::Wadenback2025::get_unsided(x, y, extra_check);
-            for (size_t i = 0; i < output.size(); i++) {
-                poses->push_back(output[i]);
-            }
-            return output.size();
-        }
-        int minimal_sample_size() const {
-            return 4;
-        }
-        inline Eigen::Vector2d undistort(const HomLib::PoseData pose, const Eigen::Vector2d &xd) const {
-            return xd;
-        }
-        inline Eigen::Vector2d distort(const HomLib::PoseData pose, const Eigen::Vector2d &yu) const {
-            return yu;
-        }        
-        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-            HomLib::refinement_unsided(x, y, pose);
-        }
-    private:
-        bool extra_check = false;
-    };
 class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
     public:
         SolverSingleSided() = default;
