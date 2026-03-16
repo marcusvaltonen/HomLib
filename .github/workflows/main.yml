@@ -66,4 +66,10 @@ jobs:
             -j $(nproc)
 
       - name: Execute Tests
-        run: ctest ${{github.workspace}}/${{env.INSTALL_DIR}} -j $(nproc) --output-on-failure
+        run: ctest --test-dir ${{github.workspace}}/${{env.INSTALL_DIR}} -j $(nproc) --output-on-failure
+
+      - name: Execute Examples
+        run: ${{github.workspace}}/${{env.INSTALL_DIR}}/example
+
+      - name: Execute RANSAC Examples
+        run: ${{github.workspace}}/${{env.INSTALL_DIR}}/example_ransac
