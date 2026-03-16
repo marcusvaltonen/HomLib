@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'               # Trigger on any tag starting with 'v'
+
+jobs:
+  build:
+    name: Build ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { name: Linux, os: ubuntu-latest, artifact: 'libMyLib-linux.zip' }
+          - { name: macOS, os: macos-latest,   artifact: 'libMyLib-macos.zip' }
+          - { name: Windows, os: windows-latest, artifact: 'libMyLib-windows.zip' }
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libeigen3-dev   # adjust as needed
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake eigen
+
+      # Windows: Use vcpkg action to install Eigen3
+      - name: Install vcpkg and Eigen3 (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/vcpkg@v1
+        with:
+          packages: eigen3
+          triplet: x64-windows
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=install \
+                -DBUILD_TESTING=OFF
+
+      - name: Build
+        run: |
+          cmake --build build --config Release
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest -C Release --output-on-failure
+
+      - name: Install
+        run: |
+          cmake --install build --config Release
+
+      - name: Package artifacts
+        shell: bash
+        run: |
+          cd install
+          zip -r ../${{ matrix.config.artifact }} .
+
+      - name: Upload artifact (for later release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.config.artifact }}
+          path: ${{ matrix.config.artifact }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ## Changes
+            <!-- You can generate release notes automatically -->
+            See the commits for details.
+          draft: false
+          prerelease: false
+          files: artifacts/**/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
