@@ -10,39 +10,54 @@ on:
 
 env:
   BUILD_CONFIGURATION: Release
-  LIBRARY_TYPE: OFF  # Static libraries
   BUILD_DIR: _build
   INSTALL_DIR: _install
 
 jobs:
-  CI-pipeline:
+  build:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-      with:
-        # Fetches all submodules recursively.
-        submodules: 'recursive'
+      - name: Checkout your project
+        uses: actions/checkout@v4
 
-    - name: Install Eigen3 Dependency
-      run: |
-        sudo apt-get update && \
-        sudo apt-get install -y libeigen3-dev
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libeigen3-dev
 
-    - name: Setup CMake Configuration
-      run: |
-        cmake \
-          -B ${{github.workspace}}/${{env.BUILD_DIR}} \
-          -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}} \
-          -DBUILD_SHARED_LIBS=${{env.LIBRARY_TYPE}} \
-          -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/${{env.INSTALL_DIR}}
+      - name: Cache PoseLib build
+        uses: actions/cache@v4
+        id: cache-poselib
+        with:
+          path: ~/poselib-install
+          key: ${{ runner.os }}-poselib-${{ hashFiles('**/cmake/ExternalPoseLib.cmake') }}
+          # If you don't have a file to track the version, you can use a fixed key or a version variable.
 
-    - name: Compile and Install
-      run: |
-        cmake \
-          --build ${{github.workspace}}/${{env.BUILD_DIR}} \
-          --target install \
-          -j $(nproc)
+      - name: Build and install PoseLib
+        if: steps.cache-poselib.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/PoseLib/PoseLib.git
+          cd PoseLib
+          mkdir build && cd build
+          cmake .. -DCMAKE_INSTALL_PREFIX=~/poselib-install
+          make -j$(nproc)
+          make install
 
-    - name: Execute Tests
-      run: ctest ${{github.workspace}}/${{env.INSTALL_DIR}} -j $(nproc) --output-on-failure
+      - name: Configure project
+        run: |
+          mkdir build && cd build
+          cmake \
+            -B ${{github.workspace}}/${{env.BUILD_DIR}} \
+            -DCMAKE_PREFIX_PATH=~/poselib-install \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}} \
+            -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/${{env.INSTALL_DIR}}
+      - name: Compile and Install
+        run: |
+          cmake \
+            --build ${{github.workspace}}/${{env.BUILD_DIR}} \
+            --target install \
+            -j $(nproc)
+
+      - name: Execute Tests
+        run: ctest ${{github.workspace}}/${{env.INSTALL_DIR}} -j $(nproc) --output-on-failure
