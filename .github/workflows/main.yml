@@ -11,7 +11,6 @@ on:
 env:
   BUILD_CONFIGURATION: Release
   BUILD_DIR: _build
-  INSTALL_DIR: _install
 
 jobs:
   build:
@@ -57,7 +56,6 @@ jobs:
             -B ${{github.workspace}}/${{env.BUILD_DIR}} \
             -DCMAKE_PREFIX_PATH=~/poselib-install \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}} \
-            -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/${{env.INSTALL_DIR}}
       - name: Compile and Install
         run: |
           cmake \
@@ -66,10 +64,10 @@ jobs:
             -j $(nproc)
 
       - name: Execute Tests
-        run: ctest --test-dir ${{github.workspace}}/${{env.INSTALL_DIR}} -j $(nproc) --output-on-failure
+        run: ctest --test-dir ${{github.workspace}}/${{env.BUILD_DIR}} -j $(nproc) --output-on-failure
 
       - name: Execute Examples
-        run: ${{github.workspace}}/${{env.INSTALL_DIR}}/example
+        run: ${{github.workspace}}/${{env.BUILD_DIR}}/example
 
       - name: Execute RANSAC Examples
-        run: ${{github.workspace}}/${{env.INSTALL_DIR}}/example_ransac
+        run: ${{github.workspace}}/${{env.BUILD_DIR}}/example_ransac
