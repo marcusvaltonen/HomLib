@@ -28,13 +28,13 @@
 namespace HomLib {
 namespace ValtonenOrnhagWACV2021 {
 std::vector<PoseData> get_fHf(
-    const Eigen::MatrixXd &p1,
-    const Eigen::MatrixXd &p2,
+    const std::vector<Eigen::Vector2d> &p1,
+    const std::vector<Eigen::Vector2d> &p2,
     const Eigen::Matrix3d &R1,
     const Eigen::Matrix3d &R2);
 HomLib::PoseData get_frHfr(
-    const Eigen::MatrixXd &p1,
-    const Eigen::MatrixXd &p2,
+    const std::vector<Eigen::Vector2d> &p1,
+    const std::vector<Eigen::Vector2d> &p2,
     const Eigen::Matrix3d &R1,
     const Eigen::Matrix3d &R2);
 }  // namespace ValtonenOrnhagWACV2021
