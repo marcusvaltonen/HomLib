@@ -7,6 +7,8 @@ on:
   push:
     branches:    
       - main
+    tags:
+      - 'v*'
 
 env:
   BUILD_CONFIGURATION: Release
@@ -14,7 +16,14 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { name: Linux, os: ubuntu-latest, artifact: 'libMyLib-linux.zip' }
+          - { name: macOS, os: macos-latest,   artifact: 'libMyLib-macos.zip' }
 
     steps:
       - name: Checkout your project
@@ -71,3 +80,45 @@ jobs:
 
       - name: Execute RANSAC Examples
         run: ${{github.workspace}}/${{env.BUILD_DIR}}/example_ransac
+ 
+      - name: Package artifacts
+        shell: bash
+        run: |
+          cd install
+          zip -r ../${{ matrix.config.artifact }} .
+
+      - name: Upload artifact (for later release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.config.artifact }}
+          path: ${{ matrix.config.artifact }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ## Changes
+            <!-- You can generate release notes automatically -->
+            See the commits for details.
+          draft: false
+          prerelease: false
+          files: artifacts/**/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
