@@ -46,7 +46,6 @@ jobs:
 
       - name: Configure project
         run: |
-          mkdir build && cd build
           cmake \
             -B ${{github.workspace}}/${{env.BUILD_DIR}} \
             -DCMAKE_PREFIX_PATH=~/poselib-install \
