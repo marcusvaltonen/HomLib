@@ -40,7 +40,7 @@ jobs:
       - name: Build and install PoseLib
         if: steps.cache-poselib.outputs.cache-hit != 'true'
         run: |
-          git clone https://github.com/PoseLib/PoseLib.git
+          git clone --branch ${{ env.POSELIB_VERSION }} https://github.com/PoseLib/PoseLib.git
           cd PoseLib
           mkdir build && cd build
           cmake .. -DCMAKE_INSTALL_PREFIX=~/poselib-install \
