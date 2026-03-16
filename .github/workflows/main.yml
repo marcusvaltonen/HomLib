@@ -22,8 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { name: Linux, os: ubuntu-latest, artifact: 'libMyLib-linux.zip' }
-          - { name: macOS, os: macos-latest,   artifact: 'libMyLib-macos.zip' }
+          - { name: Linux, os: ubuntu-latest, artifact: 'libHomLib-linux.zip' }
 
     steps:
       - name: Checkout your project
@@ -90,8 +89,7 @@ jobs:
       - name: Package artifacts
         shell: bash
         run: |
-          cd install
-          zip -r ../${{ matrix.config.artifact }} .
+          zip -r ${{ matrix.config.artifact }} ${{github.workspace}}/${{env.BUILD_DIR}}
 
       - name: Upload artifact (for later release)
         uses: actions/upload-artifact@v4
