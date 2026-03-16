@@ -24,7 +24,7 @@
 #include "problem_instance.hpp"
 
 namespace HomLib {
-    HomLib::ProblemInstance generate_problem_instance(int N);
+    HomLib::ProblemInstance generate_problem_instance(const HomLib::ProblemConfig &config);
 }
 
 #endif  // SRC_HELPERS_GENERATE_PROBLEM_INSTANCE_HPP_

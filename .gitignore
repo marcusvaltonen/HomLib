@@ -71,3 +71,8 @@ octave-workspace
 # Project specific
 build/
 coverage.info
+*.csv
+
+.cache/
+
+.vscode/

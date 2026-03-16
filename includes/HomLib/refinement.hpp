@@ -18,15 +18,33 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SRC_HELPERS_NORMALIZE2DPTS_HPP_
-#define SRC_HELPERS_NORMALIZE2DPTS_HPP_
+#ifndef INCLUDES_HOMLIB_REFINEMENT_HPP_
+#define INCLUDES_HOMLIB_REFINEMENT_HPP_
 
-#include <vector>
 #include <Eigen/Dense>
+#include "posedata.hpp"
 
 namespace HomLib {
-  double normalize2dpts(const Eigen::MatrixXd &pts);
-  double normalize2dpts(const std::vector<Eigen::Vector2d> &pts);
+void refinement_unsided(
+    const std::vector<Eigen::Vector2d> &x1,
+    const std::vector<Eigen::Vector2d> &x2,
+    HomLib::PoseData &p
+);
+void refinement_onesided(
+    const std::vector<Eigen::Vector2d> &x1,
+    const std::vector<Eigen::Vector2d> &x2,
+    HomLib::PoseData &p
+);
+void refinement_twosided_equal(
+    const std::vector<Eigen::Vector2d> &x1,
+    const std::vector<Eigen::Vector2d> &x2,
+    HomLib::PoseData &p
+);
+void refinement_twosided(
+    const std::vector<Eigen::Vector2d> &x1,
+    const std::vector<Eigen::Vector2d> &x2,
+    HomLib::PoseData &p
+);
 }
 
-#endif  // SRC_HELPERS_NORMALIZE2DPTS_HPP_
+#endif  // INCLUDES_HOMLIB_REFINEMENT_HPP_

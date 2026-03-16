@@ -20,46 +20,70 @@
 
 #include <Eigen/Dense>
 #include <math.h>  // copysign
+#include <cmath>
 
 #include "radial.hpp"
 
 namespace HomLib {
-    Eigen::MatrixXd radialdistort(const Eigen::MatrixXd& x, double kappa) {
+    Eigen::Vector2d radialdistort(const Eigen::Vector2d &x, double kappa) {
         // We expect inhomogenous input data
-        assert(x.rows() == 2);
 
-        Eigen::ArrayXd ru2 = x.colwise().squaredNorm();
-        Eigen::ArrayXd ru = ru2.sqrt();
+        double ru2 = x.squaredNorm();
+        double ru = std::sqrt(ru2);
 
-        Eigen::ArrayXd rd;
+        double rd;
         // Compute distorted radius
         if (kappa == 0) {
             rd = ru;
         } else {
-            rd = 0.5 / kappa / ru - copysign(1.0, kappa) * (0.25 / std::pow(kappa, 2) / ru2 - 1.0 / kappa).sqrt();
+            rd = 0.5 / kappa / ru - copysign(1.0, kappa) * std::sqrt(0.25 / std::pow(kappa, 2) / ru2 - 1.0 / kappa);
         }
 
-        // compute distorted coordinates
-        Eigen::MatrixXd y(2, x.cols());
-        y = (rd / ru).replicate(1, x.rows()).transpose() * x.array();
-
-        // TODO(marcusvaltonen): Avoid divion by zero (centre coordinate - usually synthethic images)
-        // y(isnan(y(:))) = 0;
+        // Compute distorted coordinates
+        Eigen::Vector2d y = (rd / ru) * x;
 
         return y;
     }
-
-    Eigen::MatrixXd radialundistort(const Eigen::MatrixXd& x, double kappa) {
+    
+    std::vector<Eigen::Vector2d> radialdistort(const std::vector<Eigen::Vector2d> &x, double kappa) {
         // We expect inhomogenous input data
-        assert(x.rows() == 2);
+        std::vector<Eigen::Vector2d> out;
+        for (size_t i = 0; i < x.size(); i++) {
+            Eigen::Vector2d y = HomLib::radialdistort(x[i], kappa);
+            out.push_back(y);
+        }
+        return out;
+    }
 
-        Eigen::VectorXd rd2 = x.colwise().squaredNorm();
-
+    Eigen::Vector2d radialundistort(const Eigen::Vector2d &x, double kappa) {
         // Compute undistorted coordinates
-        Eigen::MatrixXd y(3, x.cols());
-        y.topRows(2) = x;
-        y.bottomRows(1) = (Eigen::VectorXd::Ones(x.cols()) + kappa * rd2).transpose();
-
-        return y.colwise().hnormalized();
+        Eigen::Vector2d y = x / (1 + kappa * x.squaredNorm());
+        return y;
+    }
+    
+    std::vector<Eigen::Vector2d> radialundistort(const std::vector<Eigen::Vector2d> &x, double kappa) {
+        std::vector<Eigen::Vector2d> out;
+        for (size_t i = 0; i < x.size(); i++) {
+            Eigen::Vector2d y = HomLib::radialundistort(x[i], kappa);
+            out.push_back(y);
+        }
+        return out;
+    }
+    
+    void radialdistort(const std::vector<Eigen::Vector2d> &xu, std::vector<Eigen::Vector2d>* xd, double kappa) {
+        std::vector<Eigen::Vector2d> tmp = radialdistort(xu, kappa);
+        xd->clear();
+        xd->reserve(tmp.size());
+        for (size_t i = 0; i < tmp.size(); i++) {
+            xd->push_back(tmp[i]);
+        }
+    }
+    void radialundistort(const std::vector<Eigen::Vector2d> &xd, std::vector<Eigen::Vector2d>* xu, double kappa) {
+        std::vector<Eigen::Vector2d> tmp = radialundistort(xd, kappa);
+        xu->clear();
+        xu->reserve(tmp.size());
+        for (size_t i = 0; tmp.size(); i++) {
+            xu->push_back(tmp[i]);
+        }
     }
 }  // namespace HomLib
