@@ -60,7 +60,7 @@ jobs:
         run: |
           cmake \
             --build ${{github.workspace}}/${{env.BUILD_DIR}} \
-            --config ${{env.BUILD_CONFIGURATION} \
+            --config ${{env.BUILD_CONFIGURATION}} \
             -j $(nproc)
 
       - name: Execute Tests
