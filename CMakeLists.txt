@@ -85,16 +85,6 @@ target_link_libraries(example LINK_PUBLIC HomLib Eigen3::Eigen PoseLib::PoseLib)
 add_executable(example_ransac example_ransac.cpp)
 target_link_libraries(example_ransac LINK_PUBLIC HomLib Eigen3::Eigen PoseLib::PoseLib)
 
-if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_BUILD_TYPE STREQUAL "Debug")
-  message("Code Coverage ")
-  LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake_modules")
-  include(CodeCoverage)
-  APPEND_COVERAGE_COMPILER_FLAGS()
-endif()
-
-#add_test(NAME tests COMMAND tests)
-#enable_testing()
-
 # Option to disable tests (e.g., for production builds)
 option(BUILD_TESTING "Build tests" ON)
 
