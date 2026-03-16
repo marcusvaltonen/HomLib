@@ -22,10 +22,10 @@
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
-#include "get_valtonenornhag_arxiv_2020b.hpp"
+#include "get_valtonenornhag_wacv_2021.hpp"
 #include "posedata.hpp"
 
-TEST_CASE("Valtonen Ornhag Arxiv 2020 B - fHf") {
+TEST_CASE("Valtonen Ornhag WACV 2021 - fHf") {
     Eigen::MatrixXd p1(2, 2);
     Eigen::MatrixXd p2(2, 2);
     Eigen::Matrix3d R1, R2;
@@ -41,7 +41,7 @@ TEST_CASE("Valtonen Ornhag Arxiv 2020 B - fHf") {
           0.945623784801441,  0.134783533871648,  0.296022054271079,
          -0.215153900053711, -0.423343542843488,  0.880050591741408;
 
-    std::vector<HomLib::PoseData> posedata = HomLib::ValtonenOrnhagArxiv2020B::get_fHf(p1, p2, R1, R2);
+    std::vector<HomLib::PoseData> posedata = HomLib::ValtonenOrnhagWACV2021::get_fHf(p1, p2, R1, R2);
 
     double tol = 1e-12;
 
@@ -83,7 +83,7 @@ TEST_CASE("Valtonen Ornhag Arxiv 2020 B - fHf") {
     REQUIRE(posedata[3].homography.isApprox(expected, tol));
 }
 
-TEST_CASE("Valtonen Ornhag Arxiv 2020 B - frHfr") {
+TEST_CASE("Valtonen Ornhag WACV 2021 - frHfr") {
     Eigen::MatrixXd p1(2, 3);
     Eigen::MatrixXd p2(2, 3);
     Eigen::Matrix3d R1, R2;
@@ -100,7 +100,7 @@ TEST_CASE("Valtonen Ornhag Arxiv 2020 B - frHfr") {
           -0.630501533318403,  -0.650532130976893,   0.423409687005158;
 
 
-    HomLib::PoseData posedata = HomLib::ValtonenOrnhagArxiv2020B::get_frHfr(p1, p2, R1, R2);
+    HomLib::PoseData posedata = HomLib::ValtonenOrnhagWACV2021::get_frHfr(p1, p2, R1, R2);
 
     double tol = 1e-12;
 

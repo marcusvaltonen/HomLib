@@ -35,8 +35,8 @@ include_directories(
     src/solvers/fitzgibbon_cvpr_2001
     src/solvers/kukelova_cvpr_2015
     src/solvers/nakano_icpr_2025
-    src/solvers/valtonenornhag_arxiv_2020a
-    src/solvers/valtonenornhag_arxiv_2020b
+    src/solvers/valtonenornhag_icpr_2020
+    src/solvers/valtonenornhag_wacv_2021
     src/solvers/wadenback_2025
 )
 
@@ -53,12 +53,12 @@ set(SRCS
     src/solvers/kukelova_cvpr_2015/get_kukelova_cvpr_2015_6pt.cpp
     src/solvers/kukelova_cvpr_2015/solver_kukelova_cvpr_2015.cpp
     src/solvers/nakano_icpr_2025/get_nakano_icpr_2025.cpp
-    src/solvers/valtonenornhag_arxiv_2020a/get_valtonenornhag_arxiv_2020a_fHf.cpp
-    src/solvers/valtonenornhag_arxiv_2020a/solver_valtonenornhag_arxiv_2020a_fHf.cpp
-    src/solvers/valtonenornhag_arxiv_2020b/get_valtonenornhag_arxiv_2020b_fHf.cpp
-    src/solvers/valtonenornhag_arxiv_2020b/get_valtonenornhag_arxiv_2020b_frHfr.cpp
-    src/solvers/valtonenornhag_arxiv_2020b/solver_valtonenornhag_arxiv_2020b_fHf.cpp
-    src/solvers/valtonenornhag_arxiv_2020b/solver_valtonenornhag_arxiv_2020b_frHfr.cpp
+    src/solvers/valtonenornhag_icpr_2020/get_valtonenornhag_icpr_2020_fHf.cpp
+    src/solvers/valtonenornhag_icpr_2020/solver_valtonenornhag_icpr_2020_fHf.cpp
+    src/solvers/valtonenornhag_wacv_2021/get_valtonenornhag_wacv_2021_fHf.cpp
+    src/solvers/valtonenornhag_wacv_2021/get_valtonenornhag_wacv_2021_frHfr.cpp
+    src/solvers/valtonenornhag_wacv_2021/solver_valtonenornhag_wacv_2021_fHf.cpp
+    src/solvers/valtonenornhag_wacv_2021/solver_valtonenornhag_wacv_2021_frHfr.cpp
     src/solvers/wadenback_2025/get_wadenback_2025_double_sided.cpp
     src/solvers/wadenback_2025/get_wadenback_2025_double_sided_equal.cpp
     src/solvers/wadenback_2025/get_wadenback_2025_one_sided.cpp
@@ -71,8 +71,8 @@ set(TEST_SRCS
     tests/test_helpers.cpp
     tests/test_kukelova_cvpr_2015.cpp
     tests/test_main.cpp
-    tests/test_valtonenornhag_arxiv_2020a.cpp
-    tests/test_valtonenornhag_arxiv_2020b.cpp
+    tests/test_valtonenornhag_icpr_2020.cpp
+    tests/test_valtonenornhag_wacv_2021.cpp
 )
 
 add_library(HomLib STATIC ${SRCS})
@@ -122,8 +122,8 @@ if(BUILD_TESTING)
         tests/test_fitzgibbon_cvpr_2001.cpp
         tests/test_helpers.cpp
         tests/test_kukelova_cvpr_2015.cpp
-        tests/test_valtonenornhag_arxiv_2020a.cpp
-        tests/test_valtonenornhag_arxiv_2020b.cpp
+        tests/test_valtonenornhag_icpr_2020.cpp
+        tests/test_valtonenornhag_wacv_2021.cpp
     )
     
     # Link against Catch2WithMain - this provides the main() function

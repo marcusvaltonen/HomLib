@@ -18,26 +18,15 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef INCLUDES_HOMLIB_GET_VALTONENORNHAG_ARXIV_2020B_HPP_
-#define INCLUDES_HOMLIB_GET_VALTONENORNHAG_ARXIV_2020B_HPP_
+#ifndef SRC_SOLVERS_VALTONENORNHAG_ICPR_2020_SOLVER_VALTONENORNHAG_ICPR_2020_FHF_HPP_
+#define SRC_SOLVERS_VALTONENORNHAG_ICPR_2020_SOLVER_VALTONENORNHAG_ICPR_2020_FHF_HPP_
 
 #include <Eigen/Dense>
-#include <vector>
-#include "posedata.hpp"
 
 namespace HomLib {
-namespace ValtonenOrnhagArxiv2020B {
-std::vector<PoseData> get_fHf(
-    const Eigen::MatrixXd &p1,
-    const Eigen::MatrixXd &p2,
-    const Eigen::Matrix3d &R1,
-    const Eigen::Matrix3d &R2);
-HomLib::PoseData get_frHfr(
-    const Eigen::MatrixXd &p1,
-    const Eigen::MatrixXd &p2,
-    const Eigen::Matrix3d &R1,
-    const Eigen::Matrix3d &R2);
-}  // namespace ValtonenOrnhagArxiv2020B
-}  // namespace HomLib
+namespace ValtonenOrnhagICPR2020 {
+Eigen::MatrixXcd solver_fHf(const Eigen::VectorXd& data);
+}
+}
 
-#endif  // INCLUDES_HOMLIB_GET_VALTONENORNHAG_ARXIV_2020B_HPP_
+#endif  //  SRC_SOLVERS_VALTONENORNHAG_ICPR_2020_SOLVER_VALTONENORNHAG_ICPR_2020_FHF_HPP_

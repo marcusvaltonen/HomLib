@@ -20,7 +20,7 @@
 
 #include "get_fitzgibbon_cvpr_2001.hpp"
 #include "get_nakano_icpr_2025.hpp"
-#include "get_wadenback_2025.hpp"
+#include "get_wadenback_3dv_2026.hpp"
 #include "get_kukelova_cvpr_2015.hpp"
 
 #include "ransac_estimator.h"

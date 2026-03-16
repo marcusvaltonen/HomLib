@@ -18,16 +18,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "get_valtonenornhag_arxiv_2020b.hpp"
+#include "get_valtonenornhag_wacv_2021.hpp"
 #include <Eigen/Geometry>
 #include <cmath>  // max
 #include <vector>
-#include "solver_valtonenornhag_arxiv_2020b_fHf.hpp"
+#include "solver_valtonenornhag_wacv_2021_fHf.hpp"
 #include "normalize2dpts.hpp"
 #include "posedata.hpp"
 
 namespace HomLib {
-namespace ValtonenOrnhagArxiv2020B {
+namespace ValtonenOrnhagWACV2021 {
     inline Eigen::Vector4d construct_hvector(double w, const Eigen::VectorXd input);
 
     std::vector<HomLib::PoseData> get_fHf(
@@ -82,7 +82,7 @@ namespace ValtonenOrnhagArxiv2020B {
                  Eigen::Map<Eigen::VectorXd>(R2T.data(), 9);
 
         // Extract w
-        Eigen::VectorXcd w = HomLib::ValtonenOrnhagArxiv2020B::solver_fHf(input);
+        Eigen::VectorXcd w = HomLib::ValtonenOrnhagWACV2021::solver_fHf(input);
 
         // Pre-processing: Remove complex-valued solutions
         double thresh = 1e-5;
@@ -154,5 +154,5 @@ namespace ValtonenOrnhagArxiv2020B {
 
         return h;
     }
-}  // namespace ValtonenOrnhagArxiv2020B
+}  // namespace ValtonenOrnhagWACV2021
 }  // namespace HomLib

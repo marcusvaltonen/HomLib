@@ -18,16 +18,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "get_valtonenornhag_arxiv_2020a.hpp"
+#include "get_valtonenornhag_icpr_2020.hpp"
 #include <float.h>  // DBL_MAX
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <cmath>  // abs
-#include "solver_valtonenornhag_arxiv_2020a_fHf.hpp"
+#include "solver_valtonenornhag_icpr_2020_fHf.hpp"
 #include "normalize2dpts.hpp"
 
 namespace HomLib {
-namespace ValtonenOrnhagArxiv2020A {
+namespace ValtonenOrnhagICPR2020 {
     inline double get_algebraic_error_floor_fHf(const Eigen::VectorXd &data);
 
     HomLib::PoseData get_fHf(
@@ -75,7 +75,7 @@ namespace ValtonenOrnhagArxiv2020A {
                  Eigen::Map<Eigen::VectorXd>(R2T.data(), 9);
 
         // Extract solution
-        Eigen::MatrixXcd sols = HomLib::ValtonenOrnhagArxiv2020A::solver_fHf(input);
+        Eigen::MatrixXcd sols = HomLib::ValtonenOrnhagICPR2020::solver_fHf(input);
 
         // Pre-processing: Remove complex-valued solutions
         double thresh = 1e-5;
@@ -100,7 +100,7 @@ namespace ValtonenOrnhagArxiv2020A {
                 // Compute algebraic error, and compare to other solutions.
                 xx = sols.col(i).real();
                 input_algebraic << xx, input;
-                algebraic_error = HomLib::ValtonenOrnhagArxiv2020A::get_algebraic_error_floor_fHf(input_algebraic);
+                algebraic_error = HomLib::ValtonenOrnhagICPR2020::get_algebraic_error_floor_fHf(input_algebraic);
 
                 if (algebraic_error < best_algebraic_error) {
                     best_algebraic_error = algebraic_error;
@@ -145,5 +145,5 @@ namespace ValtonenOrnhagArxiv2020A {
             + d[3]*d[14]*d[17]*d[19]*d[30] + d[3]*d[15]*d[16]*d[22]*d[27] + d[3]*d[15]*d[17]*d[22]*d[30];
         return abs(error);
     }
-}  // namespace ValtonenOrnhagArxiv2020A
+}  // namespace ValtonenOrnhagICPR2020
 }  // namespace HomLib

@@ -21,10 +21,10 @@
 #include <Eigen/Dense>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
-#include "get_valtonenornhag_arxiv_2020a.hpp"
+#include "get_valtonenornhag_icpr_2020.hpp"
 #include "posedata.hpp"
 
-TEST_CASE("Valtonen Ornhag Arxiv 2020 A") {
+TEST_CASE("Valtonen Ornhag ICPR 2020") {
     Eigen::MatrixXd p1(2, 3);
     Eigen::MatrixXd p2(2, 3);
     Eigen::Matrix3d R1, R2;
@@ -41,7 +41,7 @@ TEST_CASE("Valtonen Ornhag Arxiv 2020 A") {
           -0.366597938488913,  0.332081986072128,  0.869095797954443;
 
 
-    HomLib::PoseData posedata = HomLib::ValtonenOrnhagArxiv2020A::get_fHf(p1, p2, R1, R2);
+    HomLib::PoseData posedata = HomLib::ValtonenOrnhagICPR2020::get_fHf(p1, p2, R1, R2);
     double tol = 1e-10;
 
     // Test distortion parameter and focal length

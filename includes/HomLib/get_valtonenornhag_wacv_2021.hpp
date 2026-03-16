@@ -18,20 +18,26 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef INCLUDES_HOMLIB_GET_VALTONENORNHAG_ARXIV_2020A_HPP_
-#define INCLUDES_HOMLIB_GET_VALTONENORNHAG_ARXIV_2020A_HPP_
+#ifndef INCLUDES_HOMLIB_GET_VALTONENORNHAG_WACV_2021_HPP_
+#define INCLUDES_HOMLIB_GET_VALTONENORNHAG_WACV_2021_HPP_
 
 #include <Eigen/Dense>
+#include <vector>
 #include "posedata.hpp"
 
 namespace HomLib {
-namespace ValtonenOrnhagArxiv2020A {
-HomLib::PoseData get_fHf(
-    const Eigen::MatrixXd &x1,
-    const Eigen::MatrixXd &x2,
+namespace ValtonenOrnhagWACV2021 {
+std::vector<PoseData> get_fHf(
+    const Eigen::MatrixXd &p1,
+    const Eigen::MatrixXd &p2,
     const Eigen::Matrix3d &R1,
-    const Eigen::Matrix3d &q2);
-}
-}
+    const Eigen::Matrix3d &R2);
+HomLib::PoseData get_frHfr(
+    const Eigen::MatrixXd &p1,
+    const Eigen::MatrixXd &p2,
+    const Eigen::Matrix3d &R1,
+    const Eigen::Matrix3d &R2);
+}  // namespace ValtonenOrnhagWACV2021
+}  // namespace HomLib
 
-#endif  // INCLUDES_HOMLIB_GET_VALTONENORNHAG_ARXIV_2020A_HPP_
+#endif  // INCLUDES_HOMLIB_GET_VALTONENORNHAG_WACV_2021_HPP_

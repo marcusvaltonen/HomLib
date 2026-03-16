@@ -18,20 +18,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "get_valtonenornhag_arxiv_2020b.hpp"
+#include "get_valtonenornhag_wacv_2021.hpp"
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <float.h>  // DBL_MAX
 #include <vector>
 #include <cmath>  // abs
-#include "solver_valtonenornhag_arxiv_2020b_frHfr.hpp"
+#include "solver_valtonenornhag_wacv_2021_frHfr.hpp"
 #include "normalize2dpts.hpp"
 #include "posedata.hpp"
 #include "gj.hpp"
 
 
 namespace HomLib {
-namespace ValtonenOrnhagArxiv2020B {
+namespace ValtonenOrnhagWACV2021 {
     inline Eigen::Matrix<double, 5, 1> construct_sols(
         const Eigen::VectorXd& xx,
         const Eigen::VectorXd& input,
@@ -106,7 +106,7 @@ namespace ValtonenOrnhagArxiv2020B {
         input << Eigen::Map<Eigen::VectorXd>(M.rightCols(6).data(), 6*3), d;
 
         // Extract solution
-        Eigen::MatrixXcd sols = HomLib::ValtonenOrnhagArxiv2020B::solver_frHfr(input);
+        Eigen::MatrixXcd sols = HomLib::ValtonenOrnhagWACV2021::solver_frHfr(input);
 
         // Pre-processing: Remove complex-valued solutions
         double thresh = 1e-5;
@@ -244,5 +244,5 @@ namespace ValtonenOrnhagArxiv2020B {
 
         return abs(error);
     }
-}  // namespace ValtonenOrnhagArxiv2020B
+}  // namespace ValtonenOrnhagWACV2021
 }  // namespace HomLib
