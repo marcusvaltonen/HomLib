@@ -37,7 +37,7 @@ jobs:
       # Windows: Use vcpkg action to install Eigen3
       - name: Install vcpkg and Eigen3 (Windows)
         if: runner.os == 'Windows'
-        uses: actions/vcpkg@v1
+        uses: microsoft/vcpkg@v1
         with:
           packages: eigen3
           triplet: x64-windows
