@@ -26,13 +26,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake build-essential libeigen3-dev
 
+      - name: Set PoseLib version
+        id: poselib-version
+        run: echo "POSELIB_VERSION=3.0.0" >> $GITHUB_ENV
+
       - name: Cache PoseLib build
         uses: actions/cache@v4
         id: cache-poselib
         with:
           path: ~/poselib-install
-          key: ${{ runner.os }}-poselib-${{ hashFiles('**/cmake/ExternalPoseLib.cmake') }}
-          # If you don't have a file to track the version, you can use a fixed key or a version variable.
+          key: ${{ runner.os }}-poselib-${{ env.POSELIB_VERSION }}
 
       - name: Build and install PoseLib
         if: steps.cache-poselib.outputs.cache-hit != 'true'
@@ -40,7 +43,9 @@ jobs:
           git clone https://github.com/PoseLib/PoseLib.git
           cd PoseLib
           mkdir build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/poselib-install
+          cmake .. -DCMAKE_INSTALL_PREFIX=~/poselib-install \
+                   -DPOSELIB_BUILD_TESTS=OFF \
+                   -DPOSELIB_BUILD_EXAMPLES=OFF
           make -j$(nproc)
           make install
 
@@ -55,7 +60,7 @@ jobs:
         run: |
           cmake \
             --build ${{github.workspace}}/${{env.BUILD_DIR}} \
-            --target install \
+            --config ${{env.BUILD_CONFIGURATION} \
             -j $(nproc)
 
       - name: Execute Tests
