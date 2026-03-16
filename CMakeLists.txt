@@ -28,7 +28,6 @@ include_directories(${CMAKE_SOURCE_DIR})
 
 include_directories("thirdparty/RansacLib")
 
-
 include_directories(
     includes/HomLib
     src/helpers
@@ -87,12 +86,6 @@ target_link_libraries(example LINK_PUBLIC HomLib Eigen3::Eigen PoseLib::PoseLib)
 add_executable(example_ransac example_ransac.cpp)
 target_link_libraries(example_ransac LINK_PUBLIC HomLib Eigen3::Eigen PoseLib::PoseLib)
 
-
-
-add_executable(tests ${SRCS} ${TEST_SRCS})
-target_include_directories(tests PRIVATE tests)
-target_link_libraries(tests PRIVATE Eigen3::Eigen PoseLib::PoseLib)
-
 if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_BUILD_TYPE STREQUAL "Debug")
   message("Code Coverage ")
   LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake_modules")
@@ -100,5 +93,45 @@ if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_BUILD_TYPE STREQUAL "Debug")
   APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-add_test(NAME tests COMMAND tests)
-enable_testing()
+#add_test(NAME tests COMMAND tests)
+#enable_testing()
+
+# Option to disable tests (e.g., for production builds)
+option(BUILD_TESTING "Build tests" ON)
+
+if(BUILD_TESTING)
+    # Enable CTest - this creates the 'test' target
+    include(CTest)
+    
+    set(Catch2_DIR "" CACHE INTERNAL "")
+    
+    # Either FetchContent...
+    include(FetchContent)
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG        v3.13.0
+    )
+    FetchContent_MakeAvailable(Catch2)
+    
+    # OR find_package if installed system-wide:
+    # find_package(Catch2 3 REQUIRED)
+    
+    # Add your test executable
+    add_executable(HomLibTests 
+        tests/test_fitzgibbon_cvpr_2001.cpp
+        tests/test_helpers.cpp
+        tests/test_kukelova_cvpr_2015.cpp
+        tests/test_valtonenornhag_arxiv_2020a.cpp
+        tests/test_valtonenornhag_arxiv_2020b.cpp
+    )
+    
+    # Link against Catch2WithMain - this provides the main() function
+    target_link_libraries(HomLibTests PRIVATE HomLib Catch2::Catch2WithMain Eigen3::Eigen PoseLib::PoseLib)
+    
+    # Automatically discover and register all TEST_CASE macros with CTest
+    # This requires the Catch2 extras directory in the module path
+    list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+    include(Catch)
+    catch_discover_tests(HomLibTests)
+endif()

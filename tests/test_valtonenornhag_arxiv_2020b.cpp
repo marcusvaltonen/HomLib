@@ -20,7 +20,8 @@
 
 #include <Eigen/Dense>
 #include <vector>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 #include "get_valtonenornhag_arxiv_2020b.hpp"
 #include "posedata.hpp"
 
@@ -48,10 +49,10 @@ TEST_CASE("Valtonen Ornhag Arxiv 2020 B - fHf") {
     REQUIRE(posedata.size() == 4);
 
     // Test distortion parameters
-    REQUIRE(posedata[0].focal_length == Approx(-0.169636953030949).margin(tol));
-    REQUIRE(posedata[1].focal_length == Approx(0.341654151554244).margin(tol));
-    REQUIRE(posedata[2].focal_length == Approx(0.653592155944414).margin(tol));
-    REQUIRE(posedata[3].focal_length == Approx(3.395609550168773).margin(tol));
+    REQUIRE(posedata[0].focal_length == Catch::Approx(-0.169636953030949).margin(tol));
+    REQUIRE(posedata[1].focal_length == Catch::Approx(0.341654151554244).margin(tol));
+    REQUIRE(posedata[2].focal_length == Catch::Approx(0.653592155944414).margin(tol));
+    REQUIRE(posedata[3].focal_length == Catch::Approx(3.395609550168773).margin(tol));
 
     // Test homographies
     tol = 1e-9;
@@ -104,8 +105,8 @@ TEST_CASE("Valtonen Ornhag Arxiv 2020 B - frHfr") {
     double tol = 1e-12;
 
     // Test distortion parameter and focal length
-    REQUIRE(posedata.distortion_parameter == Approx(-0.4505415985025416).margin(tol));
-    REQUIRE(posedata.focal_length == Approx(5.756798219567954).margin(tol));
+    REQUIRE(posedata.distortion_parameter == Catch::Approx(-0.4505415985025416).margin(tol));
+    REQUIRE(posedata.focal_length == Catch::Approx(5.756798219567954).margin(tol));
 
     // Test homography
     tol = 1e-7;

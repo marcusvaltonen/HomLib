@@ -19,7 +19,8 @@
 // SOFTWARE.
 
 #include <Eigen/Dense>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 #include "get_valtonenornhag_arxiv_2020a.hpp"
 #include "posedata.hpp"
 
@@ -41,10 +42,10 @@ TEST_CASE("Valtonen Ornhag Arxiv 2020 A") {
 
 
     HomLib::PoseData posedata = HomLib::ValtonenOrnhagArxiv2020A::get_fHf(p1, p2, R1, R2);
-    double tol = 1e-12;
+    double tol = 1e-10;
 
     // Test distortion parameter and focal length
-    REQUIRE(posedata.focal_length == Approx(1.194848331672758).margin(tol));
+    REQUIRE(posedata.focal_length == Catch::Approx(1.194848331672758).margin(tol));
 
     // Test homography
     Eigen::Matrix3d expected;

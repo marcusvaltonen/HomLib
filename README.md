@@ -89,6 +89,17 @@ Installation for Ubuntu/Debian:
 The source code has been compiled and tested on Ubuntu 18.04 (Bionic Beaver) with g++-7 to g++-9 as well
 as clang++-7 to clang++-9. Furthermore, it is tested on OSX with Xcode 10-12.
 
+Furthermore, (PoseLib)[https://github.com/PoseLib/PoseLib/tree/master)] is required. Follow the installation
+instruction in the repo.
+
+Furthermore, if you want to use the solvers in an LOMSAC framework, we rely
+on (RansacLib)[https://github.com/tsattler/RansacLib], which is included as a submodule. You can recursively
+clone it
+
+```console
+git submodule update --init --recursive
+```
+
 ## Using the solver in MATLAB
 It is possible to MEX-compile the solver and use it in MATLAB. Check the
 `compile_mex.m` function in the MATLAB directory. You may have to change the path to Eigen,

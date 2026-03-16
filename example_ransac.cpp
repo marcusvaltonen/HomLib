@@ -145,7 +145,7 @@ template <typename Estimator> BenchmarkResults test_loransac(
 			//std::cout << "Dist. coeff. error: " << inst.dist_error(best_model.distortion_parameter, best_model.distortion_parameter2) << std::endl;
 		}
 
-		br.inlier_history.push_back(ransac_stats.inlier_history);
+		//br.inlier_history.push_back(ransac_stats.inlier_history);
 		/*
 		std::cout << "   ... LOMSAC found " << num_ransac_inliers
 		<< " inliers in " << ransac_stats.num_iterations
