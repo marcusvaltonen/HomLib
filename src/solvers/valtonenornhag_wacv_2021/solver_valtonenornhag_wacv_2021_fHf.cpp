@@ -18,16 +18,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "solver_valtonenornhag_arxiv_2020b_fHf.hpp"
+#include "solver_valtonenornhag_wacv_2021_fHf.hpp"
 #include <Eigen/Dense>
 #include "roots.hpp"
 
 namespace HomLib {
-namespace ValtonenOrnhagArxiv2020B {
+namespace ValtonenOrnhagWACV2021 {
     inline Eigen::VectorXd compute_coeffs_fHf(const Eigen::VectorXd& data);
 
     Eigen::VectorXcd solver_fHf(const Eigen::VectorXd& data) {
-        Eigen::VectorXd coeffs = HomLib::ValtonenOrnhagArxiv2020B::compute_coeffs_fHf(data);
+        Eigen::VectorXd coeffs = HomLib::ValtonenOrnhagWACV2021::compute_coeffs_fHf(data);
         Eigen::VectorXcd putative_sols = HomLib::roots(coeffs);
         return putative_sols;
     }
@@ -86,5 +86,5 @@ namespace ValtonenOrnhagArxiv2020B {
 
         return coeffs;
     }
-}  // namespace ValtonenOrnhagArxiv2020B
+}  // namespace ValtonenOrnhagWACV2021
 }  // namespace HomLib

@@ -18,12 +18,23 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include "normalize2dpts.hpp"
 
 namespace HomLib {
     double normalize2dpts(const Eigen::MatrixXd &pts) {
-        const double SQRT_TWO = 1.41421356237;
-        double scale = SQRT_TWO / pts.colwise().norm().mean();
+
+        double scale = M_SQRT2 / pts.colwise().norm().mean();
+        return scale;
+    }
+    double normalize2dpts(const std::vector<Eigen::Vector2d> &pts) {
+        double scale = 0.0;
+        for (size_t i = 0; i < pts.size(); i++) {
+            scale += pts[i].norm();
+        }
+        scale = scale / pts.size();
+        scale = M_SQRT2 / scale;
         return scale;
     }
 }

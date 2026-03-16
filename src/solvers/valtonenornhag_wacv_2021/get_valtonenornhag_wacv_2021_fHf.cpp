@@ -18,32 +18,26 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "get_valtonenornhag_arxiv_2020b.hpp"
+#include "get_valtonenornhag_wacv_2021.hpp"
 #include <Eigen/Geometry>
 #include <cmath>  // max
 #include <vector>
-#include "solver_valtonenornhag_arxiv_2020b_fHf.hpp"
+#include "solver_valtonenornhag_wacv_2021_fHf.hpp"
 #include "normalize2dpts.hpp"
 #include "posedata.hpp"
 
 namespace HomLib {
-namespace ValtonenOrnhagArxiv2020B {
+namespace ValtonenOrnhagWACV2021 {
     inline Eigen::Vector4d construct_hvector(double w, const Eigen::VectorXd input);
 
     std::vector<HomLib::PoseData> get_fHf(
-        const Eigen::MatrixXd &p1,
-        const Eigen::MatrixXd &p2,
+        const std::vector<Eigen::Vector2d> &p1,
+        const std::vector<Eigen::Vector2d> &p2,
         const Eigen::Matrix3d &R1,
         const Eigen::Matrix3d &R2
     ) {
         // This is a 2-point method
         int nbr_pts = 2;
-
-        // We expect inhomogenous input data, i.e. p1 and p2 are 2x3 matrices
-        assert(p1.rows() == 2);
-        assert(p2.rows() == 2);
-        assert(p1.cols() == nbr_pts);
-        assert(p2.cols() == nbr_pts);
         int nbr_coeffs = 26;
 
         // Save copies of the inverse rotation
@@ -54,35 +48,19 @@ namespace ValtonenOrnhagArxiv2020B {
         double scale1 = normalize2dpts(p1);
         double scale2 = normalize2dpts(p2);
         double scale = std::max(scale1, scale2);
-        Eigen::Vector3d s;
-        s << scale, scale, 1.0;
-        Eigen::DiagonalMatrix<double, 3> S = s.asDiagonal();
-
-        // Normalize data
-        Eigen::MatrixXd x1(3, 2);
-        Eigen::MatrixXd x2(3, 2);
-        x1 = p1.colwise().homogeneous();
-        x2 = p2.colwise().homogeneous();
-
-        x1 = S * x1;
-        x2 = S * x2;
-
-        Eigen::Matrix2d x1t;
-        x1t << x1.colwise().hnormalized();
-        Eigen::Matrix2d x2t;
-        x2t << x2.colwise().hnormalized();
+        Eigen::DiagonalMatrix<double, 3> S(Eigen::Vector3d(scale, scale, 1.0));
 
         // Wrap input data to expected format
         Eigen::VectorXd input(nbr_coeffs);
-        input << x1t.col(0),
-                 x2t.col(0),
-                 x1t.col(1),
-                 x2t.col(1),
+        input << scale * p1[0],
+                 scale * p2[0],
+                 scale * p1[1],
+                 scale * p2[1],
                  Eigen::Map<Eigen::VectorXd>(R1T.data(), 9),
                  Eigen::Map<Eigen::VectorXd>(R2T.data(), 9);
 
         // Extract w
-        Eigen::VectorXcd w = HomLib::ValtonenOrnhagArxiv2020B::solver_fHf(input);
+        Eigen::VectorXcd w = HomLib::ValtonenOrnhagWACV2021::solver_fHf(input);
 
         // Pre-processing: Remove complex-valued solutions
         double thresh = 1e-5;
@@ -154,5 +132,5 @@ namespace ValtonenOrnhagArxiv2020B {
 
         return h;
     }
-}  // namespace ValtonenOrnhagArxiv2020B
+}  // namespace ValtonenOrnhagWACV2021
 }  // namespace HomLib

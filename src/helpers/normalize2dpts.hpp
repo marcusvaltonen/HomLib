@@ -21,10 +21,12 @@
 #ifndef SRC_HELPERS_NORMALIZE2DPTS_HPP_
 #define SRC_HELPERS_NORMALIZE2DPTS_HPP_
 
+#include <vector>
 #include <Eigen/Dense>
 
 namespace HomLib {
   double normalize2dpts(const Eigen::MatrixXd &pts);
+  double normalize2dpts(const std::vector<Eigen::Vector2d> &pts);
 }
 
 #endif  // SRC_HELPERS_NORMALIZE2DPTS_HPP_

@@ -65,7 +65,8 @@ namespace KukelovaCVPR2015 {
 
         // Setup action matrix
         Eigen::Matrix<double, 9, 5> RR;
-        RR << -C12.bottomRows(4), Eigen::Matrix<double, 5, 5>::Identity(5, 5);
+        RR.topRows(4) = -C12.bottomRows(4);
+        RR.bottomRows(5) = Eigen::Matrix<double, 5, 5>::Identity(5, 5);
 
         static const int AM_ind[] = { 5,0,1,2,3 };  // NOLINT
         Eigen::Matrix<double, 5, 5> AM;

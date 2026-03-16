@@ -18,5 +18,21 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
+#ifndef INCLUDES_HOMLIB_GET_VALTONENORNHAG_ICPR_2020_HPP_
+#define INCLUDES_HOMLIB_GET_VALTONENORNHAG_ICPR_2020_HPP_
+
+#include <Eigen/Dense>
+#include <vector>
+#include "posedata.hpp"
+
+namespace HomLib {
+namespace ValtonenOrnhagICPR2020 {
+HomLib::PoseData get_fHf(
+    const std::vector<Eigen::Vector2d> &p1,
+    const std::vector<Eigen::Vector2d> &p2,
+    const Eigen::Matrix3d &R1,
+    const Eigen::Matrix3d &R2);
+}
+}
+
+#endif  // INCLUDES_HOMLIB_GET_VALTONENORNHAG_ICPR_2020_HPP_

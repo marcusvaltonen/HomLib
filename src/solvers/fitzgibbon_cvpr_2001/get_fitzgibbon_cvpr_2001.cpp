@@ -20,6 +20,7 @@
 
 #include "get_fitzgibbon_cvpr_2001.hpp"
 #include <float.h>  // For DBL_MAX
+#include <vector>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <Eigen/Eigenvalues>
@@ -30,19 +31,29 @@ namespace HomLib {
 namespace FitzgibbonCVPR2001 {
     inline Eigen::Matrix3d vec2asym(const Eigen::Vector3d& t);
 
-    HomLib::PoseData get(const Eigen::MatrixXd& x1n, const Eigen::MatrixXd& x2n) {
+    std::vector<HomLib::PoseData> get(
+        const std::vector<Eigen::Vector2d> &x,
+        const std::vector<Eigen::Vector2d> &y
+    ) {
         // This is a five point method
-        int n_points = 5;
+        const int n_points = 5;
 
         // Make homogenous
-        Eigen::MatrixXd x1 = x1n.colwise().homogeneous();
-        Eigen::MatrixXd x2 = x2n.colwise().homogeneous();
+        Eigen::Matrix<double, 3, n_points> x1, x2;
+        for (int i = 0; i < n_points; i++) {
+            x1.col(i) = x[i].homogeneous();
+            x2.col(i) = y[i].homogeneous();
+        }
 
         // Compute the distance to center point
-        Eigen::MatrixXd z1(3, n_points);
-        z1 << Eigen::MatrixXd::Zero(2, n_points), x1n.colwise().squaredNorm();
-        Eigen::MatrixXd z2(3, n_points);
-        z2 << Eigen::MatrixXd::Zero(2, n_points), x2n.colwise().squaredNorm();
+        Eigen::Matrix<double, 3, n_points> z1;
+        z1.setZero();
+        Eigen::Matrix<double, 3, n_points> z2;
+        z2.setZero();
+        for (int i = 0; i < n_points; i++) {
+            z1(2, i) = x[i].squaredNorm();
+            z2(2, i) = y[i].squaredNorm();
+        }
 
         // Initialize D0, D1 and D2
         Eigen::MatrixXd D0(9, 9);
@@ -109,9 +120,8 @@ namespace FitzgibbonCVPR2001 {
 
         // Extract correct solution
         Eigen::Matrix3d Htmp;
-        Eigen::MatrixXd z(3, 5);
-        double res;
         double minres = DBL_MAX;
+        std::vector<HomLib::PoseData> output;
         HomLib::PoseData posedata;
         double ltmp;
         Eigen::Array<bool, 1, 18> is_ok;
@@ -121,8 +131,20 @@ namespace FitzgibbonCVPR2001 {
             if (is_ok(k)) {
                 ltmp = l(k).real();
                 Htmp = Eigen::Map<Eigen::Matrix3d>(X.col(k).data(), 3, 3);
-                z = Htmp * radialundistort(x1.colwise().hnormalized(), ltmp).colwise().homogeneous();
-                res = (x2.colwise().hnormalized() - radialdistort(z.colwise().hnormalized(), ltmp)).squaredNorm();
+                // Reproject points
+                std::vector<Eigen::Vector2d> xu = radialundistort(x, ltmp);
+                std::vector<Eigen::Vector2d> yu_est;
+                for (int i = 0; i < n_points; i++) {
+                    Eigen::Vector3d tmp = Htmp * xu[i].homogeneous();
+                    yu_est.push_back(tmp.hnormalized());
+                }
+                std::vector<Eigen::Vector2d> y_est = radialdistort(yu_est, ltmp);
+
+                // Compute residual in distorted space
+                double res = 0.0;
+                for (int i = 0; i < n_points; i++) {
+                    res += (y[i] - y_est[i]).squaredNorm();
+                }
                 if (res < minres) {
                     minres = res;
                     posedata.homography = Htmp;
@@ -130,8 +152,10 @@ namespace FitzgibbonCVPR2001 {
                 }
             }
         }
+        if (minres < DBL_MAX)
+            output.push_back(posedata);
 
-        return posedata;
+        return output;
     }
 
     // TODO(marcusvaltonen): Refactor -> helpers when necessary

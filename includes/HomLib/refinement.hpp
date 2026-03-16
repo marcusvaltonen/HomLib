@@ -18,26 +18,28 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef INCLUDES_HOMLIB_GET_VALTONENORNHAG_ARXIV_2020B_HPP_
-#define INCLUDES_HOMLIB_GET_VALTONENORNHAG_ARXIV_2020B_HPP_
+#ifndef INCLUDES_HOMLIB_REFINEMENT_HPP_
+#define INCLUDES_HOMLIB_REFINEMENT_HPP_
 
 #include <Eigen/Dense>
-#include <vector>
 #include "posedata.hpp"
 
 namespace HomLib {
-namespace ValtonenOrnhagArxiv2020B {
-std::vector<PoseData> get_fHf(
-    const Eigen::MatrixXd &p1,
-    const Eigen::MatrixXd &p2,
-    const Eigen::Matrix3d &R1,
-    const Eigen::Matrix3d &R2);
-HomLib::PoseData get_frHfr(
-    const Eigen::MatrixXd &p1,
-    const Eigen::MatrixXd &p2,
-    const Eigen::Matrix3d &R1,
-    const Eigen::Matrix3d &R2);
-}  // namespace ValtonenOrnhagArxiv2020B
-}  // namespace HomLib
+void refinement_onesided(
+    const std::vector<Eigen::Vector2d> &x1,
+    const std::vector<Eigen::Vector2d> &x2,
+    HomLib::PoseData &p
+);
+void refinement_twosided_equal(
+    const std::vector<Eigen::Vector2d> &x1,
+    const std::vector<Eigen::Vector2d> &x2,
+    HomLib::PoseData &p
+);
+void refinement_twosided(
+    const std::vector<Eigen::Vector2d> &x1,
+    const std::vector<Eigen::Vector2d> &x2,
+    HomLib::PoseData &p
+);
+}
 
-#endif  // INCLUDES_HOMLIB_GET_VALTONENORNHAG_ARXIV_2020B_HPP_
+#endif  // INCLUDES_HOMLIB_REFINEMENT_HPP_

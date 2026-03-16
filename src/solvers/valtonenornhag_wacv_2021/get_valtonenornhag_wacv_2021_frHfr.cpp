@@ -18,20 +18,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "get_valtonenornhag_arxiv_2020b.hpp"
+#include "get_valtonenornhag_wacv_2021.hpp"
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <float.h>  // DBL_MAX
 #include <vector>
 #include <cmath>  // abs
-#include "solver_valtonenornhag_arxiv_2020b_frHfr.hpp"
+#include "solver_valtonenornhag_wacv_2021_frHfr.hpp"
 #include "normalize2dpts.hpp"
 #include "posedata.hpp"
 #include "gj.hpp"
 
 
 namespace HomLib {
-namespace ValtonenOrnhagArxiv2020B {
+namespace ValtonenOrnhagWACV2021 {
     inline Eigen::Matrix<double, 5, 1> construct_sols(
         const Eigen::VectorXd& xx,
         const Eigen::VectorXd& input,
@@ -40,41 +40,19 @@ namespace ValtonenOrnhagArxiv2020B {
     inline double get_algebraic_error_norot_frHfr(const Eigen::VectorXd &data);
 
     HomLib::PoseData get_frHfr(
-        const Eigen::MatrixXd &p1,
-        const Eigen::MatrixXd &p2,
+        const std::vector<Eigen::Vector2d> &p1,
+        const std::vector<Eigen::Vector2d> &p2,
         const Eigen::Matrix3d &R1,
-        const Eigen::Matrix3d & R2
+        const Eigen::Matrix3d &R2
     ) {
         // This is a 2.5 point method
         const int nbr_pts = 3;
-
-        // We expect inhomogenous input data, i.e. p1 and p2 are 2x5 matrices
-        assert(p1.rows() == 2);
-        assert(p2.rows() == 2);
-        assert(p1.cols() == nbr_pts);
-        assert(p2.cols() == nbr_pts);
 
         // Compute normalization matrix
         double scale1 = HomLib::normalize2dpts(p1);
         double scale2 = HomLib::normalize2dpts(p2);
         double scale = std::max(scale1, scale2);
-        Eigen::Vector3d s;
-        s << scale, scale, 1.0;
-        Eigen::DiagonalMatrix<double, 3> S = s.asDiagonal();
-
-        // Normalize data
-        Eigen::MatrixXd x1(3, nbr_pts);
-        Eigen::MatrixXd x2(3, nbr_pts);
-        x1 = p1.colwise().homogeneous();
-        x2 = p2.colwise().homogeneous();
-
-        x1 = S * x1;
-        x2 = S * x2;
-
-        Eigen::MatrixXd u1(2, nbr_pts);
-        u1 << x1.colwise().hnormalized();
-        Eigen::MatrixXd u2(2, nbr_pts);
-        u2 << x2.colwise().hnormalized();
+        Eigen::DiagonalMatrix<double, 3> S(Eigen::Vector3d(scale, scale, 1.0));
 
         // Save copies of the modified rotation matrix
         Eigen::Matrix3d R = R2 * R1.transpose();
@@ -82,12 +60,12 @@ namespace ValtonenOrnhagArxiv2020B {
 
         // Wrap input data to expected format
         Eigen::VectorXd d(19);
-        d << u1.col(0),
-             u2.col(0),
-             u1.col(1),
-             u2.col(1),
-             u1.col(2),
-             u2.col(2),
+        d << scale * p1[0],
+             scale * p2[0],
+             scale * p1[1],
+             scale * p2[1],
+             scale * p1[2],
+             scale * p2[2],
              q,
              R1.col(1);
 
@@ -106,7 +84,7 @@ namespace ValtonenOrnhagArxiv2020B {
         input << Eigen::Map<Eigen::VectorXd>(M.rightCols(6).data(), 6*3), d;
 
         // Extract solution
-        Eigen::MatrixXcd sols = HomLib::ValtonenOrnhagArxiv2020B::solver_frHfr(input);
+        Eigen::MatrixXcd sols = HomLib::ValtonenOrnhagWACV2021::solver_frHfr(input);
 
         // Pre-processing: Remove complex-valued solutions
         double thresh = 1e-5;
@@ -125,12 +103,12 @@ namespace ValtonenOrnhagArxiv2020B {
         Eigen::ArrayXd xx(2);
         Eigen::VectorXd input_algebraic(29);
         input_algebraic << Eigen::VectorXd::Zero(5),
-                           u1.col(0),
-                           u2.col(0),
-                           u1.col(1),
-                           u2.col(1),
-                           u1.col(2),
-                           u2.col(2),
+                           scale * p1[0],
+                           scale * p2[0],
+                           scale * p1[1],
+                           scale * p2[1],
+                           scale * p1[2],
+                           scale * p2[2],
                            Eigen::Map<Eigen::VectorXd>(R.data(), 9),
                            R1.col(1);
 
@@ -244,5 +222,5 @@ namespace ValtonenOrnhagArxiv2020B {
 
         return abs(error);
     }
-}  // namespace ValtonenOrnhagArxiv2020B
+}  // namespace ValtonenOrnhagWACV2021
 }  // namespace HomLib

@@ -18,15 +18,26 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef SRC_SOLVERS_VALTONENORNHAG_ARXIV_2020A_SOLVER_VALTONENORNHAG_ARXIV_2020A_FHF_HPP_
-#define SRC_SOLVERS_VALTONENORNHAG_ARXIV_2020A_SOLVER_VALTONENORNHAG_ARXIV_2020A_FHF_HPP_
+#ifndef INCLUDES_HOMLIB_GET_VALTONENORNHAG_WACV_2021_HPP_
+#define INCLUDES_HOMLIB_GET_VALTONENORNHAG_WACV_2021_HPP_
 
 #include <Eigen/Dense>
+#include <vector>
+#include "posedata.hpp"
 
 namespace HomLib {
-namespace ValtonenOrnhagArxiv2020A {
-Eigen::MatrixXcd solver_fHf(const Eigen::VectorXd& data);
-}
-}
+namespace ValtonenOrnhagWACV2021 {
+std::vector<PoseData> get_fHf(
+    const std::vector<Eigen::Vector2d> &p1,
+    const std::vector<Eigen::Vector2d> &p2,
+    const Eigen::Matrix3d &R1,
+    const Eigen::Matrix3d &R2);
+HomLib::PoseData get_frHfr(
+    const std::vector<Eigen::Vector2d> &p1,
+    const std::vector<Eigen::Vector2d> &p2,
+    const Eigen::Matrix3d &R1,
+    const Eigen::Matrix3d &R2);
+}  // namespace ValtonenOrnhagWACV2021
+}  // namespace HomLib
 
-#endif  // SRC_SOLVERS_VALTONENORNHAG_ARXIV_2020A_SOLVER_VALTONENORNHAG_ARXIV_2020A_FHF_HPP_
+#endif  // INCLUDES_HOMLIB_GET_VALTONENORNHAG_WACV_2021_HPP_

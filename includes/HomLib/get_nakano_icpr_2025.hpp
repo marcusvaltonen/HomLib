@@ -18,8 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef INCLUDES_HOMLIB_GET_FITZGIBBON_CVPR_2001_HPP_
-#define INCLUDES_HOMLIB_GET_FITZGIBBON_CVPR_2001_HPP_
+#ifndef INCLUDES_HOMLIB_GET_NAKANO_ICPR_2025_HPP_
+#define INCLUDES_HOMLIB_GET_NAKANO_ICPR_2025_HPP_
 
 #include <Eigen/Dense>
 #include <vector>
@@ -27,22 +27,19 @@
 #include "radial.hpp"
 #include "pose_estimator.h"
 #include "refinement.hpp"
-
+#include <iostream>
 namespace HomLib {
-namespace FitzgibbonCVPR2001 {
+namespace NakanoICPR2025 {
 std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &x,
-    const std::vector<Eigen::Vector2d> &y
-);
-std::vector<HomLib::PoseData> get_single(
-    const std::vector<Eigen::Vector2d> &x,
-    const std::vector<Eigen::Vector2d> &y
+    const std::vector<Eigen::Vector2d> &y,
+    bool extra_check
 );
 class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
     public:
         SolverSingleSided() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::FitzgibbonCVPR2001::get_single(x, y);
+            std::vector<HomLib::PoseData> output = HomLib::NakanoICPR2025::get(x, y, extra_check);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
@@ -62,32 +59,10 @@ class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_onesided(x, y, pose);
         }
-    };
-class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
-    public:
-        SolverTwoSidedEqual() = default;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::FitzgibbonCVPR2001::get(x, y);
-            for (size_t i = 0; i < output.size(); i++) {
-                poses->push_back(output[i]);
-            }
-            return output.size();
-        }
-        int minimal_sample_size() const {
-            return 5;
-        }
-        inline Eigen::Vector2d undistort(const HomLib::PoseData pose, const Eigen::Vector2d &xd) const {
-            Eigen::Vector2d xu = HomLib::radialundistort(xd, pose.distortion_parameter);
-            return xu;
-        }
-        inline Eigen::Vector2d distort(const HomLib::PoseData pose, const Eigen::Vector2d &yu) const {
-            Eigen::Vector2d yd = HomLib::radialdistort(yu, pose.distortion_parameter);
-            return yd;
-        }
-        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-            HomLib::refinement_twosided_equal(x, y, pose);
-        }
+    private:
+        bool extra_check = false;
     };
 }
 }
-#endif  // INCLUDES_HOMLIB_GET_FITZGIBBON_CVPR_2001_HPP_
+
+#endif  // INCLUDES_HOMLIB_GET_NAKANO_ICPR_2025_HPP_

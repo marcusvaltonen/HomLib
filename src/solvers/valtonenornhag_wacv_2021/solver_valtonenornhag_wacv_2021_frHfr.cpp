@@ -18,11 +18,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "solver_valtonenornhag_arxiv_2020b_frHfr.hpp"
+#include "solver_valtonenornhag_wacv_2021_frHfr.hpp"
 #include <Eigen/Dense>
 
 namespace HomLib {
-namespace ValtonenOrnhagArxiv2020B {
+namespace ValtonenOrnhagWACV2021 {
     Eigen::MatrixXcd solver_frHfr(const Eigen::VectorXd& data) {
         // Compute coefficients
         const double* d = data.data();
@@ -183,5 +183,5 @@ namespace ValtonenOrnhagArxiv2020B {
 
         return sols;
     }
-}  // namespace ValtonenOrnhagArxiv2020B
+}  // namespace ValtonenOrnhagWACV2021
 }  // namespace HomLib

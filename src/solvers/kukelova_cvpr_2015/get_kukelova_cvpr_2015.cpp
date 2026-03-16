@@ -33,15 +33,23 @@ namespace KukelovaCVPR2015 {
         const Eigen::VectorXd& tmp,
         const Eigen::MatrixXd& N);
 
-    std::vector<HomLib::PoseData> get(const Eigen::MatrixXd &p1, const Eigen::MatrixXd &p2) {
+    std::vector<HomLib::PoseData> get(
+        const std::vector<Eigen::Vector2d> &x,
+        const std::vector<Eigen::Vector2d> &y,
+        bool dist_equal
+    ) {
         // This is a five point method
         const int nbr_pts = 5;
 
         // We expect inhomogenous input data, i.e. p1 and p2 are 2x5 matrices
-        assert(p1.rows() == 2);
-        assert(p2.rows() == 2);
-        assert(p1.cols() == nbr_pts);
-        assert(p2.cols() == nbr_pts);
+        assert(x.size() == nbr_pts);
+        assert(y.size() == nbr_pts);
+        Eigen::Matrix<double, 2, nbr_pts> p1;
+        Eigen::Matrix<double, 2, nbr_pts> p2;
+        for (int i = 0; i < nbr_pts; i++) {
+            p1.col(i) = x[i];
+            p2.col(i) = y[i];
+        }
 
         // Compute normalization matrix
         double scale1 = HomLib::normalize2dpts(p1);
@@ -116,35 +124,40 @@ namespace KukelovaCVPR2015 {
 
         // Pre-processing: Remove complex-valued solutions
         double thresh = 1e-5;
-        Eigen::ArrayXd real_sols(3);
-        real_sols = sols.imag().cwiseAbs().colwise().sum();
-        int nbr_real_sols = (real_sols <= thresh).count();
 
         // Create putative solutions
         Eigen::Matrix3d Htmp;
-        std::complex<double> lam1;
-        std::complex<double> lam2;
-        std::vector<HomLib::PoseData> posedata(nbr_real_sols);
-        Eigen::ArrayXd xx(3);
+        std::vector<HomLib::PoseData> output;
+        Eigen::Array3d xx;
 
-        int cnt = 0;
-        for (int i = 0; i < real_sols.size(); i++) {
-            if (real_sols(i) <= thresh) {
-                // Get parameters.
-                xx = sols.col(i).real();
-
-                // Construct putative fundamental matrix
-                Htmp = S.inverse() * HomLib::KukelovaCVPR2015::construct_homography_from_sols(xx, d, N) * S;
-
-                // Package output
-                posedata[cnt].homography = Htmp;
-                posedata[cnt].distortion_parameter = xx(0) * std::pow(scale, 2);
-                posedata[cnt].distortion_parameter2 = xx(1) * std::pow(scale, 2);
-                cnt++;
+        for (int i = 0; i < sols.size(); i++) {
+            if (sols.col(i).imag().squaredNorm() > thresh) {
+                continue;
             }
-        }
+            // Get parameters.
+            xx = sols.col(i).real();
 
-        return posedata;
+            //if (dist_equal && (std::abs(xx(0) - xx(1)) > 0.01 * std::sqrt(xx(0) * xx(1)))) {
+            //    continue;
+            //}
+
+            // Construct putative homography
+            Htmp = S.inverse() * HomLib::KukelovaCVPR2015::construct_homography_from_sols(xx, d, N) * S;
+
+            // Package output
+            HomLib::PoseData pd;
+            pd.homography = Htmp;
+            if (dist_equal) {
+
+                pd.distortion_parameter = 0.5 * (xx(0) + xx(1)) * std::pow(scale, 2);
+            } else {
+                pd.distortion_parameter = xx(0) * std::pow(scale, 2);
+                pd.distortion_parameter2 = xx(1) * std::pow(scale, 2);
+            }
+
+            output.push_back(pd);
+        }
+        return output;
     }
 
     // Function that utilizes the last equation of the DLT system to discard false solutions

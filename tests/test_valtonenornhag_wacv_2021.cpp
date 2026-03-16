@@ -20,18 +20,24 @@
 
 #include <Eigen/Dense>
 #include <vector>
-#include <catch2/catch.hpp>
-#include "get_valtonenornhag_arxiv_2020b.hpp"
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
+#include "get_valtonenornhag_wacv_2021.hpp"
 #include "posedata.hpp"
 
-TEST_CASE("Valtonen Ornhag Arxiv 2020 B - fHf") {
-    Eigen::MatrixXd p1(2, 2);
-    Eigen::MatrixXd p2(2, 2);
+TEST_CASE("Valtonen Ornhag WACV 2021 - fHf") {
     Eigen::Matrix3d R1, R2;
-    p1 << 2.003107199098924, -15.634084933471335,
-         -0.017087350257598,  -7.041596829586987,
-    p2 << 0.395688457559412,  -0.012777594199286,
-          2.097270018093999,   0.988175585551782;
+
+    std::vector<Eigen::Vector2d> p1 = {
+        Eigen::Vector2d( 2.003107199098924, -0.017087350257598),
+        Eigen::Vector2d(-15.634084933471335, -7.041596829586987)
+    };
+
+    std::vector<Eigen::Vector2d> p2 = {
+        Eigen::Vector2d( 0.395688457559412,  2.097270018093999),
+        Eigen::Vector2d(-0.012777594199286,  0.988175585551782)
+    };
+
     R1 << 0.854451801803156, 0.080889542675225,  0.513194895026376,
           0.251645807638113, 0.799754574299643, -0.545038538440134,
          -0.454517882919365, 0.594852505057001,  0.662996222714662;
@@ -40,7 +46,7 @@ TEST_CASE("Valtonen Ornhag Arxiv 2020 B - fHf") {
           0.945623784801441,  0.134783533871648,  0.296022054271079,
          -0.215153900053711, -0.423343542843488,  0.880050591741408;
 
-    std::vector<HomLib::PoseData> posedata = HomLib::ValtonenOrnhagArxiv2020B::get_fHf(p1, p2, R1, R2);
+    std::vector<HomLib::PoseData> posedata = HomLib::ValtonenOrnhagWACV2021::get_fHf(p1, p2, R1, R2);
 
     double tol = 1e-12;
 
@@ -48,10 +54,10 @@ TEST_CASE("Valtonen Ornhag Arxiv 2020 B - fHf") {
     REQUIRE(posedata.size() == 4);
 
     // Test distortion parameters
-    REQUIRE(posedata[0].focal_length == Approx(-0.169636953030949).margin(tol));
-    REQUIRE(posedata[1].focal_length == Approx(0.341654151554244).margin(tol));
-    REQUIRE(posedata[2].focal_length == Approx(0.653592155944414).margin(tol));
-    REQUIRE(posedata[3].focal_length == Approx(3.395609550168773).margin(tol));
+    REQUIRE(posedata[0].focal_length == Catch::Approx(-0.169636953030949).margin(tol));
+    REQUIRE(posedata[1].focal_length == Catch::Approx(0.341654151554244).margin(tol));
+    REQUIRE(posedata[2].focal_length == Catch::Approx(0.653592155944414).margin(tol));
+    REQUIRE(posedata[3].focal_length == Catch::Approx(3.395609550168773).margin(tol));
 
     // Test homographies
     tol = 1e-9;
@@ -82,15 +88,21 @@ TEST_CASE("Valtonen Ornhag Arxiv 2020 B - fHf") {
     REQUIRE(posedata[3].homography.isApprox(expected, tol));
 }
 
-TEST_CASE("Valtonen Ornhag Arxiv 2020 B - frHfr") {
-    Eigen::MatrixXd p1(2, 3);
-    Eigen::MatrixXd p2(2, 3);
+TEST_CASE("Valtonen Ornhag WACV 2021 - frHfr") {
     Eigen::Matrix3d R1, R2;
+    
+    std::vector<Eigen::Vector2d> p1 = {
+        Eigen::Vector2d(-1.146281331283839, -0.879951300627967),
+        Eigen::Vector2d( 1.050109134098990,  0.620743795713172),
+        Eigen::Vector2d( 1.065996624259908,  0.541580087112080)
+    };
 
-    p1 << -1.146281331283839,   1.050109134098990,   1.065996624259908,
-          -0.879951300627967,   0.620743795713172,   0.541580087112080;
-    p2 <<  0.663628650450811,   1.333268512835822,   1.318951998842419,
-           1.241359691717976,   0.068745345721370,   0.016786262835316;
+    std::vector<Eigen::Vector2d> p2 = {
+        Eigen::Vector2d( 0.663628650450811,  1.241359691717976),
+        Eigen::Vector2d( 1.333268512835822,  0.068745345721370),
+        Eigen::Vector2d( 1.318951998842419,  0.016786262835316)
+    };
+
     R1 << -0.320761154096478,   0.935110133718446,   0.150603186685294,
           -0.808554515336552,  -0.353152142517100,   0.470662469254195,
            0.493307082608358,   0.029199350209406,   0.869365009760445;
@@ -99,13 +111,13 @@ TEST_CASE("Valtonen Ornhag Arxiv 2020 B - frHfr") {
           -0.630501533318403,  -0.650532130976893,   0.423409687005158;
 
 
-    HomLib::PoseData posedata = HomLib::ValtonenOrnhagArxiv2020B::get_frHfr(p1, p2, R1, R2);
+    HomLib::PoseData posedata = HomLib::ValtonenOrnhagWACV2021::get_frHfr(p1, p2, R1, R2);
 
     double tol = 1e-12;
 
     // Test distortion parameter and focal length
-    REQUIRE(posedata.distortion_parameter == Approx(-0.4505415985025416).margin(tol));
-    REQUIRE(posedata.focal_length == Approx(5.756798219567954).margin(tol));
+    REQUIRE(posedata.distortion_parameter == Catch::Approx(-0.4505415985025416).margin(tol));
+    REQUIRE(posedata.focal_length == Catch::Approx(5.756798219567954).margin(tol));
 
     // Test homography
     tol = 1e-7;

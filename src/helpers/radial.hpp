@@ -24,8 +24,12 @@
 #include <Eigen/Dense>
 
 namespace HomLib {
-  Eigen::MatrixXd radialdistort(const Eigen::MatrixXd& x, double kappa);
-  Eigen::MatrixXd radialundistort(const Eigen::MatrixXd& x, double kappa);
+  Eigen::Vector2d radialdistort(const Eigen::Vector2d &x, double kappa);
+  Eigen::Vector2d radialundistort(const Eigen::Vector2d &x, double kappa);
+  std::vector<Eigen::Vector2d> radialdistort(const std::vector<Eigen::Vector2d> &x, double kappa);
+  std::vector<Eigen::Vector2d> radialundistort(const std::vector<Eigen::Vector2d> &x, double kappa);
+  void radialdistort(const std::vector<Eigen::Vector2d> &xu, std::vector<Eigen::Vector2d>* xd, double kappa);
+  void radialundistort(const std::vector<Eigen::Vector2d> &xd, std::vector<Eigen::Vector2d>* xu, double kappa);
 }
 
 #endif  // SRC_HELPERS_RADIAL_HPP_
