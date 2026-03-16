@@ -1,3 +1,6 @@
 [submodule "thirdparty/RansacLib"]
 	path = thirdparty/RansacLib
 	url = https://github.com/tsattler/RansacLib.git
+[submodule "thirdparty/PoseLib"]
+	path = thirdparty/PoseLib
+	url = https://github.com/PoseLib/PoseLib
