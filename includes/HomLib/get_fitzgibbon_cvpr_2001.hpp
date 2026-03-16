@@ -27,7 +27,7 @@
 #include "radial.hpp"
 #include "pose_estimator.h"
 #include "refinement.hpp"
-#include <iostream>
+
 namespace HomLib {
 namespace FitzgibbonCVPR2001 {
 std::vector<HomLib::PoseData> get(
@@ -44,9 +44,6 @@ class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::FitzgibbonCVPR2001::get_single(x, y);
             for (size_t i = 0; i < output.size(); i++) {
-                // std::cout << "H[" << i << "] = " << output[i].homography / output[i].homography(2,2) << std::endl;
-                // std::cout << "k1[" << i << "] = " << output[i].distortion_parameter << std::endl;
-                // std::cout << "k2[" << i << "] = " << output[i].distortion_parameter2 << std::endl;
                 poses->push_back(output[i]);
             }
             return output.size();
@@ -72,9 +69,6 @@ class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::FitzgibbonCVPR2001::get(x, y);
             for (size_t i = 0; i < output.size(); i++) {
-                // std::cout << "H[" << i << "] = " << output[i].homography / output[i].homography(2,2) << std::endl;
-                // std::cout << "k1[" << i << "] = " << output[i].distortion_parameter << std::endl;
-                // std::cout << "k2[" << i << "] = " << output[i].distortion_parameter2 << std::endl;
                 poses->push_back(output[i]);
             }
             return output.size();

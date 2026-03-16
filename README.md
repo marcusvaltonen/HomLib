@@ -16,6 +16,7 @@ simultaneous radial distortion correction and/or incorporating IMU data.
 | Fitzgibbon (2001)             | 5                |                    | :heavy_check_mark: (e)   |                    | :heavy_check_mark: |                                |
 |                               | 5                |                    | :heavy_check_mark: (1)   |                    | :heavy_check_mark: |                                |
 | Kukelova et al. (2015)        | 5                | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: |                                |
+|                               | 6                |                    | :heavy_check_mark: (2)   |                    | :heavy_check_mark: |                                |
 | Valtonen Örnhag et al. (2020) | 4                | :heavy_check_mark: |                          | :heavy_check_mark: |                    | :heavy_check_mark:             |
 | Valtonen Örnhag et al. (2021) | 3                | :heavy_check_mark: |                          | :heavy_check_mark: |                    | :heavy_check_mark:             |
 |                               | 4                | :heavy_check_mark: | :heavy_check_mark: (e)   | :heavy_check_mark: |                    | :heavy_check_mark:             |
