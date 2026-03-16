@@ -28,7 +28,7 @@ jobs:
 
       - name: Set PoseLib version
         id: poselib-version
-        run: echo "POSELIB_VERSION=3.0.0" >> $GITHUB_ENV
+        run: echo "POSELIB_VERSION=v2.0.5" >> $GITHUB_ENV
 
       - name: Cache PoseLib build
         uses: actions/cache@v4
