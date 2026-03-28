@@ -22,6 +22,9 @@ jobs:
           - os: linux-intel
             runs-on: ubuntu-latest
 
+    env:
+      POSELIB_VERSION: "v2.0.5"
+
     steps:
       - uses: actions/checkout@v6
         with:
