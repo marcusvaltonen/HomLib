@@ -15,30 +15,15 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ftree-vectorize -funroll-loops")
 # scikit-build-core's built-in backport)
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(pybind11 CONFIG REQUIRED)
-find_package( Eigen3 REQUIRED )
-include_directories( ${EIGEN3_INCLUDE_DIR} )
-
-find_package( PoseLib REQUIRED )
-include_directories(${CMAKE_SOURCE_DIR})
-
 
 # Add a library using FindPython's tooling (pybind11 also provides a helper like
 # this)
 python_add_library(_core MODULE src/main.cpp WITH_SOABI)
 target_link_libraries(_core PRIVATE pybind11::headers)
-
-# Add library
-add_library(HomLib STATIC IMPORTED)
-set_property(TARGET HomLib PROPERTY IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/../build/libHomLib.a")
-
-include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/../includes/HomLib
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/helpers
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/robust
-    ${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty/RansacLib
-)
 target_link_libraries(_core PRIVATE HomLib)
 target_link_libraries(_core PRIVATE PoseLib::PoseLib)
+target_include_directories(_core PRIVATE ${HOMLIB_INCLUDE_DIRS})
+target_include_directories(_core PRIVATE ../thirdparty/RansacLib)
 
 # The install directory is the output (wheel) directory
 install(TARGETS _core DESTINATION homlib)

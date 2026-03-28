@@ -14,7 +14,7 @@
 #include <get_fitzgibbon_cvpr_2001.hpp>
 #include <get_kukelova_cvpr_2015.hpp>
 #include <get_nakano_icpr_2025.hpp>
-#include <get_wadenback_2025.hpp>
+#include <get_wadenback_3dv_2026.hpp>
 #include <ransac_estimator.h>
 
 
@@ -231,16 +231,6 @@ std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_2025
     return output;
 }
 
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_2025_unsided_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::Wadenback2025::SolverUnsided estimator;
-    auto output = lomsac_wrapper(&estimator, x_, y_, options);
-    return output;
-}
-
 std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_2025_two_sided_equal_wrapper(
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
@@ -368,8 +358,6 @@ PYBIND11_MODULE(_core, m) {
         .def_readwrite("inlier_ratio", &ransac_lib::RansacStatistics::inlier_ratio)
         .def_readwrite("inlier_indices", &ransac_lib::RansacStatistics::inlier_indices)
         .def_readwrite("number_lo_iterations", &ransac_lib::RansacStatistics::number_lo_iterations)
-        .def_readwrite("inlier_history", &ransac_lib::RansacStatistics::inlier_history)
-        .def_readwrite("time", &ransac_lib::RansacStatistics::time)
         .def("__repr__",
             [](const ransac_lib::RansacStatistics &s) {
                 return "RansacStatistics("
@@ -378,8 +366,7 @@ PYBIND11_MODULE(_core, m) {
                     "best_model_score=" + std::to_string(s.best_model_score) + ", "
                     "inlier_ratio=" + std::to_string(s.inlier_ratio) + ", "
                     "inlier_indices=[int list of length " + std::to_string(s.inlier_indices.size()) + "], "
-                    "number_lo_iterations=" + std::to_string(s.number_lo_iterations) + ", "
-                    "inlier_history=[int list of length " + std::to_string(s.inlier_history.size()) + "]"
+                    "number_lo_iterations=" + std::to_string(s.number_lo_iterations) +
                     ")";
             }
         );
@@ -590,20 +577,6 @@ PYBIND11_MODULE(_core, m) {
             
             [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
                 International Conference on Pattern Recognition (ICPR), 2024.
-            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "options"_a
-    );
-    m.def(
-        "lomsac_wadenback_2025_unsided",
-        &lomsac_wadenback_2025_unsided_wrapper,
-        R"pbdoc(
-            Solver from [1] in a LOMSAC framework [2].
-            
-            [1] TODO
             [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
             Proceedings of the British Machine Vision Conference (BMVC), 2012.
         )pbdoc",

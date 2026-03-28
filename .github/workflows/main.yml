@@ -24,6 +24,9 @@ jobs:
         config:
           - { name: Linux, os: ubuntu-latest, artifact: 'libHomLib-linux.zip' }
 
+    env:
+      POSELIB_VERSION: "v2.0.5"
+
     steps:
       - name: Checkout your project
         uses: actions/checkout@v4
@@ -40,10 +43,6 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install cmake eigen
-
-      - name: Set PoseLib version
-        id: poselib-version
-        run: echo "POSELIB_VERSION=v2.0.5" >> $GITHUB_ENV
 
       - name: Cache PoseLib build
         uses: actions/cache@v4

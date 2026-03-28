@@ -11,4 +11,6 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release -- -j $(nproc)
 
 # Test
+cd tests
 ctest -j $(nproc) --output-on-failure
+cd ..
