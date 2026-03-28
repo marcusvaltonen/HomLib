@@ -77,13 +77,13 @@ jobs:
             -j $(nproc)
 
       - name: Execute Tests
-        run: ctest --test-dir ${{github.workspace}}/${{env.BUILD_DIR}} -j $(nproc) --output-on-failure
+        run: ctest --test-dir ${{github.workspace}}/${{env.BUILD_DIR}}/tests -j $(nproc) --output-on-failure
 
       - name: Execute Examples
-        run: ${{github.workspace}}/${{env.BUILD_DIR}}/example
+        run: ${{github.workspace}}/${{env.BUILD_DIR}}/examples/example
 
       - name: Execute RANSAC Examples
-        run: ${{github.workspace}}/${{env.BUILD_DIR}}/example_ransac
+        run: ${{github.workspace}}/${{env.BUILD_DIR}}/examples/example_ransac
  
       - name: Package artifacts
         shell: bash
@@ -95,6 +95,28 @@ jobs:
         with:
           name: ${{ matrix.config.artifact }}
           path: ${{ matrix.config.artifact }}
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.3.1
+        env:
+          CIBW_PROJECT_REQUIRES_PYTHON: ">=3.10"
+          CIBW_ENVIRONMENT: BUILD_SHARED_LIBS="OFF"
+          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp310-*' || ''  }}
+          CIBW_BEFORE_ALL_LINUX: |
+            yum install -y eigen3-devel
+            cp -r ~/poselib-install/* /usr/local/
+          CIBW_ARCHS_LINUX: "native"
+          CIBW_BEFORE_ALL_WINDOWS: C:\vcpkg\vcpkg --triplet x64-windows install eigen3
+          CIBW_ENVIRONMENT_WINDOWS: CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+          CIBW_ARCHS_WINDOWS: "native"
+          CIBW_BEFORE_ALL_MACOS: brew install eigen
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: "" # https://github.com/pypa/cibuildwheel/issues/1989
+          CIBW_SKIP: "*-musllinux_x86_64"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
 
   release:
     name: Create GitHub Release
@@ -125,3 +147,41 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+  upload_pypi:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    environment: pypi publisher
+    permissions:
+      id-token: write
+    if: github.event_name == 'release' && github.event.action == 'published'
+    # or, alternatively, upload to PyPI on every tag starting with 'v' (remove on: release above to use this)
+    # if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          # unpacks all CIBW artifacts into dist/
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        # To test uploads to TestPyPI, uncomment the following:
+        # with:
+        #   repository-url: https://test.pypi.org/legacy/
