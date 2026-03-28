@@ -85,11 +85,11 @@ Installation for Ubuntu/Debian:
     $ apt-get install libeigen3-dev
 ```
 
-Furthermore, (PoseLib)[https://github.com/PoseLib/PoseLib/tree/master)] is required. Follow the installation
+Furthermore, [PoseLib](https://github.com/PoseLib/PoseLib/tree/master) is required. Follow the installation
 instruction in the repo.
 
 If you want to use the solvers in an LOMSAC framework, we rely
-on (RansacLib)[https://github.com/tsattler/RansacLib], which is included as a submodule. You can recursively
+on [RansacLib](https://github.com/tsattler/RansacLib), which is included as a submodule. You can recursively
 clone it
 
 ```console
