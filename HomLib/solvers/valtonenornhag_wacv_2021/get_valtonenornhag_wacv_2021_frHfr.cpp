@@ -93,7 +93,7 @@ namespace ValtonenOrnhagWACV2021 {
 
         // Allocate space for putative (real) homographies
         Eigen::Matrix<double, 5, 1> this_sols;
-        Eigen::Matrix<double, 5, 1> best_sols;
+        Eigen::Matrix<double, 5, 1> best_sols = Eigen::Matrix<double, 5, 1>::Zero();
         double best_algebraic_error = DBL_MAX;
         double algebraic_error;
 
