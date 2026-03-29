@@ -130,6 +130,7 @@ template <typename Estimator> BenchmarkResults test_loransac(
 
 		auto start = std::chrono::high_resolution_clock::now();
 		int num_ransac_inliers = lomsac.EstimateModel(options, solver, &best_model, &ransac_stats);
+		(void)num_ransac_inliers;  // Suppress warnings
 		auto end = std::chrono::high_resolution_clock::now();
 		br.runtimes.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
 		

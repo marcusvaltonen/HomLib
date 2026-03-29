@@ -66,7 +66,6 @@ namespace ValtonenOrnhagICPR2020 {
         double thresh = 1e-5;
         Eigen::ArrayXd real_sols(7);
         real_sols = sols.imag().cwiseAbs().colwise().sum();
-        int nbr_real_sols = (real_sols <= thresh).count();
 
         // Allocate space for putative (real) homographies
         Eigen::MatrixXd best_homography(3, 3);

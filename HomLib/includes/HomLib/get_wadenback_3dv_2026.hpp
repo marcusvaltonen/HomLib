@@ -39,14 +39,6 @@ class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
         int minimal_sample_size() const {
             return 5;
         }
-        inline Eigen::Vector2d undistort(const HomLib::PoseData pose, const Eigen::Vector2d &xd) const {
-            Eigen::Vector2d xu = HomLib::radialundistort(xd, 0.0);  // One-sided
-            return xu;
-        }
-        inline Eigen::Vector2d distort(const HomLib::PoseData pose, const Eigen::Vector2d &yu) const {
-            Eigen::Vector2d yd = HomLib::radialdistort(yu, pose.distortion_parameter);
-            return yd;
-        }
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_onesided(x, y, pose);
         }
@@ -66,14 +58,6 @@ class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
         int minimal_sample_size() const {
             return 5;
         }
-        inline Eigen::Vector2d undistort(const HomLib::PoseData pose, const Eigen::Vector2d &xd) const {
-            Eigen::Vector2d xu = HomLib::radialundistort(xd, pose.distortion_parameter);
-            return xu;
-        }
-        inline Eigen::Vector2d distort(const HomLib::PoseData pose, const Eigen::Vector2d &yu) const {
-            Eigen::Vector2d yd = HomLib::radialdistort(yu, pose.distortion_parameter);
-            return yd;
-        }
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_twosided_equal(x, y, pose);
         }
@@ -92,14 +76,6 @@ class SolverTwoSided : public PoseEstimator<SolverTwoSided> {
         }
         int minimal_sample_size() const {
             return 5;
-        }
-        inline Eigen::Vector2d undistort(const HomLib::PoseData pose, const Eigen::Vector2d &xd) const {
-            Eigen::Vector2d xu = HomLib::radialundistort(xd, pose.distortion_parameter);
-            return xu;
-        }
-        inline Eigen::Vector2d distort(const HomLib::PoseData pose, const Eigen::Vector2d &yu) const {
-            Eigen::Vector2d yd = HomLib::radialdistort(yu, pose.distortion_parameter2);
-            return yd;
         }
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_twosided(x, y, pose);

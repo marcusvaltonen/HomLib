@@ -42,7 +42,7 @@ namespace HomLib {
 		random_engine.seed(std::chrono::system_clock::now().time_since_epoch().count());
 		std::uniform_real_distribution<double> depth_gen(config.min_depth_, config.max_depth_);
 		std::uniform_real_distribution<double> coord_gen(-fov_scale, fov_scale);
-		std::uniform_real_distribution<double> focal_gen(config.min_focal_, config.max_focal_);
+		// std::uniform_real_distribution<double> focal_gen(config.min_focal_, config.max_focal_);
 		std::normal_distribution<double> direction_gen(0.0, 1.0);
 		std::uniform_real_distribution<double> dist_gen(config.min_dist_, config.max_dist_);
 
@@ -54,7 +54,7 @@ namespace HomLib {
 		    t.normalize();
 		    Eigen::Matrix3d R = Eigen::Quaternion<double>::UnitRandom().toRotationMatrix();
 
-		    double focal_gt = focal_gen(random_engine);
+		    // double focal_gt = focal_gen(random_engine);
 		    	
 	        // Point to point correspondences
 	        instance.x1.clear();

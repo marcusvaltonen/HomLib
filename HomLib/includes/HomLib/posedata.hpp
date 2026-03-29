@@ -25,10 +25,10 @@
 
 namespace HomLib {
 struct PoseData {
-    Eigen::Matrix3d homography;
-    double focal_length;
-    double distortion_parameter;
-    double distortion_parameter2;
+    Eigen::Matrix3d homography = Eigen::Matrix3d::Identity();
+    double focal_length = 1.0;
+    double distortion_parameter = 0.0;
+    double distortion_parameter2 = 0.0;
 };
 }
 

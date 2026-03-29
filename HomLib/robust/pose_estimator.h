@@ -20,6 +20,16 @@ namespace HomLib {
 		// Options
 		bool normalize_image_coord = true;
 
+		// Distortion functions using the pose's parameters
+        inline Eigen::Vector2d undistort(const HomLib::PoseData pose, const Eigen::Vector2d &xd) const {
+            Eigen::Vector2d xu = HomLib::radialundistort(xd, pose.distortion_parameter);
+            return xu;
+        }
+        inline Eigen::Vector2d distort(const HomLib::PoseData pose, const Eigen::Vector2d &yu) const {
+            Eigen::Vector2d yd = HomLib::radialdistort(yu, pose.distortion_parameter2);
+            return yd;
+        }
+
 	protected:
 		PoseEstimator() = default;
 	};

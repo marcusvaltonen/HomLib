@@ -37,7 +37,6 @@ namespace ValtonenOrnhagWACV2021 {
         const Eigen::Matrix3d &R2
     ) {
         // This is a 2-point method
-        int nbr_pts = 2;
         int nbr_coeffs = 26;
 
         // Save copies of the inverse rotation

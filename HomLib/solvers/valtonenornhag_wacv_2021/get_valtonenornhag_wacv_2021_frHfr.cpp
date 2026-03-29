@@ -46,8 +46,6 @@ namespace ValtonenOrnhagWACV2021 {
         const Eigen::Matrix3d &R2
     ) {
         // This is a 2.5 point method
-        const int nbr_pts = 3;
-
         // Compute normalization matrix
         double scale1 = HomLib::normalize2dpts(p1);
         double scale2 = HomLib::normalize2dpts(p2);
