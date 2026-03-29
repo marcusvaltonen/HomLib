@@ -48,7 +48,7 @@ jobs:
         uses: actions/cache@v4
         id: cache-poselib
         with:
-          path: ~/poselib-install
+          path: ${{github.workspace}}/poselib-install
           key: ${{ runner.os }}-poselib-${{ env.POSELIB_VERSION }}
 
       - name: Build and install PoseLib
@@ -57,7 +57,7 @@ jobs:
           git clone --branch ${{ env.POSELIB_VERSION }} https://github.com/PoseLib/PoseLib.git
           cd PoseLib
           mkdir build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/poselib-install \
+          cmake .. -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/poselib-install \
                    -DPOSELIB_BUILD_TESTS=OFF \
                    -DPOSELIB_BUILD_EXAMPLES=OFF
           make -j$(nproc)
@@ -67,7 +67,7 @@ jobs:
         run: |
           cmake \
             -B ${{github.workspace}}/${{env.BUILD_DIR}} \
-            -DCMAKE_PREFIX_PATH=~/poselib-install \
+            -DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}} \
       - name: Compile and Install
         run: |

@@ -31,7 +31,7 @@ jobs:
         uses: actions/cache@v4
         id: cache-poselib
         with:
-          path: ~/poselib-install
+          path: ./poselib-install
           key: ${{ runner.os }}-poselib-${{ env.POSELIB_VERSION }}
 
       - name: Fail if cache miss
@@ -48,7 +48,7 @@ jobs:
           CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp310-*' || ''  }}
           CIBW_BEFORE_ALL_LINUX: |
             yum install -y eigen3-devel
-            cp -r ~/poselib-install/* /usr/local/
+            cp -r ${GITHUB_WORKSPACE}/poselib-install/* /usr/local/
           CIBW_ARCHS_LINUX: "native"
           CIBW_BEFORE_ALL_WINDOWS: C:\vcpkg\vcpkg --triplet x64-windows install eigen3
           CIBW_ENVIRONMENT_WINDOWS: CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
