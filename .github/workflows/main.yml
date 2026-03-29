@@ -92,6 +92,7 @@ jobs:
 
       - name: Build python package
         run: |
+          cp -r ${{github.workspace}}/poselib-install/* /usr/local/
           python -m pip install build
           python -m build
  
