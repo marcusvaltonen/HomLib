@@ -31,7 +31,7 @@ jobs:
         uses: actions/cache@v4
         id: cache-poselib
         with:
-          path: ./poselib-install
+          path: ${{github.workspace}}/poselib-install
           key: ${{ runner.os }}-poselib-${{ env.POSELIB_VERSION }}
 
       - name: Fail if cache miss
