@@ -24,6 +24,9 @@ jobs:
         config:
           - { name: Linux, os: ubuntu-latest, artifact: 'libHomLib-linux.zip' }
 
+    env:
+      POSELIB_VERSION: "v2.0.5"
+
     steps:
       - name: Checkout your project
         uses: actions/checkout@v4
@@ -41,15 +44,11 @@ jobs:
         run: |
           brew install cmake eigen
 
-      - name: Set PoseLib version
-        id: poselib-version
-        run: echo "POSELIB_VERSION=v2.0.5" >> $GITHUB_ENV
-
       - name: Cache PoseLib build
         uses: actions/cache@v4
         id: cache-poselib
         with:
-          path: ~/poselib-install
+          path: ${{github.workspace}}/poselib-install
           key: ${{ runner.os }}-poselib-${{ env.POSELIB_VERSION }}
 
       - name: Build and install PoseLib
@@ -58,7 +57,7 @@ jobs:
           git clone --branch ${{ env.POSELIB_VERSION }} https://github.com/PoseLib/PoseLib.git
           cd PoseLib
           mkdir build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/poselib-install \
+          cmake .. -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/poselib-install \
                    -DPOSELIB_BUILD_TESTS=OFF \
                    -DPOSELIB_BUILD_EXAMPLES=OFF
           make -j$(nproc)
@@ -68,7 +67,7 @@ jobs:
         run: |
           cmake \
             -B ${{github.workspace}}/${{env.BUILD_DIR}} \
-            -DCMAKE_PREFIX_PATH=~/poselib-install \
+            -DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}} \
       - name: Compile and Install
         run: |
@@ -78,13 +77,13 @@ jobs:
             -j $(nproc)
 
       - name: Execute Tests
-        run: ctest --test-dir ${{github.workspace}}/${{env.BUILD_DIR}} -j $(nproc) --output-on-failure
+        run: ctest --test-dir ${{github.workspace}}/${{env.BUILD_DIR}}/tests -j $(nproc) --output-on-failure
 
       - name: Execute Examples
-        run: ${{github.workspace}}/${{env.BUILD_DIR}}/example
+        run: ${{github.workspace}}/${{env.BUILD_DIR}}/examples/example
 
       - name: Execute RANSAC Examples
-        run: ${{github.workspace}}/${{env.BUILD_DIR}}/example_ransac
+        run: ${{github.workspace}}/${{env.BUILD_DIR}}/examples/example_ransac
  
       - name: Package artifacts
         shell: bash
@@ -96,33 +95,3 @@ jobs:
         with:
           name: ${{ matrix.config.artifact }}
           path: ${{ matrix.config.artifact }}
-
-  release:
-    name: Create GitHub Release
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Display structure of downloaded files
-        run: ls -R artifacts
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Release ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-          body: |
-            ## Changes
-            <!-- You can generate release notes automatically -->
-            See the commits for details.
-          draft: false
-          prerelease: false
-          files: artifacts/**/*
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

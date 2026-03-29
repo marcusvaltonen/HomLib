@@ -85,11 +85,11 @@ Installation for Ubuntu/Debian:
     $ apt-get install libeigen3-dev
 ```
 
-Furthermore, (PoseLib)[https://github.com/PoseLib/PoseLib/tree/master)] is required. Follow the installation
+Furthermore, [PoseLib](https://github.com/PoseLib/PoseLib/tree/master) is required. Follow the installation
 instruction in the repo.
 
 If you want to use the solvers in an LOMSAC framework, we rely
-on (RansacLib)[https://github.com/tsattler/RansacLib], which is included as a submodule. You can recursively
+on [RansacLib](https://github.com/tsattler/RansacLib), which is included as a submodule. You can recursively
 clone it
 
 ```console
@@ -103,12 +103,14 @@ It is possible to MEX-compile the solver and use it in MATLAB. Check the
 e.g. `/usr/local/include/eigen3`.
 
 ## Using the solver in Python
-(OUTDATED)
-The official python repository is [python-homlib](https://github.com/marcusvaltonen/python-homlib).
-A pre-alpha release is available at PyPi, and can be installed using
+Note: Solvers with known IMU data is not yet supported in the python package.
 ```bash
     $ pip install homlib
 ```
+
+(BELOW IS DEPREACATED)
+The official python repository is [python-homlib](https://github.com/marcusvaltonen/python-homlib).
+A pre-alpha release is available at PyPi, and can be installed using
 
 ## About the solvers
 Many of the solvers were generated using the automatic generator proposed by
