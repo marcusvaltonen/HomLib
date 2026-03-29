@@ -131,27 +131,16 @@ template <typename Solver> BenchmarkResults benchmark_solver(HomLib::ProblemConf
     std::cout << "Not found: ";
     for (int i = 0; i < nbr_iter; i++) {
         HomLib::ProblemInstance inst = HomLib::generate_problem_instance(config);
-        Eigen::IOFormat HeavyFmt(Eigen::FullPrecision, 0, ", ", ";\n", "", "", "", "");
         auto start = std::chrono::high_resolution_clock::now();
         std::vector<HomLib::PoseData> pd = Solver::solve(inst);
         auto end = std::chrono::high_resolution_clock::now();
         br.runtimes.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
 
-        std::cout << "homography =\n" << inst.posedata.homography.format(HeavyFmt) << std::endl;
-        std::cout << "distortion_parameter = " << inst.posedata.distortion_parameter << std::endl;
-        std::cout << "distortion_parameter2 = " << inst.posedata.distortion_parameter2 << std::endl;
-        for (size_t j = 0; j < inst.x1.size();j++) {
-            std::cout << "x1 =\n" << inst.x1[j].format(HeavyFmt) << std::endl;
-            std::cout << "x2 =\n" << inst.x2[j].format(HeavyFmt) << std::endl;
-        }
         // Check solutions
         std::vector<double> hom_err_put;
         std::vector<double> dist_err_put;
         for (size_t j = 0; j < pd.size(); j++)
         {
-            std::cout << "pd[" << j << "].homography =\n" << pd[j].homography.format(HeavyFmt) << std::endl;
-            std::cout << "pd[" << j << "].distortion_parameter = " << pd[j].distortion_parameter << std::endl;
-            std::cout << "pd[" << j << "].distortion_parameter2 = " << pd[j].distortion_parameter2 << std::endl;
             hom_err_put.push_back(inst.hom_error(pd[j].homography));
             if (config.one_sided || config.equal) {
                 dist_err_put.push_back(inst.dist_error(pd[j].distortion_parameter));
@@ -191,7 +180,7 @@ template <typename Solver> BenchmarkResults benchmark_solver(HomLib::ProblemConf
 
 int main(int argc, char *argv[]) {
     /* Timing experiments */
-    int nbr_iter = 1;
+    int nbr_iter = 1000;
     double point_noise = 0.0;
     if (argc > 1) {
         point_noise = atof(argv[1]);
