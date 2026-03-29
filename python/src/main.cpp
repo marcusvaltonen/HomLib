@@ -30,7 +30,7 @@ void preprocess(
     if (x_.cols() != y_.cols()) {
         throw std::invalid_argument("x and y should be of equal size.");
     }
-    for (size_t i=0; i < x_.cols(); i++) {
+    for (Eigen::Index i=0; i < x_.cols(); i++) {
         x->push_back(x_.col(i));
         y->push_back(y_.col(i));
     }
@@ -142,6 +142,7 @@ template <typename Estimator> std::tuple<HomLib::PoseData, ransac_lib::RansacSta
         std::vector<HomLib::PoseData>,
         HomLib::RansacEstimator<Estimator>> lomsac;
     inliers = lomsac.EstimateModel(options, solver, &best_model, &ransac_stats);
+    (void)inliers;  // Suppress warnings
 
     return std::make_tuple(std::move(best_model), std::move(ransac_stats));
 }
