@@ -92,8 +92,8 @@ jobs:
 
       - name: Build python package
         run: |
-          python -m pip install build --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install"
-          python -m build
+          python -m pip install build
+          python -m build --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install"
  
       - name: Package artifacts
         shell: bash
