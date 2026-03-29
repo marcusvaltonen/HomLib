@@ -95,6 +95,12 @@ jobs:
           python -m pip install build
           python -m build --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install"
  
+      - name: Install and test python pacakge
+        run: |
+          python -m pip install pytest pytest-approvaltests numpy
+          python -m pip install dist/*.whl
+          python -m pytest -s python/tests
+ 
       - name: Package artifacts
         shell: bash
         run: |
