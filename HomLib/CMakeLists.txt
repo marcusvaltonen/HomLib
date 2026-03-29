@@ -17,10 +17,10 @@ set(SRCS
     solvers/valtonenornhag_wacv_2021/get_valtonenornhag_wacv_2021_frHfr.cpp
     solvers/valtonenornhag_wacv_2021/solver_valtonenornhag_wacv_2021_fHf.cpp
     solvers/valtonenornhag_wacv_2021/solver_valtonenornhag_wacv_2021_frHfr.cpp
-    solvers/wadenback_2025/get_wadenback_2025_double_sided.cpp
-    solvers/wadenback_2025/get_wadenback_2025_double_sided_equal.cpp
-    solvers/wadenback_2025/get_wadenback_2025_one_sided.cpp
-    solvers/wadenback_2025/wadenback_common.cpp
+    solvers/wadenback_3dv_2026/get_wadenback_3dv_2026_double_sided.cpp
+    solvers/wadenback_3dv_2026/get_wadenback_3dv_2026_double_sided_equal.cpp
+    solvers/wadenback_3dv_2026/get_wadenback_3dv_2026_one_sided.cpp
+    solvers/wadenback_3dv_2026/wadenback_common.cpp
 )
 
 add_library(HomLib STATIC ${SRCS})

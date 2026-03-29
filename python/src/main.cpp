@@ -90,36 +90,36 @@ std::vector<HomLib::PoseData> estimate_nakano_icpr_2025_one_sided_wrapper(
     return poses;
 }
 
-std::vector<HomLib::PoseData> estimate_wadenback_2025_one_sided_wrapper(
+std::vector<HomLib::PoseData> estimate_wadenback_3dv_2026_one_sided_wrapper(
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
     bool extra_check
 ) {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
-    std::vector<HomLib::PoseData> poses = HomLib::Wadenback2025::get_one_sided(x, y, extra_check);
+    std::vector<HomLib::PoseData> poses = HomLib::Wadenback3DV2026::get_one_sided(x, y, extra_check);
     return poses;
 }
 
-std::vector<HomLib::PoseData> estimate_wadenback_2025_two_sided_equal_wrapper(
+std::vector<HomLib::PoseData> estimate_wadenback_3dv_2026_two_sided_equal_wrapper(
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
     bool extra_check
 ) {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
-    std::vector<HomLib::PoseData> poses = HomLib::Wadenback2025::get_double_sided_equal(x, y, extra_check);
+    std::vector<HomLib::PoseData> poses = HomLib::Wadenback3DV2026::get_double_sided_equal(x, y, extra_check);
     return poses;
 }
 
-std::vector<HomLib::PoseData> estimate_wadenback_2025_two_sided_wrapper(
+std::vector<HomLib::PoseData> estimate_wadenback_3dv_2026_two_sided_wrapper(
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
     bool extra_check
 ) {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
-    std::vector<HomLib::PoseData> poses = HomLib::Wadenback2025::get_double_sided(x, y, extra_check);
+    std::vector<HomLib::PoseData> poses = HomLib::Wadenback3DV2026::get_double_sided(x, y, extra_check);
     return poses;
 }
 
@@ -135,10 +135,6 @@ template <typename Estimator> std::tuple<HomLib::PoseData, ransac_lib::RansacSta
     ransac_lib::RansacStatistics ransac_stats;
     int inliers = 0;
     HomLib::PoseData best_model;
-    best_model.homography = Eigen::Matrix3d::Identity();
-    best_model.focal_length = 0.0;
-    best_model.distortion_parameter = 0.0;
-    best_model.distortion_parameter2 = 0.0;
     
     HomLib::RansacEstimator<Estimator> solver(x, y, *estimator);
     ransac_lib::LocallyOptimizedMSAC<
@@ -221,32 +217,32 @@ std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_nakano_icpr_20
     return output;
 }
 
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_2025_one_sided_wrapper(
+std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_3dv_2026_one_sided_wrapper(
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
     const ransac_lib::LORansacOptions &options
 ) {
-    HomLib::Wadenback2025::SolverSingleSided estimator;
+    HomLib::Wadenback3DV2026::SolverSingleSided estimator;
     auto output = lomsac_wrapper(&estimator, x_, y_, options);
     return output;
 }
 
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_2025_two_sided_equal_wrapper(
+std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_3dv_2026_two_sided_equal_wrapper(
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
     const ransac_lib::LORansacOptions &options
 ) {
-    HomLib::Wadenback2025::SolverTwoSidedEqual estimator;
+    HomLib::Wadenback3DV2026::SolverTwoSidedEqual estimator;
     auto output = lomsac_wrapper(&estimator, x_, y_, options);
     return output;
 }
 
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_2025_two_sided_wrapper(
+std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_3dv_2026_two_sided_wrapper(
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
     const ransac_lib::LORansacOptions &options
 ) {
-    HomLib::Wadenback2025::SolverTwoSided estimator;
+    HomLib::Wadenback3DV2026::SolverTwoSided estimator;
     auto output = lomsac_wrapper(&estimator, x_, y_, options);
     return output;
 }
@@ -269,9 +265,9 @@ PYBIND11_MODULE(_core, m) {
             estimate_kukelova_cvpr_2015_two_sided
             estimate_kukelova_cvpr_2015_two_sided_6pt
             estimate_nakano_icpr_2025_one_sided
-            estimate_wadenback_2025_one_sided
-            estimate_wadenback_2025_two_sided_equal
-            estimate_wadenback_2025_two_sided
+            estimate_wadenback_3dv_2026_one_sided
+            estimate_wadenback_3dv_2026_two_sided_equal
+            estimate_wadenback_3dv_2026_two_sided
 
             lomsac_fitzgibbon_cvpr_2001_one_sided
             lomsac_fitzgibbon_cvpr_2001_two_sided_equal
@@ -280,9 +276,9 @@ PYBIND11_MODULE(_core, m) {
             lomsac_kukelova_cvpr_2015_two_sided_equal_6pt
             lomsac_kukelova_cvpr_2015_two_sided_6pt
             lomsac_nakano_icpr_2025_one_sided
-            lomsac_wadenback_2025_one_sided
-            lomsac_wadenback_2025_two_sided_equal
-            lomsac_wadenback_2025_two_sided
+            lomsac_wadenback_3dv_2026_one_sided
+            lomsac_wadenback_3dv_2026_two_sided_equal
+            lomsac_wadenback_3dv_2026_two_sided
             
             LORansacOptions
             RansacStatistics
@@ -439,8 +435,8 @@ PYBIND11_MODULE(_core, m) {
         "extra_check"_a
     );
     m.def(
-        "estimate_wadenback_2025_one_sided",
-        &estimate_wadenback_2025_one_sided_wrapper,
+        "estimate_wadenback_3dv_2026_one_sided",
+        &estimate_wadenback_3dv_2026_one_sided_wrapper,
         R"pbdoc(
             Solver from [1]
             
@@ -451,8 +447,8 @@ PYBIND11_MODULE(_core, m) {
         "extra_check"_a
     );
     m.def(
-        "estimate_wadenback_2025_two_sided_equal",
-        &estimate_wadenback_2025_two_sided_equal_wrapper,
+        "estimate_wadenback_3dv_2026_two_sided_equal",
+        &estimate_wadenback_3dv_2026_two_sided_equal_wrapper,
         R"pbdoc(
             Solver from [1]
             
@@ -463,8 +459,8 @@ PYBIND11_MODULE(_core, m) {
         "extra_check"_a
     );
     m.def(
-        "estimate_wadenback_2025_two_sided",
-        &estimate_wadenback_2025_two_sided_wrapper,
+        "estimate_wadenback_3dv_2026_two_sided",
+        &estimate_wadenback_3dv_2026_two_sided_wrapper,
         R"pbdoc(
             Solver from [1]
             
@@ -585,8 +581,8 @@ PYBIND11_MODULE(_core, m) {
         "options"_a
     );
     m.def(
-        "lomsac_wadenback_2025_one_sided",
-        &lomsac_wadenback_2025_one_sided_wrapper,
+        "lomsac_wadenback_3dv_2026_one_sided",
+        &lomsac_wadenback_3dv_2026_one_sided_wrapper,
         R"pbdoc(
             Solver from [1] in a LOMSAC framework [2].
             
@@ -600,8 +596,8 @@ PYBIND11_MODULE(_core, m) {
     );
 
     m.def(
-        "lomsac_wadenback_2025_two_sided_equal",
-        &lomsac_wadenback_2025_two_sided_equal_wrapper,
+        "lomsac_wadenback_3dv_2026_two_sided_equal",
+        &lomsac_wadenback_3dv_2026_two_sided_equal_wrapper,
         R"pbdoc(
             Solver from [1] in a LOMSAC framework [2].
             
@@ -614,8 +610,8 @@ PYBIND11_MODULE(_core, m) {
         "options"_a
     );
     m.def(
-        "lomsac_wadenback_2025_two_sided",
-        &lomsac_wadenback_2025_two_sided_wrapper,
+        "lomsac_wadenback_3dv_2026_two_sided",
+        &lomsac_wadenback_3dv_2026_two_sided_wrapper,
         R"pbdoc(
             Solver from [1] in a LOMSAC framework [2].
             

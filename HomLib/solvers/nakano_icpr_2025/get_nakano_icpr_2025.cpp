@@ -80,7 +80,7 @@ namespace NakanoICPR2025 {
                 double k = ks(i).real();
                 Eigen::Vector3d alpha = X.col(i);
                 Eigen::Matrix<double, 12, 1> g = alpha[0] * N.col(0) + alpha[1] * N.col(1) + alpha[2] * N.col(2);
-                Eigen::Matrix<double, 3, 4> G = g.reshaped(4, 3).transpose();
+                Eigen::Matrix<double, 3, 4> G = Eigen::Map<const Eigen::Matrix<double, 4, 3>>(g.data()).transpose();
                 Eigen::Matrix3d H = G.bottomRightCorner(3, 3);
                 
                 // Package output

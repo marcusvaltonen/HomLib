@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
     
     HomLib::FitzgibbonCVPR2001::SolverSingleSided estimator_fitzgibbon_single;
     HomLib::NakanoICPR2025::SolverSingleSided estimator_nakano_single;
-    HomLib::Wadenback2025::SolverSingleSided estimator_wadenback_single;
+    HomLib::Wadenback3DV2026::SolverSingleSided estimator_wadenback_single;
     
     std::cout << "======== SINGLE-SIDED ========" << std::endl;
 
@@ -227,7 +227,7 @@ int main(int argc, char *argv[]) {
     HomLib::FitzgibbonCVPR2001::SolverTwoSidedEqual estimator_fitzgibbon_two_sided_equal;
     HomLib::KukelovaCVPR2015::SolverTwoSidedEqual estimator_kukelova_two_sided_equal;
     HomLib::KukelovaCVPR2015::SolverTwoSidedEqual6Pt estimator_kukelova_two_sided_equal_6pt;
-    HomLib::Wadenback2025::SolverTwoSidedEqual estimator_wadenback_two_sided_equal;
+    HomLib::Wadenback3DV2026::SolverTwoSidedEqual estimator_wadenback_two_sided_equal;
     
     br = test_loransac("fitzgibbon_equal", &estimator_fitzgibbon_two_sided_equal, config, nbr_outliers, nbr_iter, nbr_ransac_iter);
     if (print_to_file)
@@ -248,7 +248,7 @@ int main(int argc, char *argv[]) {
     
     HomLib::KukelovaCVPR2015::SolverTwoSided estimator_kukelova_two_sided;
     HomLib::KukelovaCVPR2015::SolverTwoSided6Pt estimator_kukelova_two_sided_6pt;
-    HomLib::Wadenback2025::SolverTwoSided estimator_wadenback_two_sided;
+    HomLib::Wadenback3DV2026::SolverTwoSided estimator_wadenback_two_sided;
 
     br = test_loransac("kukelova_two_sided", &estimator_kukelova_two_sided, config, nbr_outliers, nbr_iter, nbr_ransac_iter);
     if (print_to_file)

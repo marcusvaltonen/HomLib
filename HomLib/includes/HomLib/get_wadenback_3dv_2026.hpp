@@ -1,5 +1,5 @@
-#ifndef INCLUDES_HOMLIB_GET_WADENBACK_2025_HPP_
-#define INCLUDES_HOMLIB_GET_WADENBACK_2025_HPP_
+#ifndef INCLUDES_HOMLIB_GET_WADENBACK_3DV_2026_HPP_
+#define INCLUDES_HOMLIB_GET_WADENBACK_3DV_2026_HPP_
 
 #include <Eigen/Dense>
 #include <vector>
@@ -10,7 +10,7 @@
 #include <iostream>
 
 namespace HomLib {
-namespace Wadenback2025 {
+namespace Wadenback3DV2026 {
 std::vector<HomLib::PoseData> get_double_sided(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y,
@@ -30,7 +30,7 @@ class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
     public:
         SolverSingleSided() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::Wadenback2025::get_one_sided(x, y, extra_check);
+            std::vector<HomLib::PoseData> output = HomLib::Wadenback3DV2026::get_one_sided(x, y, extra_check);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
@@ -49,7 +49,7 @@ class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
     public:
         SolverTwoSidedEqual() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::Wadenback2025::get_double_sided_equal(x, y, extra_check);
+            std::vector<HomLib::PoseData> output = HomLib::Wadenback3DV2026::get_double_sided_equal(x, y, extra_check);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
@@ -68,7 +68,7 @@ class SolverTwoSided : public PoseEstimator<SolverTwoSided> {
     public:
         SolverTwoSided() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::Wadenback2025::get_double_sided(x, y, extra_check);
+            std::vector<HomLib::PoseData> output = HomLib::Wadenback3DV2026::get_double_sided(x, y, extra_check);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
@@ -86,4 +86,4 @@ class SolverTwoSided : public PoseEstimator<SolverTwoSided> {
 }
 }
 
-#endif  // INCLUDES_HOMLIB_GET_WADENBACK_2025_HPP_
+#endif  // INCLUDES_HOMLIB_GET_WADENBACK_3DV_2026_HPP_

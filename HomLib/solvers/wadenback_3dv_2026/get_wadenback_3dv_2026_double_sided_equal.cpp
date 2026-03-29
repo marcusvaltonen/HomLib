@@ -9,7 +9,7 @@
 
 
 namespace HomLib {
-namespace Wadenback2025 {
+namespace Wadenback3DV2026 {
 static inline double unused_equation_residual(
     const double* d,
     double k
@@ -21,7 +21,7 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
 )
 {
     Eigen::Matrix<double, 24, 1> data;
-    data << HomLib::Wadenback2025::compute_coeffs(y), HomLib::Wadenback2025::compute_coeffs(x);  // NOTE: y first
+    data << HomLib::Wadenback3DV2026::compute_coeffs(y), HomLib::Wadenback3DV2026::compute_coeffs(x);  // NOTE: y first
 
     // Compute coefficients
     const double* d = data.data();
@@ -71,7 +71,7 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
             tmp = y[i] / (1 + k * y[i].squaredNorm());
             y_undist.push_back(tmp);
         }
-        Eigen::Matrix3d H = HomLib::Wadenback2025::homography_4pt_guo(x_undist, y_undist);
+        Eigen::Matrix3d H = HomLib::Wadenback3DV2026::homography_4pt_guo(x_undist, y_undist);
 
         // Package
         HomLib::PoseData pd;
@@ -94,7 +94,7 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
 	            tmp = y[i] / (1 + k * y[i].squaredNorm());
 	            y_undist.push_back(tmp);
             }
-            H = HomLib::Wadenback2025::homography_4pt_guo(x_undist, y_undist);
+            H = HomLib::Wadenback3DV2026::homography_4pt_guo(x_undist, y_undist);
 
             // Package
             pd.homography = H;
@@ -127,5 +127,5 @@ static inline double unused_equation_residual(
     );
     return res;
 }
-} // namespace Wadenback2025
+} // namespace Wadenback3DV2026
 } // namespace HomLib

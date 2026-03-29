@@ -1,7 +1,7 @@
 #include <Eigen/Dense>
 #include <vector>
 namespace HomLib {
-namespace Wadenback2025 {
+namespace Wadenback3DV2026 {
 double compute_residual1(
     const std::vector<Eigen::Vector2d> &x,
     double k

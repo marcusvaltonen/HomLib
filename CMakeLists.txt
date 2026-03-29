@@ -33,7 +33,7 @@ set(HOMLIB_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/solvers/nakano_icpr_2025
     ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/solvers/valtonenornhag_icpr_2020
     ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/solvers/valtonenornhag_wacv_2021
-    ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/solvers/wadenback_2025
+    ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/solvers/wadenback_3dv_2026
 )
 
 add_subdirectory(HomLib)

@@ -1,10 +1,10 @@
-#ifndef SRC_SOLVERS_WADENBACK_2025_WADENBACK_COMMON_HPP_
-#define SRC_SOLVERS_WADENBACK_2025_WADENBACK_COMMON_HPP_
+#ifndef SRC_SOLVERS_WADENBACK_3DV_2026_WADENBACK_COMMON_HPP_
+#define SRC_SOLVERS_WADENBACK_3DV_2026_WADENBACK_COMMON_HPP_
 #include <Eigen/Dense>
 #include <vector>
 
 namespace HomLib {
-namespace Wadenback2025 {
+namespace Wadenback3DV2026 {
 // The first set of (possibly) false roots coming from inv()->adj().
 // This computes the determinant.
 double compute_residual1(
@@ -28,4 +28,4 @@ Eigen::Matrix3d homography_4pt_guo(
 );
 } // namespace
 } // namespace
-#endif  // SRC_SOLVERS_WADENBACK_2025_WADENBACK_COMMON_HPP_
+#endif  // SRC_SOLVERS_WADENBACK_3DV_2026_WADENBACK_COMMON_HPP_
