@@ -75,3 +75,5 @@ coverage.info
 .cache/
 .vscode/
 Testing/
+venv/
+.idea/
