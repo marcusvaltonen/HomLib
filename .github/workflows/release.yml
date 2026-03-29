@@ -1,7 +1,6 @@
 name: Release
 
 on:
-  pull_request:  # For testing
   workflow_run:
     workflows: ["Build HomLib", "Build Wheels"]
     types:

@@ -103,12 +103,14 @@ It is possible to MEX-compile the solver and use it in MATLAB. Check the
 e.g. `/usr/local/include/eigen3`.
 
 ## Using the solver in Python
-(OUTDATED)
-The official python repository is [python-homlib](https://github.com/marcusvaltonen/python-homlib).
-A pre-alpha release is available at PyPi, and can be installed using
+Note: Solvers with known IMU data is not yet supported in the python package.
 ```bash
     $ pip install homlib
 ```
+
+(BELOW IS DEPREACATED)
+The official python repository is [python-homlib](https://github.com/marcusvaltonen/python-homlib).
+A pre-alpha release is available at PyPi, and can be installed using
 
 ## About the solvers
 Many of the solvers were generated using the automatic generator proposed by
