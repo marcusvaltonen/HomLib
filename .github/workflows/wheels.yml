@@ -9,7 +9,7 @@ on:
 
 jobs:
   build_wheels:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
     name: Build wheels for ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     strategy:
