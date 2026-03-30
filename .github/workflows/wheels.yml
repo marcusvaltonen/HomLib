@@ -5,10 +5,14 @@ on:
     workflows: ["Build HomLib"]
     types:
       - completed
+    branches:
+      - main
+    tags:
+      - 'v*'
 
 jobs:
   build_wheels:
-    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     name: Build wheels for ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     strategy:
@@ -77,4 +81,29 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-sdist
-          path: dist/*.tar.gz
+          path: ./dist/*.tar.gz
+
+  combine_artifacts:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download wheels from this workflow
+        uses: actions/download-artifact@v4
+        with:
+          path: downloaded
+          merge-multiple: true
+      - name: Download library artifacts from main.yml
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: library
+      - name: Combine and upload
+        run: |
+          mkdir combined
+          cp -r library/* combined/ || true
+          cp -r downloaded/* combined/ || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: combined-release-artifacts
+          path: combined/*
