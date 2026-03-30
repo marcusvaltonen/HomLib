@@ -20,6 +20,7 @@
 
 #include "get_kukelova_cvpr_2015.hpp"
 #include <Eigen/Geometry>
+#include <cassert>
 #include <vector>
 #include "solver_kukelova_cvpr_2015.hpp"
 #include "normalize2dpts.hpp"
