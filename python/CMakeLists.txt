@@ -7,9 +7,14 @@ cmake_minimum_required(VERSION 3.15...3.27)
 project(
   ${SKBUILD_PROJECT_NAME}
   VERSION ${SKBUILD_PROJECT_VERSION}
-  LANGUAGES CXX)
+  LANGUAGES CXX
+)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ftree-vectorize -funroll-loops")
+if(MSVC)
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+else()
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ftree-vectorize -funroll-loops")
+endif()
 
 # Find the module development requirements (requires FindPython from 3.17 or
 # scikit-build-core's built-in backport)
@@ -34,6 +39,8 @@ target_link_libraries(_core PRIVATE PoseLib::PoseLib)
 target_include_directories(_core PRIVATE ${HOMLIB_INCLUDE_DIRS})
 target_include_directories(_core PRIVATE ../thirdparty/RansacLib)
 target_compile_definitions(_core PRIVATE HOMLIB_VERSION="${PROJECT_VERSION_FULL}")
-
+if(MSVC)
+    target_compile_definitions(_core PRIVATE _USE_MATH_DEFINES)
+endif()
 # The install directory is the output (wheel) directory
 install(TARGETS _core DESTINATION homlib)
