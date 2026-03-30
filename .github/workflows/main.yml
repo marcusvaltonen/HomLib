@@ -201,6 +201,17 @@ jobs:
           fi
         shell: bash
 
+      - name: Debug built files
+        run: |
+          echo "=== Current directory ==="
+          ls -la
+          echo "=== Dist directory ==="
+          ls -la dist || echo "dist not found"
+          echo "=== Wheel files in root ==="
+          ls -la *.whl 2>/dev/null || echo "No wheel in root"
+        shell: bash
+
+
       - name: Install and test python package
         run: |
           python -m pip install pytest pytest-approvaltests numpy
