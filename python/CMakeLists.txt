@@ -33,6 +33,7 @@ target_link_libraries(_core PRIVATE HomLib)
 target_link_libraries(_core PRIVATE PoseLib::PoseLib)
 target_include_directories(_core PRIVATE ${HOMLIB_INCLUDE_DIRS})
 target_include_directories(_core PRIVATE ../thirdparty/RansacLib)
+target_compile_definitions(_core PRIVATE HOMLIB_VERSION="${PROJECT_VERSION_FULL}")
 
 # The install directory is the output (wheel) directory
 install(TARGETS _core DESTINATION homlib)

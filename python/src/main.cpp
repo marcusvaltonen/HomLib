@@ -285,6 +285,12 @@ PYBIND11_MODULE(_core, m) {
             RansacStatistics
            
     )pbdoc";
+
+    #ifdef HOMLIB_VERSION
+        m.attr("__version__") = py::str(HOMLIB_VERSION);
+    #else
+        m.attr("__version__") = py::str("dev");
+    #endif
     
     py::class_<HomLib::PoseData>(m, "PoseData")
         .def(

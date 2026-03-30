@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ._core import (
     __doc__,
+    __version__,
     PoseData,
     estimate_fitzgibbon_cvpr_2001_one_sided,
     estimate_fitzgibbon_cvpr_2001_two_sided_equal,
@@ -24,7 +25,6 @@ from ._core import (
     LORansacOptions,
     RansacStatistics,
 )
-from .version import __version__
 
 __all__ = [
     "__doc__",
