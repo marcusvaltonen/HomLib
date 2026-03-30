@@ -29,6 +29,9 @@ jobs:
           - name: macOS
             os: macos-latest
             artifact: 'libHomLib-macos.zip'
+          - name: Windows
+            os: windows-latest
+            artifact: 'libHomLib-windows.zip'
 
     steps:
       - name: Checkout your project
@@ -47,6 +50,13 @@ jobs:
         run: |
           brew install cmake eigen
 
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install eigen3:x64-windows
+        env:
+          VCPKG_ROOT: C:\vcpkg
+
       - name: Cache PoseLib build
         uses: actions/cache@v4
         id: cache-poselib
@@ -61,34 +71,53 @@ jobs:
           cd PoseLib
           git checkout ${{ env.POSELIB_VERSION }}
           mkdir build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/poselib-install \
-                   -DPOSELIB_BUILD_TESTS=OFF \
-                   -DPOSELIB_BUILD_EXAMPLES=OFF
-          make -j $(getconf _NPROCESSORS_ONLN)
-          make install
+          cmake_args="-DCMAKE_INSTALL_PREFIX=${{github.workspace}}/poselib-install \
+                      -DPOSELIB_BUILD_TESTS=OFF \
+                      -DPOSELIB_BUILD_EXAMPLES=OFF"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cmake_args="$cmake_args -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
+          fi
+          cmake .. $cmake_args
+          cmake --build . --config ${{env.BUILD_CONFIGURATION}} --parallel
+          cmake --install . --config ${{env.BUILD_CONFIGURATION}}
+        shell: bash
 
       - name: Configure project
         run: |
-          cmake \
-            -B ${{github.workspace}}/${{env.BUILD_DIR}} \
-            -DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install \
-            -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}}
+          cmake_args="-B ${{github.workspace}}/${{env.BUILD_DIR}} \
+                      -DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install \
+                      -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}}"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cmake_args="$cmake_args -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          fi
+          cmake $cmake_args
+        shell: bash
 
       - name: Compile and Install
         run: |
-          cmake \
-            --build ${{github.workspace}}/${{env.BUILD_DIR}} \
-            --config ${{env.BUILD_CONFIGURATION}} \
-            -j $(getconf _NPROCESSORS_ONLN)
+          cmake --build ${{github.workspace}}/${{env.BUILD_DIR}} --config ${{env.BUILD_CONFIGURATION}} --parallel
+        shell: bash
 
       - name: Execute Tests
-        run: ctest --test-dir ${{github.workspace}}/${{env.BUILD_DIR}}/tests -j $(getconf _NPROCESSORS_ONLN) --output-on-failure
+        run: ctest --test-dir ${{github.workspace}}/${{env.BUILD_DIR}}/tests --output-on-failure
 
-      - name: Execute Examples
-        run: ${{github.workspace}}/${{env.BUILD_DIR}}/examples/example
+      - name: Execute Example
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            "${{github.workspace}}/${{env.BUILD_DIR}}/examples/${{env.BUILD_CONFIGURATION}}/example.exe"
+          else
+            "${{github.workspace}}/${{env.BUILD_DIR}}/examples/example"
+          fi
 
-      - name: Execute RANSAC Examples
-        run: ${{github.workspace}}/${{env.BUILD_DIR}}/examples/example_ransac
+      - name: Execute RANSAC Example
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            "${{github.workspace}}/${{env.BUILD_DIR}}/examples/${{env.BUILD_CONFIGURATION}}/example_ransac.exe"
+          else
+            "${{github.workspace}}/${{env.BUILD_DIR}}/examples/example_ransac"
+          fi
 
       - name: Setup python
         uses: actions/setup-python@v5
@@ -98,7 +127,12 @@ jobs:
       - name: Build python package
         run: |
           python -m pip install build
-          python -m build --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            python -m build --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}\\poselib-install"
+          else
+            python -m build --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install"
+          fi
+        shell: bash
 
       - name: Install and test python package
         run: |
@@ -109,7 +143,11 @@ jobs:
       - name: Package artifacts
         shell: bash
         run: |
-          zip -r ${{ matrix.config.artifact }} ${{github.workspace}}/${{env.BUILD_DIR}}
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            powershell -Command "Compress-Archive -Path '${{github.workspace}}\\${{env.BUILD_DIR}}' -DestinationPath ${{ matrix.config.artifact }}"
+          else
+            zip -r ${{ matrix.config.artifact }} ${{github.workspace}}/${{env.BUILD_DIR}}
+          fi
 
       - name: Upload artifact (for later release)
         uses: actions/upload-artifact@v4
@@ -135,6 +173,11 @@ jobs:
             cibw_env: |
               BUILD_SHARED_LIBS="OFF"
               CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/poselib-install"
+          - name: windows
+            os: windows-latest
+            cibw_env: |
+              BUILD_SHARED_LIBS="OFF"
+              CMAKE_PREFIX_PATH="${{github.workspace}}\\poselib-install"
 
     steps:
       - name: Checkout your project
