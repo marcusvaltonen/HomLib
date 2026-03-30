@@ -57,8 +57,9 @@ jobs:
       - name: Build and install PoseLib
         if: steps.cache-poselib.outputs.cache-hit != 'true'
         run: |
-          git clone --branch ${{ env.POSELIB_VERSION }} https://github.com/PoseLib/PoseLib.git
+          git clone https://github.com/PoseLib/PoseLib.git
           cd PoseLib
+          git checkout ${{ env.POSELIB_VERSION }}
           mkdir build && cd build
           if [[ "$(uname)" == "Darwin" ]]; then
             # On macOS, override -Werror with -Wno-error
