@@ -61,17 +61,10 @@ jobs:
           cd PoseLib
           git checkout ${{ env.POSELIB_VERSION }}
           mkdir build && cd build
-          if [[ "$(uname)" == "Darwin" ]]; then
-            # On macOS, override -Werror with -Wno-error
-            EXTRA_CMAKE_ARGS="-DCMAKE_CXX_FLAGS=-Wno-error"
-          else
-            EXTRA_CMAKE_ARGS=""
-          fi
           cmake .. -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/poselib-install \
                    -DPOSELIB_BUILD_TESTS=OFF \
-                   -DPOSELIB_BUILD_EXAMPLES=OFF \
-                   $EXTRA_CMAKE_ARGS
-          make VERBOSE=1 -j $(getconf _NPROCESSORS_ONLN)
+                   -DPOSELIB_BUILD_EXAMPLES=OFF
+          make -j $(getconf _NPROCESSORS_ONLN)
           make install
 
       - name: Configure project
