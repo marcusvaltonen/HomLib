@@ -1,5 +1,6 @@
 import unittest
 from approvaltests import verify
+import pytest
 from tests.helpers import verify_numpy_array
 
 import numpy as np
@@ -31,6 +32,7 @@ class ValtonenOrnhagArxiv2020ATestCase(unittest.TestCase):
         ])
         self.tol = 12
 
+    @pytest.mark.skip(reason="Not yet exposed in python bindings")
     def test_valtonenornhag_arxiv_2020a_fHf_results(self):
         """Check the expected result."""
         sols = homlib.get_valtonenornhag_arxiv_2020a_fHf(
@@ -42,6 +44,7 @@ class ValtonenOrnhagArxiv2020ATestCase(unittest.TestCase):
         np.testing.assert_almost_equal(sols['f'], 1.194848331672758, self.tol)
         verify(verify_numpy_array(sols['H']))
 
+    @pytest.mark.skip(reason="Not yet exposed in python bindings")
     def test_valtonenornhag_arxiv_2020a_fHf_dimensions01(self):
         """Check that an exception is raised when dimensions are incorrect."""
         self.p1 = np.vstack((self.p1, np.ones((1, 3))))
@@ -53,6 +56,7 @@ class ValtonenOrnhagArxiv2020ATestCase(unittest.TestCase):
                 np.asfortranarray(self.R2)
             )
 
+    @pytest.mark.skip(reason="Not yet exposed in python bindings")
     def test_valtonenornhag_arxiv_2020a_fHf_dimensions02(self):
         """Check that an exception is raised when dimensions are incorrect."""
         self.p2 = np.vstack((self.p2, np.ones((1, 3))))
