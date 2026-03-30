@@ -95,17 +95,29 @@ jobs:
 
       - name: Compile and Install
         run: |
-          cmake --build ${{github.workspace}}/${{env.BUILD_DIR}} --config ${{env.BUILD_CONFIGURATION}} --parallel
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            build_path="${{github.workspace}}\\${{env.BUILD_DIR}}"
+          else
+            build_path="${{github.workspace}}/${{env.BUILD_DIR}}"
+          fi
+          cmake --build "$build_path" --config ${{env.BUILD_CONFIGURATION}} --parallel
         shell: bash
 
       - name: Execute Tests
-        run: ctest --test-dir ${{github.workspace}}/${{env.BUILD_DIR}}/tests --output-on-failure
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            test_path="${{github.workspace}}\\${{env.BUILD_DIR}}\\tests"
+          else
+            test_path="${{github.workspace}}/${{env.BUILD_DIR}}/tests"
+          fi
+          ctest --test-dir "$test_path" --output-on-failure
+        shell: bash
 
       - name: Execute Example
         shell: bash
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            "${{github.workspace}}/${{env.BUILD_DIR}}/examples/${{env.BUILD_CONFIGURATION}}/example.exe"
+            "${{github.workspace}}\\${{env.BUILD_DIR}}\\examples\\${{env.BUILD_CONFIGURATION}}\\example.exe"
           else
             "${{github.workspace}}/${{env.BUILD_DIR}}/examples/example"
           fi
@@ -114,7 +126,7 @@ jobs:
         shell: bash
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            "${{github.workspace}}/${{env.BUILD_DIR}}/examples/${{env.BUILD_CONFIGURATION}}/example_ransac.exe"
+            "${{github.workspace}}\\${{env.BUILD_DIR}}\\examples\\${{env.BUILD_CONFIGURATION}}\\example_ransac.exe"
           else
             "${{github.workspace}}/${{env.BUILD_DIR}}/examples/example_ransac"
           fi
