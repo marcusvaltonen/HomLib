@@ -22,7 +22,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
-          path: build
+          path: artifacts
           merge-multiple: true
 
       - name: Display structure of downloaded files
@@ -39,7 +39,7 @@ jobs:
             See the commits for details.
           draft: false
           prerelease: false
-          files: artifacts/**/*
+          files: artifacts/*.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

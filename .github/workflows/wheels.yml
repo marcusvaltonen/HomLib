@@ -83,13 +83,27 @@ jobs:
           name: cibw-sdist
           path: ./dist/*.tar.gz
 
-  download_artifacts:
-    name: Download artifacts from build for release
+  combine_artifacts:
+    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
-      - name: Download library artifacts from Build HomLib
+      - name: Download wheels from this workflow
+        uses: actions/download-artifact@v4
+        with:
+          path: downloaded
+          merge-multiple: true
+      - name: Download library artifacts from main.yml
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ github.event.workflow_run.id }}   # ID of the main.yml run
-          path: ./build
+          run-id: ${{ github.event.workflow_run.id }}
+          path: library
+      - name: Combine and upload
+        run: |
+          mkdir combined
+          cp -r library/* combined/ || true
+          cp -r downloaded/* combined/ || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: combined-release-artifacts
+          path: combined/*
