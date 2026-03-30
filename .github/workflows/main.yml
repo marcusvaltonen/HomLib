@@ -133,7 +133,7 @@ jobs:
 
   build_python:
     name: Build Python for ${{ matrix.config.name }}
-    depends: [build]
+    needs: [build]
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
