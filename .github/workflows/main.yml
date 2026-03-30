@@ -111,3 +111,129 @@ jobs:
         with:
           name: ${{ matrix.config.artifact }}
           path: ${{ matrix.config.artifact }}
+
+  build_wheels:
+    name: Build wheels for ${{ matrix.config.name }}
+    needs: [build]
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: linux-intel
+            os: ubuntu-latest
+    env:
+      POSELIB_VERSION: "v2.0.5"
+
+    steps:
+      - name: Checkout your project
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Restore PoseLib cache
+        uses: actions/cache@v4
+        id: cache-poselib
+        with:
+          path: ${{github.workspace}}/poselib-install
+          key: ${{ runner.os }}-poselib-${{ env.POSELIB_VERSION }}
+
+      - name: Fail if cache miss
+        if: steps.cache-poselib.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss for PoseLib. Build cannot proceed."
+          exit 1
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.3.1
+        env:
+          CIBW_PROJECT_REQUIRES_PYTHON: ">=3.10"
+          CIBW_ENVIRONMENT: |
+            BUILD_SHARED_LIBS="OFF"
+            CMAKE_CXX_FLAGS="-Wno-error"
+          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp310-*' || ''  }}
+          CIBW_BEFORE_ALL_LINUX: |
+            yum install -y eigen3-devel
+            cp -r /project/poselib-install/* /usr/local/
+          CIBW_ARCHS_LINUX: "native"
+          CIBW_BEFORE_ALL_WINDOWS: C:\vcpkg\vcpkg --triplet x64-windows install eigen3
+          CIBW_ENVIRONMENT_WINDOWS: CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+          CIBW_ARCHS_WINDOWS: "native"
+          CIBW_BEFORE_ALL_MACOS: brew install eigen
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
+          CIBW_SKIP: "*-musllinux_x86_64"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.config.name }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build source distribution
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: ./dist/*.tar.gz
+          
+  release:
+    name: Create GitHub Release
+    needs: [build, build_wheels, build_sdist]
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ## Changes
+            <!-- You can generate release notes automatically -->
+            See the commits for details.
+          draft: false
+          prerelease: false
+          files: libHomLib-*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload_pypi:
+    runs-on: ubuntu-latest
+    environment: pypi publisher
+    permissions:
+      id-token: write
+    if: startsWith(github.ref, 'refs/tags/v')
+    # or, alternatively, upload to PyPI on every tag starting with 'v' (remove on: release above to use this)
+    # if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          # unpacks all CIBW artifacts into dist/
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        # To test uploads to TestPyPI, uncomment the following:
+        # with:
+        #   repository-url: https://test.pypi.org/legacy/
+
