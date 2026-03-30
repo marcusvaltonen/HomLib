@@ -214,9 +214,17 @@ jobs:
 
       - name: Install and test python package
         run: |
+          wheel_file=$(ls dist/*.whl 2>/dev/null | head -n1)
+          if [ -n "$wheel_file" ]; then
+            echo "Found wheel: $wheel_file"
+          else
+            echo "Did not find wheel in dist. Exiting.."
+            exit 1
+          fi
           python -m pip install pytest pytest-approvaltests numpy
-          python -m pip install dist/*.whl
+          python -m pip install "$wheel_file"
           python -m pytest -s python/tests
+        shell: bash
 
   build_wheels:
     name: Build wheels for ${{ matrix.config.name }}
