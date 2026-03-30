@@ -85,6 +85,7 @@ jobs:
 
   download_artifacts:
     name: Download artifacts from build for release
+    runs-on: ubuntu-latest
     steps:
       - name: Download library artifacts from Build HomLib
         uses: actions/download-artifact@v4
