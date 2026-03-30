@@ -62,9 +62,14 @@ jobs:
           git clone --branch ${{ env.POSELIB_VERSION }} https://github.com/PoseLib/PoseLib.git
           cd PoseLib
           mkdir build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/poselib-install \
-                   -DPOSELIB_BUILD_TESTS=OFF \
-                   -DPOSELIB_BUILD_EXAMPLES=OFF
+          cmake_args="-DCMAKE_INSTALL_PREFIX=${{github.workspace}}/poselib-install \
+                -DPOSELIB_BUILD_TESTS=OFF \
+                -DPOSELIB_BUILD_EXAMPLES=OFF"
+          # On macOS, disable warnings-as-errors for unused variables
+          if [[ "$(uname)" == "Darwin" ]]; then
+            cmake_args="$cmake_args -DCMAKE_CXX_FLAGS=-Wno-unused-variable"
+          fi
+          cmake .. $cmake_args
           make -j $(getconf _NPROCESSORS_ONLN)
           make install
 
@@ -73,8 +78,7 @@ jobs:
           cmake \
             -B ${{github.workspace}}/${{env.BUILD_DIR}} \
             -DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install \
-            -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}} \
-            -DCMAKE_CXX_STANDARD=17
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}}
 
       - name: Compile and Install
         run: |
@@ -131,13 +135,11 @@ jobs:
             os: ubuntu-latest
             cibw_env: |
               BUILD_SHARED_LIBS="OFF"
-              CMAKE_CXX_FLAGS="-Wno-error"
               CMAKE_PREFIX_PATH="/project/poselib-install"
           - name: macos
             os: macos-latest
             cibw_env: |
               BUILD_SHARED_LIBS="OFF"
-              CMAKE_CXX_FLAGS="-Wno-error"
               CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/poselib-install"
 
     env:
