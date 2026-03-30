@@ -13,6 +13,7 @@ on:
 env:
   BUILD_CONFIGURATION: Release
   BUILD_DIR: _build
+  POSELIB_VERSION: a69263d5d8
 
 jobs:
   build:
@@ -28,9 +29,6 @@ jobs:
           - name: macOS
             os: macos-latest
             artifact: 'libHomLib-macos.zip'
-
-    env:
-      POSELIB_VERSION: "a69263d5d8"
 
     steps:
       - name: Checkout your project
@@ -143,9 +141,6 @@ jobs:
             cibw_env: |
               BUILD_SHARED_LIBS="OFF"
               CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/poselib-install"
-
-    env:
-      POSELIB_VERSION: "v2.0.5"
 
     steps:
       - name: Checkout your project
