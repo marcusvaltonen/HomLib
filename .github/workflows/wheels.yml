@@ -2,9 +2,13 @@ name: Build Wheels
 
 on:
   workflow_run:
-    workflows: ["Build HomLib"]
+    workflows: ["Build HomLib"]   # name of main.yml
     types:
       - completed
+    branches:
+      - main
+    tags:
+      - 'v*'
 
 jobs:
   build_wheels:
@@ -77,4 +81,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-sdist
-          path: dist/*.tar.gz
+          path: ./dist/*.tar.gz
+
+  download_artifacts:
+    name: Download artifacts from build for release
+    steps:
+      - name: Download library artifacts from Build HomLib
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}   # ID of the main.yml run
+          path: ./build
