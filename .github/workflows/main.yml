@@ -131,6 +131,61 @@ jobs:
             "${{github.workspace}}/${{env.BUILD_DIR}}/examples/example_ransac"
           fi
 
+  build_python:
+    name: Build Python for ${{ matrix.config.name }}
+    depends: [build]
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: Linux
+            os: ubuntu-latest
+            artifact: 'libHomLib-linux.zip'
+          - name: macOS
+            os: macos-latest
+            artifact: 'libHomLib-macos.zip'
+          - name: Windows
+            os: windows-latest
+            artifact: 'libHomLib-windows.zip'
+
+    steps:
+      - name: Checkout your project
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libeigen3-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake eigen
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install eigen3:x64-windows
+        env:
+          VCPKG_ROOT: C:\vcpkg
+
+      - name: Restore PoseLib cache
+        uses: actions/cache@v4
+        id: cache-poselib
+        with:
+          path: ${{github.workspace}}/poselib-install
+          key: ${{ runner.os }}-poselib-${{ env.POSELIB_VERSION }}
+
+      - name: Fail if cache miss
+        if: steps.cache-poselib.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss for PoseLib. Build cannot proceed."
+          exit 1
+
       - name: Setup python
         uses: actions/setup-python@v5
         with:
@@ -152,24 +207,9 @@ jobs:
           python -m pip install dist/*.whl
           python -m pytest -s python/tests
 
-      - name: Package artifacts
-        shell: bash
-        run: |
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            powershell -Command "Compress-Archive -Path '${{github.workspace}}\\${{env.BUILD_DIR}}' -DestinationPath ${{ matrix.config.artifact }}"
-          else
-            zip -r ${{ matrix.config.artifact }} ${{github.workspace}}/${{env.BUILD_DIR}}
-          fi
-
-      - name: Upload artifact (for later release)
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.config.artifact }}
-          path: ${{ matrix.config.artifact }}
-
   build_wheels:
     name: Build wheels for ${{ matrix.config.name }}
-    needs: [build]
+    needs: [build, build_python]
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
