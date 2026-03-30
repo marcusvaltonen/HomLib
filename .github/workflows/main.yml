@@ -177,6 +177,7 @@ jobs:
           CIBW_ARCHS_WINDOWS: "native"
           CIBW_BEFORE_ALL_MACOS: |
             brew install eigen
+            sudo cp -r $GITHUB_WORKSPACE/poselib-install/* /usr/local/
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
           CIBW_SKIP: "*-musllinux_x86_64"
 
