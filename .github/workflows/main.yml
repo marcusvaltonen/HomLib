@@ -217,7 +217,7 @@ jobs:
 
   build_wheels:
     name: Build wheels for ${{ matrix.config.name }}
-    # needs: [build, build_python]
+    needs: [build, build_python]
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
@@ -249,15 +249,6 @@ jobs:
           echo "Cache miss for PoseLib. Build cannot proceed."
           exit 1
 
-      - name: List PoseLib install (debug)
-        if: runner.os == 'Windows'
-        run: |
-          workspace="${GITHUB_WORKSPACE//\\//}"
-          poselib_path="$workspace/poselib-install"
-          echo "Contents of $poselib_path:"
-          ls -R "$poselib_path"
-        shell: bash
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
         env:
@@ -269,8 +260,7 @@ jobs:
           CIBW_BEFORE_ALL_WINDOWS: >
             C:\vcpkg\vcpkg --triplet x64-windows install eigen3 &&
             if not exist D:\poselib mkdir D:\poselib &&
-            xcopy /E /I "%GITHUB_WORKSPACE%\poselib-install\*" D:\poselib\ &&
-            dir D:\poselib
+            xcopy /E /I "%GITHUB_WORKSPACE%\poselib-install\*" D:\poselib\
           CIBW_ENVIRONMENT_WINDOWS: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="D:\\poselib" CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
           CIBW_ARCHS_WINDOWS: "native"
           CIBW_BEFORE_ALL_MACOS: brew install eigen
