@@ -253,16 +253,15 @@ jobs:
         uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_PROJECT_REQUIRES_PYTHON: ">=3.10"
-          CIBW_ENVIRONMENT: BUILD_SHARED_LIBS="OFF"
           CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp310-*' || ''  }}
           CIBW_BEFORE_ALL_LINUX: yum install -y eigen3-devel
-          CIBW_ENVIRONMENT_LINUX: CMAKE_PREFIX_PATH="/project/poselib-install"
+          CIBW_ENVIRONMENT_LINUX: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="/project/poselib-install"
           CIBW_ARCHS_LINUX: "native"
           CIBW_BEFORE_ALL_WINDOWS: C:\vcpkg\vcpkg --triplet x64-windows install eigen3
-          CIBW_ENVIRONMENT_WINDOWS: CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+          CIBW_ENVIRONMENT_WINDOWS: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="%GITHUB_WORKSPACE%\\poselib-install" CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
           CIBW_ARCHS_WINDOWS: "native"
           CIBW_BEFORE_ALL_MACOS: brew install eigen
-          CIBW_ENVIRONMENT_MACOS: CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/poselib-install"
+          CIBW_ENVIRONMENT_MACOS: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/poselib-install"
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
           CIBW_SKIP: "*-musllinux_x86_64"
 
