@@ -252,8 +252,10 @@ jobs:
       - name: List PoseLib install (debug)
         if: runner.os == 'Windows'
         run: |
-          echo "Contents of ${{github.workspace}}\\poselib-install:"
-          ls -R ${{github.workspace}}\\poselib-install
+          workspace="${GITHUB_WORKSPACE//\\//}"
+          poselib_path="$workspace/poselib-install"
+          echo "Contents of $poselib_path:"
+          ls -R "$poselib_path"
         shell: bash
 
       - name: Build wheels
