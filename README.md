@@ -1,6 +1,8 @@
 # HomLib
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/marcusvaltonen/HomLib)
 ![GitHub](https://img.shields.io/github/license/marcusvaltonen/HomLib)
+![PyPI](https://img.shields.io/pypi/v/homlib)
+
 
 C++ library for computing homographies with support in MATLAB and Python.
 
@@ -107,10 +109,6 @@ Note: Solvers with known IMU data is not yet supported in the python package.
 ```bash
     $ pip install homlib
 ```
-
-(BELOW IS DEPREACATED)
-The official python repository is [python-homlib](https://github.com/marcusvaltonen/python-homlib).
-A pre-alpha release is available at PyPi, and can be installed using
 
 ## About the solvers
 Many of the solvers were generated using the automatic generator proposed by

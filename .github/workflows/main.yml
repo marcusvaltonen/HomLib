@@ -13,6 +13,7 @@ on:
 env:
   BUILD_CONFIGURATION: Release
   BUILD_DIR: _build
+  POSELIB_VERSION: a69263d5d8
 
 jobs:
   build:
@@ -22,10 +23,15 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { name: Linux, os: ubuntu-latest, artifact: 'libHomLib-linux.zip' }
-
-    env:
-      POSELIB_VERSION: "v2.0.5"
+          - name: Linux
+            os: ubuntu-latest
+            artifact: 'libHomLib-linux.zip'
+          - name: macOS
+            os: macos-latest
+            artifact: 'libHomLib-macos.zip'
+          - name: Windows
+            os: windows-latest
+            artifact: 'libHomLib-windows.zip'
 
     steps:
       - name: Checkout your project
@@ -44,6 +50,13 @@ jobs:
         run: |
           brew install cmake eigen
 
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install eigen3:x64-windows
+        env:
+          VCPKG_ROOT: C:\vcpkg
+
       - name: Cache PoseLib build
         uses: actions/cache@v4
         id: cache-poselib
@@ -54,36 +67,124 @@ jobs:
       - name: Build and install PoseLib
         if: steps.cache-poselib.outputs.cache-hit != 'true'
         run: |
-          git clone --branch ${{ env.POSELIB_VERSION }} https://github.com/PoseLib/PoseLib.git
+          git clone https://github.com/PoseLib/PoseLib.git
           cd PoseLib
+          git checkout ${{ env.POSELIB_VERSION }}
           mkdir build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/poselib-install \
-                   -DPOSELIB_BUILD_TESTS=OFF \
-                   -DPOSELIB_BUILD_EXAMPLES=OFF
-          make -j$(nproc)
-          make install
+          cmake_args="-DCMAKE_INSTALL_PREFIX=${{github.workspace}}/poselib-install \
+                      -DPOSELIB_BUILD_TESTS=OFF \
+                      -DPOSELIB_BUILD_EXAMPLES=OFF"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cmake_args="$cmake_args -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
+          fi
+          cmake .. $cmake_args
+          cmake --build . --config ${{env.BUILD_CONFIGURATION}} --parallel
+          cmake --install . --config ${{env.BUILD_CONFIGURATION}}
+        shell: bash
 
       - name: Configure project
         run: |
-          cmake \
-            -B ${{github.workspace}}/${{env.BUILD_DIR}} \
-            -DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install \
-            -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}} \
+          cmake_args="-B ${{github.workspace}}/${{env.BUILD_DIR}} \
+                      -DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install \
+                      -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}}"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cmake_args="$cmake_args -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          fi
+          cmake $cmake_args
+        shell: bash
+
       - name: Compile and Install
         run: |
-          cmake \
-            --build ${{github.workspace}}/${{env.BUILD_DIR}} \
-            --config ${{env.BUILD_CONFIGURATION}} \
-            -j $(nproc)
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            build_path="${{github.workspace}}\\${{env.BUILD_DIR}}"
+          else
+            build_path="${{github.workspace}}/${{env.BUILD_DIR}}"
+          fi
+          cmake --build "$build_path" --config ${{env.BUILD_CONFIGURATION}} --parallel
+        shell: bash
 
       - name: Execute Tests
-        run: ctest --test-dir ${{github.workspace}}/${{env.BUILD_DIR}}/tests -j $(nproc) --output-on-failure
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            test_path="${{github.workspace}}\\${{env.BUILD_DIR}}\\tests"
+          else
+            test_path="${{github.workspace}}/${{env.BUILD_DIR}}/tests"
+          fi
+          ctest --test-dir "$test_path" --output-on-failure
+        shell: bash
 
-      - name: Execute Examples
-        run: ${{github.workspace}}/${{env.BUILD_DIR}}/examples/example
+      - name: Execute Example
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            "${{github.workspace}}\\${{env.BUILD_DIR}}\\examples\\${{env.BUILD_CONFIGURATION}}\\example.exe"
+          else
+            "${{github.workspace}}/${{env.BUILD_DIR}}/examples/example"
+          fi
 
-      - name: Execute RANSAC Examples
-        run: ${{github.workspace}}/${{env.BUILD_DIR}}/examples/example_ransac
+      - name: Execute RANSAC Example
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            "${{github.workspace}}\\${{env.BUILD_DIR}}\\examples\\${{env.BUILD_CONFIGURATION}}\\example_ransac.exe"
+          else
+            "${{github.workspace}}/${{env.BUILD_DIR}}/examples/example_ransac"
+          fi
+
+  build_python:
+    name: Build Python for ${{ matrix.config.name }}
+    needs: [build]
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: Linux
+            os: ubuntu-latest
+            artifact: 'libHomLib-linux.zip'
+          - name: macOS
+            os: macos-latest
+            artifact: 'libHomLib-macos.zip'
+          - name: Windows
+            os: windows-latest
+            artifact: 'libHomLib-windows.zip'
+
+    steps:
+      - name: Checkout your project
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libeigen3-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake eigen
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install eigen3:x64-windows
+        env:
+          VCPKG_ROOT: C:\vcpkg
+
+      - name: Restore PoseLib cache
+        uses: actions/cache@v4
+        id: cache-poselib
+        with:
+          path: ${{github.workspace}}/poselib-install
+          key: ${{ runner.os }}-poselib-${{ env.POSELIB_VERSION }}
+
+      - name: Fail if cache miss
+        if: steps.cache-poselib.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss for PoseLib. Build cannot proceed."
+          exit 1
 
       - name: Setup python
         uses: actions/setup-python@v5
@@ -93,21 +194,143 @@ jobs:
       - name: Build python package
         run: |
           python -m pip install build
-          python -m build --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install"
- 
-      - name: Install and test python pacakge
-        run: |
-          python -m pip install pytest pytest-approvaltests numpy
-          python -m pip install dist/*.whl
-          python -m pytest -s python/tests
- 
-      - name: Package artifacts
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            python -m build --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}\\poselib-install"
+          else
+            python -m build --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install"
+          fi
         shell: bash
-        run: |
-          zip -r ${{ matrix.config.artifact }} ${{github.workspace}}/${{env.BUILD_DIR}}
 
-      - name: Upload artifact (for later release)
-        uses: actions/upload-artifact@v4
+      - name: Install and test python package
+        run: |
+          wheel_file=$(ls dist/*.whl 2>/dev/null | head -n1)
+          if [ -n "$wheel_file" ]; then
+            echo "Found wheel: $wheel_file"
+          else
+            echo "Did not find wheel in dist. Exiting.."
+            exit 1
+          fi
+          python -m pip install pytest pytest-approvaltests numpy
+          python -m pip install "$wheel_file"
+          python -m pytest -s python/tests
+        shell: bash
+
+  build_wheels:
+    name: Build wheels for ${{ matrix.config.name }}
+    needs: [build, build_python]
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: linux-intel
+            os: ubuntu-latest
+          - name: macos
+            os: macos-latest
+          - name: windows
+            os: windows-latest
+
+    steps:
+      - name: Checkout your project
+        uses: actions/checkout@v4
         with:
-          name: ${{ matrix.config.artifact }}
-          path: ${{ matrix.config.artifact }}
+          submodules: 'recursive'
+
+      - name: Restore PoseLib cache
+        uses: actions/cache@v4
+        id: cache-poselib
+        with:
+          path: ${{github.workspace}}/poselib-install
+          key: ${{ runner.os }}-poselib-${{ env.POSELIB_VERSION }}
+
+      - name: Fail if cache miss
+        if: steps.cache-poselib.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss for PoseLib. Build cannot proceed."
+          exit 1
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.3.1
+        env:
+          CIBW_PROJECT_REQUIRES_PYTHON: ">=3.10"
+          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp310-*' || ''  }}
+          CIBW_BEFORE_ALL_LINUX: yum install -y eigen3-devel
+          CIBW_ENVIRONMENT_LINUX: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="/project/poselib-install"
+          CIBW_ARCHS_LINUX: "native"
+          CIBW_BEFORE_ALL_WINDOWS: >
+            C:\vcpkg\vcpkg --triplet x64-windows install eigen3 &&
+            if not exist D:\poselib mkdir D:\poselib &&
+            xcopy /E /I "%GITHUB_WORKSPACE%\poselib-install\*" D:\poselib\
+          CIBW_ENVIRONMENT_WINDOWS: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="D:\\poselib" CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+          CIBW_ARCHS_WINDOWS: "native"
+          CIBW_BEFORE_ALL_MACOS: brew install eigen
+          CIBW_ENVIRONMENT_MACOS: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/poselib-install"
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
+          CIBW_SKIP: "*-musllinux_x86_64"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.config.name }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build source distribution
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: ./dist/*.tar.gz
+
+  release:
+    name: Create GitHub Release
+    needs: [build, build_wheels, build_sdist]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ## Changes
+            See the commits for details.
+          draft: false
+          prerelease: false
+          files: libHomLib-*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload_pypi:
+    runs-on: ubuntu-latest
+    needs: [build, build_wheels, build_sdist]
+    environment: pypi publisher
+    permissions:
+      id-token: write
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "homlib"
-version = "0.1.1-rc5"
+version = "0.1.1-rc7"
 description = "State-of-the-art homography estimators."
 readme = "README.md"
 authors = [
