@@ -266,8 +266,11 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: yum install -y eigen3-devel
           CIBW_ENVIRONMENT_LINUX: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="/project/poselib-install"
           CIBW_ARCHS_LINUX: "native"
-          CIBW_BEFORE_ALL_WINDOWS: C:\vcpkg\vcpkg --triplet x64-windows install eigen3
-          CIBW_ENVIRONMENT_WINDOWS: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="${{github.workspace}}\\poselib-install" CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+          CIBW_BEFORE_ALL_WINDOWS: |
+            C:\vcpkg\vcpkg --triplet x64-windows install eigen3
+            if not exist C:\poselib mkdir C:\poselib
+            xcopy /E /I "%GITHUB_WORKSPACE%\poselib-install\*" D:\poselib\
+          CIBW_ENVIRONMENT_WINDOWS: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="D:\\poselib" CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
           CIBW_ARCHS_WINDOWS: "native"
           CIBW_BEFORE_ALL_MACOS: brew install eigen
           CIBW_ENVIRONMENT_MACOS: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/poselib-install"
