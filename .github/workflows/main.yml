@@ -201,17 +201,6 @@ jobs:
           fi
         shell: bash
 
-      - name: Debug built files
-        run: |
-          echo "=== Current directory ==="
-          ls -la
-          echo "=== Dist directory ==="
-          ls -la dist || echo "dist not found"
-          echo "=== Wheel files in root ==="
-          ls -la *.whl 2>/dev/null || echo "No wheel in root"
-        shell: bash
-
-
       - name: Install and test python package
         run: |
           wheel_file=$(ls dist/*.whl 2>/dev/null | head -n1)
@@ -248,7 +237,7 @@ jobs:
             os: windows-latest
             cibw_env: |
               BUILD_SHARED_LIBS="OFF"
-              CMAKE_PREFIX_PATH="${{github.workspace}}\\poselib-install"
+              CMAKE_PREFIX_PATH="D:\\poselib"
 
     steps:
       - name: Checkout your project
@@ -279,7 +268,10 @@ jobs:
             yum install -y eigen3-devel
             cp -r /project/poselib-install/* /usr/local/
           CIBW_ARCHS_LINUX: "native"
-          CIBW_BEFORE_ALL_WINDOWS: C:\vcpkg\vcpkg --triplet x64-windows install eigen3
+          CIBW_BEFORE_ALL_WINDOWS: |
+            C:\vcpkg\vcpkg --triplet x64-windows install eigen3
+            mkdir D:\poselib
+            xcopy /E /I %GITHUB_WORKSPACE%\poselib-install\* D:\poselib\
           CIBW_ENVIRONMENT_WINDOWS: CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
           CIBW_ARCHS_WINDOWS: "native"
           CIBW_BEFORE_ALL_MACOS: |
