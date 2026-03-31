@@ -98,17 +98,18 @@ clone it
 git submodule update --init --recursive
 ```
 
+## Using the solver in Python
+Python wheels for all standard platforms and supported Python versions are available at PyPI. To install, simply use
+```bash
+    $ pip install homlib
+```
+*Note:* Solvers with known IMU data is not yet supported in the python package.
+
 ## Using the solver in MATLAB
 (OUTDATED)
 It is possible to MEX-compile the solver and use it in MATLAB. Check the
 `compile_mex.m` function in the MATLAB directory. You may have to change the path to Eigen,
 e.g. `/usr/local/include/eigen3`.
-
-## Using the solver in Python
-Note: Solvers with known IMU data is not yet supported in the python package.
-```bash
-    $ pip install homlib
-```
 
 ## About the solvers
 Many of the solvers were generated using the automatic generator proposed by
