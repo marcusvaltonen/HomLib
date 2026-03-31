@@ -25,7 +25,6 @@ classifiers = [
 wheel.packages = ["python/src/homlib"]
 wheel.expand-macos-universal-tags = true
 minimum-version = "build-system.requires"
-cmake.build.verbose = true
 
 [tool.scikit-build.cmake.define]
 BUILD_EXAMPLES = "OFF"
