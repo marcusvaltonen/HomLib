@@ -270,6 +270,7 @@ jobs:
             C:\vcpkg\vcpkg --triplet x64-windows install eigen3
             if not exist D:\poselib mkdir D:\poselib
             xcopy /E /I "%GITHUB_WORKSPACE%\poselib-install\*" D:\poselib\
+            dir D:\poselib
           CIBW_ENVIRONMENT_WINDOWS: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="D:\\poselib" CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
           CIBW_ARCHS_WINDOWS: "native"
           CIBW_BEFORE_ALL_MACOS: brew install eigen
