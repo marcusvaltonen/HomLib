@@ -252,8 +252,8 @@ jobs:
       - name: List PoseLib install (debug)
         if: runner.os == 'Windows'
         run: |
-          echo "Contents of ${{github.workspace}}/poselib-install:"
-          ls -R ${{github.workspace}}/poselib-install
+          echo "Contents of ${{github.workspace}}\\poselib-install:"
+          ls -R ${{github.workspace}}\\poselib-install
         shell: bash
 
       - name: Build wheels
@@ -265,7 +265,7 @@ jobs:
           CIBW_ENVIRONMENT_LINUX: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="/project/poselib-install"
           CIBW_ARCHS_LINUX: "native"
           CIBW_BEFORE_ALL_WINDOWS: C:\vcpkg\vcpkg --triplet x64-windows install eigen3
-          CIBW_ENVIRONMENT_WINDOWS: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="${{github.workspace}}/poselib-install" CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+          CIBW_ENVIRONMENT_WINDOWS: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="${{github.workspace}}\\poselib-install" CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
           CIBW_ARCHS_WINDOWS: "native"
           CIBW_BEFORE_ALL_MACOS: brew install eigen
           CIBW_ENVIRONMENT_MACOS: BUILD_SHARED_LIBS="OFF" CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/poselib-install"
