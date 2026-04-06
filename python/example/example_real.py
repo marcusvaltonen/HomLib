@@ -1,13 +1,20 @@
+r"""
+Real data experiment
+====================
+
+In this example, we show how to estimate a homography from images using
+OpenCV's implementation of SIFT.
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import homlib
 from time import time
 
+
 def decolorize(img):
     return  cv2.cvtColor(cv2.cvtColor(img,cv2.COLOR_RGB2GRAY), cv2.COLOR_GRAY2RGB)
-
-
 
 
 def draw_matches(kps1, kps2, tentatives, img1, img2, H, mask):

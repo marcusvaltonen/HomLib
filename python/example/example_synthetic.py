@@ -1,12 +1,16 @@
+r"""
+Synthetic experiment
+====================
+
+In this example, we show how to estimate a homography from synthetic data.
+"""
+
 import numpy as np
 
 import homlib
 
-
-H = np.eye(3)
-p = homlib.PoseData(H, 1.0, -0.001, -0.002)
-print(f"PoseData: {p}")
-
+######################################
+# Generate synthetic data
 N = 5
 H = np.random.randn(3, 3)
 x = np.random.randn(2, N)
@@ -15,7 +19,12 @@ y = y[:2] / y[2]
 
 print(f"H={H / H[2,2]}")
 
+######################################
+# Run estimator from homlib on the minimal sample.
 poses = homlib.estimate_wadenback_2025_one_sided(x, y, True)
+
+######################################
+# Test against ground truth
 
 for i, p in enumerate(poses):
     print(f"Pose {i}: {p} with H =")
