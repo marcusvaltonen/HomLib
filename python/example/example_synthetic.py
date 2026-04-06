@@ -21,7 +21,7 @@ print(f"H={H / H[2,2]}")
 
 ######################################
 # Run estimator from homlib on the minimal sample.
-poses = homlib.estimate_wadenback_2025_one_sided(x, y, True)
+poses = homlib.estimate_wadenback_3dv_2026_one_sided(x, y, True)
 
 ######################################
 # Test against ground truth

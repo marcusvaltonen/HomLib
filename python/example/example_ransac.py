@@ -13,9 +13,9 @@ import homlib
 
 
 solvers = [
-    homlib.lomsac_wadenback_2025_one_sided,
-    homlib.lomsac_wadenback_2025_two_sided_equal,
-    homlib.lomsac_wadenback_2025_two_sided,
+    homlib.lomsac_wadenback_3dv_2026_one_sided,
+    homlib.lomsac_wadenback_3dv_2026_two_sided_equal,
+    homlib.lomsac_wadenback_3dv_2026_two_sided,
 ]
 
 options = homlib.LORansacOptions()
