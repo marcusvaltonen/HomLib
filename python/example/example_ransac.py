@@ -1,3 +1,12 @@
+r"""
+Synthetic RANSAC experiment
+===========================
+
+In this example, we show how to robustly estimate a homography
+in the presence of outliers using synthetic data and different
+distortion profiles.
+"""
+
 import numpy as np
 
 import homlib
