@@ -26,6 +26,9 @@ simultaneous radial distortion correction and/or incorporating IMU data.
 
 We use the following convention for the different cases: (1) - single-sided, (e) two-sided and equal, and (2) two-sided.
 
+> [!NOTE]
+> New paper to be presented at ICPR 2026. Code is coming soon.
+
 The solvers by Valtonen Örnhag et al. and Wadenbäck et al. are original implementations, the
 others are re-implementations. If you use the code in your work, please cite
 the respective article:
@@ -76,6 +79,13 @@ the respective article:
     author    = {Wadenb{\"a}ck, M{\aa}rten and Valtonen~{\"O}rnhag, Marcus and Edstedt, Johan},
     title     = {Radially Distorted Homographies, Revisited},
     booktitle = {Proceedings of the International Conference on 3D Vision (3DV)},
+    year      = {2026},
+}
+
+@InProceedings{valtonen-ornhag-adalbjornsson-2026-icpr,
+    author    = {Valtonen~{\"O}rnhag, Marcus and Adalbj{\"o}rnsson, Stefan},
+    title     = {Radial Distortion Homography Estimation from Affine-Covariant or Orientation-Covariant Features},
+    booktitle = {Proceedings of the International Conference on Pattern Recognition (ICPR)},
     year      = {2026},
 }
 ```
