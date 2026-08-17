@@ -1,4 +1,5 @@
 set(SRCS
+    helpers/affine2sift.cpp
     helpers/generate_problem_instance.cpp
     helpers/gj.cpp
     helpers/normalize2dpts.cpp
@@ -11,6 +12,8 @@ set(SRCS
     solvers/kukelova_cvpr_2015/get_kukelova_cvpr_2015_6pt.cpp
     solvers/kukelova_cvpr_2015/solver_kukelova_cvpr_2015.cpp
     solvers/nakano_icpr_2025/get_nakano_icpr_2025.cpp
+    solvers/nakano_icpr_2025/get_nakano_icpr_2025_affine.cpp
+    solvers/nakano_icpr_2025/get_nakano_icpr_2025_ori.cpp
     solvers/valtonenornhag_icpr_2020/get_valtonenornhag_icpr_2020_fHf.cpp
     solvers/valtonenornhag_icpr_2020/solver_valtonenornhag_icpr_2020_fHf.cpp
     solvers/valtonenornhag_wacv_2021/get_valtonenornhag_wacv_2021_fHf.cpp

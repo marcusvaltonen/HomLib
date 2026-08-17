@@ -1,5 +1,6 @@
 #include <tuple>
 #include <vector>
+#include <sstream>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -16,10 +17,22 @@
 #include <get_nakano_icpr_2025.hpp>
 #include <get_wadenback_3dv_2026.hpp>
 #include <ransac_estimator.h>
-
+#include <affine_ransac_estimator.h>
+#include <orientation_ransac_estimator.h>
+#include <generate_problem_instance.hpp>
+#include <iostream>
 
 namespace py = pybind11;
 using namespace pybind11::literals;
+
+template <typename T>
+std::string to_string_with_precision(const T a_value, const int n = 6)
+{
+    std::ostringstream out;
+    out.precision(n);
+    out << std::fixed << a_value;
+    return std::move(out).str();
+}
 
 void preprocess(
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
@@ -33,6 +46,51 @@ void preprocess(
     for (Eigen::Index i=0; i < x_.cols(); i++) {
         x->push_back(x_.col(i));
         y->push_back(y_.col(i));
+    }
+}
+
+void preprocess_affine(
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
+    const Eigen::Matrix<double, 4, Eigen::Dynamic> &A_,
+    std::vector<Eigen::Vector2d> *x,
+    std::vector<Eigen::Vector2d> *y,
+    std::vector<Eigen::Matrix2d> *A
+) {
+    if (x_.cols() != y_.cols()) {
+        throw std::invalid_argument("x and y should be of equal size.");
+    }
+    if (x_.cols() != A_.cols()) {
+        throw std::invalid_argument("x and y should be of equal size.");
+    }
+    for (size_t i=0; i < x_.cols(); i++) {
+        x->push_back(x_.col(i));
+        y->push_back(y_.col(i));
+        Eigen::Matrix2d tmp;
+        tmp << A_.col(i);
+        tmp.transposeInPlace();
+        A->push_back(tmp);
+    }
+}
+
+void preprocess_orientation(
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &ori_,
+    std::vector<Eigen::Vector2d> *x,
+    std::vector<Eigen::Vector2d> *y,
+    std::vector<Eigen::Vector2d> *ori
+) {
+    if (x_.cols() != y_.cols()) {
+        throw std::invalid_argument("x and y should be of equal size.");
+    }
+    if (x_.cols() != ori_.cols()) {
+        throw std::invalid_argument("x and y should be of equal size.");
+    }
+    for (size_t i=0; i < x_.cols(); i++) {
+        x->push_back(x_.col(i));
+        y->push_back(y_.col(i));
+        ori->push_back(ori_.col(i));
     }
 }
 
@@ -135,6 +193,10 @@ template <typename Estimator> std::tuple<HomLib::PoseData, ransac_lib::RansacSta
     ransac_lib::RansacStatistics ransac_stats;
     int inliers = 0;
     HomLib::PoseData best_model;
+    best_model.homography = Eigen::Matrix3d::Identity();
+    best_model.focal_length = 0.0;
+    best_model.distortion_parameter = 0.0;
+    best_model.distortion_parameter2 = 0.0;
     
     HomLib::RansacEstimator<Estimator> solver(x, y, *estimator);
     ransac_lib::LocallyOptimizedMSAC<
@@ -248,6 +310,99 @@ std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_3dv_
     return output;
 }
 
+template <typename Estimator> std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_affine_wrapper(
+    Estimator* estimator,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
+    const Eigen::Matrix<double, 4, Eigen::Dynamic> &A_,
+    const ransac_lib::LORansacOptions &options
+) {
+    std::vector<Eigen::Vector2d> x, y;
+    std::vector<Eigen::Matrix2d> A;
+    preprocess_affine(x_, y_, A_, &x, &y, &A);
+    
+    ransac_lib::RansacStatistics ransac_stats;
+    int inliers = 0;
+    HomLib::PoseData best_model;
+    best_model.homography = Eigen::Matrix3d::Identity();
+    best_model.focal_length = 0.0;
+    best_model.distortion_parameter = 0.0;
+    best_model.distortion_parameter2 = 0.0;
+    
+    HomLib::AffineRansacEstimator<Estimator> solver(x, y, A, *estimator);
+    ransac_lib::LocallyOptimizedMSAC<
+        HomLib::PoseData,
+        std::vector<HomLib::PoseData>,
+        HomLib::AffineRansacEstimator<Estimator>> lomsac;
+    inliers = lomsac.EstimateModel(options, solver, &best_model, &ransac_stats);
+
+    return std::make_tuple(std::move(best_model), std::move(ransac_stats));
+}
+
+
+template <typename Estimator> std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_orientation_wrapper(
+    Estimator* estimator,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &ori_,
+    const ransac_lib::LORansacOptions &options
+) {
+    std::vector<Eigen::Vector2d> x, y;
+    std::vector<Eigen::Vector2d> ori;
+    preprocess_orientation(x_, y_, ori_, &x, &y, &ori);
+
+    ransac_lib::RansacStatistics ransac_stats;
+    int inliers = 0;
+    HomLib::PoseData best_model;
+    best_model.homography = Eigen::Matrix3d::Identity();
+    best_model.focal_length = 0.0;
+    best_model.distortion_parameter = 0.0;
+    best_model.distortion_parameter2 = 0.0;
+
+    HomLib::OrientationRansacEstimator<Estimator> solver(x, y, ori, *estimator);
+    ransac_lib::LocallyOptimizedMSAC<
+        HomLib::PoseData,
+        std::vector<HomLib::PoseData>,
+        HomLib::OrientationRansacEstimator<Estimator>> lomsac;
+    inliers = lomsac.EstimateModel(options, solver, &best_model, &ransac_stats);
+
+    return std::make_tuple(std::move(best_model), std::move(ransac_stats));
+}
+
+std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_nakano_icpr_2025_one_sided_affine_wrapper(
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
+    const Eigen::Matrix<double, 4, Eigen::Dynamic> &A_,
+    const ransac_lib::LORansacOptions &options
+) {
+    HomLib::NakanoICPR2025::AffineSolverSingleSided estimator;
+    auto output = lomsac_affine_wrapper(&estimator, x_, y_, A_, options);
+    return output;
+}
+
+std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_nakano_icpr_2025_one_sided_ori_wrapper(
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &ori_,
+    const ransac_lib::LORansacOptions &options
+) {
+    HomLib::NakanoICPR2025::OrientationSolverSingleSided estimator;
+    auto output = lomsac_orientation_wrapper(&estimator, x_, y_, ori_, options);
+    return output;
+}
+
+std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_affine_no_dist_wrapper(
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
+    const Eigen::Matrix<double, 4, Eigen::Dynamic> &A_,
+    const ransac_lib::LORansacOptions &options
+) {
+    HomLib::NakanoICPR2025::AffineSolverNoDist estimator;
+    auto output = lomsac_affine_wrapper(&estimator, x_, y_, A_, options);
+    return output;
+}
+
+
 
 PYBIND11_MODULE(_core, m) {
     m.doc() = R"pbdoc(
@@ -283,6 +438,15 @@ PYBIND11_MODULE(_core, m) {
             lomsac_wadenback_3dv_2026_two_sided_equal
             lomsac_wadenback_3dv_2026_two_sided
 
+            lomsac_nakano_icpr_2025_one_sided_affine
+            lomsac_nakano_icpr_2025_one_sided_ori
+            lomsac_affine_no_dist
+            lomsac_nakano_icpr_2025_one_sided_right
+
+            DistortionCase
+            ProblemConfig
+            ProblemInstance
+            generate_problem_instance
            
     )pbdoc";
 
@@ -310,13 +474,106 @@ PYBIND11_MODULE(_core, m) {
                 return "PoseData("
                     "H=[3x3 np.array], "
                     "focal_length=" + std::to_string(p.focal_length) + ", "
-                    "distortion_parameter=" + std::to_string(p.distortion_parameter) + ", "
-                    "distortion_parameter2=" + std::to_string(p.distortion_parameter2) +
+                    "distortion_parameter=" + to_string_with_precision(p.distortion_parameter, 16) + ", "
+                    "distortion_parameter2=" + to_string_with_precision(p.distortion_parameter2, 16) +
                     ")";
             }
+        );
+
+    py::enum_<HomLib::DistortionCase>(m, "DistortionCase")
+        .value("NO_DISTORTION", HomLib::DistortionCase::NO_DISTORTION)
+        .value("ONE_SIDED_LEFT", HomLib::DistortionCase::ONE_SIDED_LEFT)
+        .value("ONE_SIDED_RIGHT", HomLib::DistortionCase::ONE_SIDED_RIGHT)
+        .value("TWO_SIDED_EQUAL", HomLib::DistortionCase::TWO_SIDED_EQUAL)
+        .value("TWO_SIDED", HomLib::DistortionCase::TWO_SIDED)
+        .export_values();
+        
+    py::class_<HomLib::ProblemConfig>(m, "ProblemConfig")
+        .def(
+            py::init<HomLib::DistortionCase, double, int>(),
+            "Constructor for ProblemConfig.",
+            "distortion"_a,
+            "point_noise"_a,
+            "number_points"_a
         )
-        .doc() = "Primary return class for HomLib functions.";
+        .def_readwrite("distortion", &HomLib::ProblemConfig::distortion)
+        .def_readwrite("point_noise", &HomLib::ProblemConfig::point_noise)
+        .def_readwrite("number_points", &HomLib::ProblemConfig::number_points)
+        .def_readwrite("camera_fov", &HomLib::ProblemConfig::camera_fov_)
+        .def_readwrite("min_depth", &HomLib::ProblemConfig::min_depth_)
+        .def_readwrite("max_depth", &HomLib::ProblemConfig::max_depth_)
+        .def_readwrite("min_focal", &HomLib::ProblemConfig::min_focal_)
+        .def_readwrite("max_focal", &HomLib::ProblemConfig::max_focal_)
+        .def_readwrite("min_dist", &HomLib::ProblemConfig::min_dist_)
+        .def_readwrite("max_dist", &HomLib::ProblemConfig::max_dist_)
+        .def("__repr__",
+            [](const HomLib::ProblemConfig &p) {
+                std::string distortion;
+                switch (p.distortion) {
+            	    case HomLib::DistortionCase::NO_DISTORTION:
+                        distortion = "NO_DISTORTION";
+		                break;
+            	    case HomLib::DistortionCase::ONE_SIDED_LEFT:
+                        distortion = "ONE_SIDED_LEFT";
+		                break;
+            	    case HomLib::DistortionCase::ONE_SIDED_RIGHT:
+                        distortion = "ONE_SIDED_RIGHT";
+		                break;
+            	    case HomLib::DistortionCase::TWO_SIDED_EQUAL:
+                        distortion = "TWO_SIDED_EQUAL";
+		                break;
+            	    case HomLib::DistortionCase::TWO_SIDED: 
+            	        distortion = "TWO_SIDED";
+		                break;
+        	    }
+                return "ProblemConfig("
+                    "distortion=" + distortion + ", "
+                    "point_noise=" + to_string_with_precision(p.point_noise) + ", "
+                    "number_points=" +std::to_string(p.number_points) + ", "
+                    "camera_fov=" + to_string_with_precision(p.camera_fov_, 2) + ", "
+                    "min_depth=" + to_string_with_precision(p.min_depth_, 2) + ", "
+                    "max_depth=" + to_string_with_precision(p.max_depth_, 2) + ", "
+                    "min_focal=" + to_string_with_precision(p.min_focal_, 2) + ", "
+                    "max_focal=" + to_string_with_precision(p.max_focal_, 2) + ", "
+                    "min_dist=" + to_string_with_precision(p.min_dist_, 2) + ", "
+                    "max_dist=" + to_string_with_precision(p.max_dist_, 2) +
+                    ")";
+            }
+        );
     
+    py::class_<HomLib::ProblemInstance>(m, "ProblemInstance")
+        .def(
+            py::init<HomLib::PoseData, std::vector<Eigen::Vector2d>, std::vector<Eigen::Vector2d>, std::vector<Eigen::Matrix2d>>(),
+            "Constructor for ProblemInstance.",
+            "posedata"_a,
+            "x1"_a,
+            "x2"_a,
+            "A"_a
+        )
+        .def_readwrite("posedata", &HomLib::ProblemInstance::posedata)
+        .def_readwrite("x1", &HomLib::ProblemInstance::x1)
+        .def_readwrite("x2", &HomLib::ProblemInstance::x2)
+        .def_readwrite("A", &HomLib::ProblemInstance::A)
+        .def("hom_error", &HomLib::ProblemInstance::hom_error)
+        .def("dist_error", &HomLib::ProblemInstance::dist_error)
+        .def("__repr__",
+            [](const HomLib::ProblemInstance &p) {
+                return "ProblemInstance("
+                    "posedata=PoseData(), "
+                    "x1=[list of length " + std::to_string(p.x1.size()) + "], "
+                    "x2=[list of length " + std::to_string(p.x2.size()) + "], "
+                    "A=[list of length " + std::to_string(p.A.size()) + "]"
+                    ")";
+            }
+        );
+    m.def(
+        "generate_problem_instance",
+        &HomLib::generate_problem_instance,
+        R"pbdoc(
+            Generate a synthetic problem instance.
+        )pbdoc",
+        "settings"_a
+    );
     py::class_<ransac_lib::LORansacOptions>(m, "LORansacOptions")
         .def(
             py::init<>()
@@ -371,7 +628,7 @@ PYBIND11_MODULE(_core, m) {
                     "best_model_score=" + std::to_string(s.best_model_score) + ", "
                     "inlier_ratio=" + std::to_string(s.inlier_ratio) + ", "
                     "inlier_indices=[int list of length " + std::to_string(s.inlier_indices.size()) + "], "
-                    "number_lo_iterations=" + std::to_string(s.number_lo_iterations) +
+                    "number_lo_iterations=" + std::to_string(s.number_lo_iterations) + ", "
                     ")";
             }
         )
@@ -682,6 +939,48 @@ PYBIND11_MODULE(_core, m) {
             .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
                 Proceedings of the British Machine Vision Conference (BMVC), 2012.
                 
+        )pbdoc",
+        "x"_a,
+        "y"_a,
+        "options"_a
+    );
+    m.def(
+        "lomsac_nakano_icpr_2025_one_sided_ori",
+        &lomsac_nakano_icpr_2025_one_sided_ori_wrapper,
+        R"pbdoc(
+            Solver from [1] in a LOMSAC framework [2] modified for orientation covariant features.
+
+            [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
+                International Conference on Pattern Recognition (ICPR), 2024.
+            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+        )pbdoc",
+        "x"_a,
+        "y"_a,
+        "ori"_a,
+        "options"_a
+    );
+    m.def(
+        "lomsac_affine_no_dist",
+        &lomsac_affine_no_dist_wrapper,
+        R"pbdoc(
+            Stolen from GC-RANSAC
+        )pbdoc",
+        "x"_a,
+        "y"_a,
+        "A"_a,
+        "options"_a
+    );
+    m.def(
+        "lomsac_nakano_icpr_2025_one_sided_right",
+        &lomsac_nakano_icpr_2025_one_sided_right_wrapper,
+        R"pbdoc(
+            Solver from [1] in a LOMSAC framework [2].
+            
+            [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
+                International Conference on Pattern Recognition (ICPR), 2024.
+            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+            Proceedings of the British Machine Vision Conference (BMVC), 2012.
         )pbdoc",
         "x"_a,
         "y"_a,

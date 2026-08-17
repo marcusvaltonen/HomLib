@@ -25,7 +25,17 @@
 #include "posedata.hpp"
 
 namespace HomLib {
+void refinement_no_dist(
+    const std::vector<Eigen::Vector2d> &x1,
+    const std::vector<Eigen::Vector2d> &x2,
+    HomLib::PoseData &p
+);
 void refinement_onesided(
+    const std::vector<Eigen::Vector2d> &x1,
+    const std::vector<Eigen::Vector2d> &x2,
+    HomLib::PoseData &p
+);
+void refinement_onesided_right(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
     HomLib::PoseData &p
