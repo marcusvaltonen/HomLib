@@ -260,6 +260,8 @@ PYBIND11_MODULE(_core, m) {
            :toctree: _generate
            
             PoseData
+            LORansacOptions
+            RansacStatistics
 
             estimate_fitzgibbon_cvpr_2001_one_sided
             estimate_fitzgibbon_cvpr_2001_two_sided_equal
@@ -280,9 +282,7 @@ PYBIND11_MODULE(_core, m) {
             lomsac_wadenback_3dv_2026_one_sided
             lomsac_wadenback_3dv_2026_two_sided_equal
             lomsac_wadenback_3dv_2026_two_sided
-            
-            LORansacOptions
-            RansacStatistics
+
            
     )pbdoc";
 
@@ -314,7 +314,8 @@ PYBIND11_MODULE(_core, m) {
                     "distortion_parameter2=" + std::to_string(p.distortion_parameter2) +
                     ")";
             }
-        );
+        )
+        .doc() = "Primary return class for HomLib functions.";
     
     py::class_<ransac_lib::LORansacOptions>(m, "LORansacOptions")
         .def(
@@ -349,7 +350,8 @@ PYBIND11_MODULE(_core, m) {
                     "final_least_squares=" + std::to_string(opt.final_least_squares_) +
                     ")";
             }
-        );
+        )
+        .doc() = "Options for LO RANSAC.";;
     
     py::class_<ransac_lib::RansacStatistics>(m, "RansacStatistics")
         .def(
@@ -372,7 +374,8 @@ PYBIND11_MODULE(_core, m) {
                     "number_lo_iterations=" + std::to_string(s.number_lo_iterations) +
                     ")";
             }
-        );
+        )
+        .doc() = "Statistics related to the RANSAC estimation process.";;
     
     /*
      *  Wrappers for minimal solvers
@@ -381,11 +384,13 @@ PYBIND11_MODULE(_core, m) {
         "estimate_fitzgibbon_cvpr_2001_one_sided",
         &estimate_fitzgibbon_cvpr_2001_one_sided_wrapper,
         R"pbdoc(
-            Solver from [1] as modified by [2].
+            One-sided solver by Fitzgibbon.
             
-            [1] A. W. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry and lens distortion," In
-                Computer Vision and Pattern Recognition (CVPR), 2001
-            [2]
+            Solver from [1]_ as modified by [2]_.
+            
+            .. [1] A. W. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry and lens distortion". In Computer Vision and Pattern Recognition (CVPR), 2001.
+            .. [2] Gaku Nakano, "Inverse DLT Method for One-Sided Radial Distortion Homography". In International Conference on Pattern Recognition (ICPR), 2024.
+            
         )pbdoc",
         "x"_a,
         "y"_a
@@ -394,10 +399,12 @@ PYBIND11_MODULE(_core, m) {
         "estimate_fitzgibbon_cvpr_2001_two_sided_equal",
         &estimate_fitzgibbon_cvpr_2001_two_sided_equal_wrapper,
         R"pbdoc(
-            Solver from [1].
+            Two-sided and equal solver by Fitzgibbon.
             
-            [1] A. W. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry and lens distortion," In
-                Computer Vision and Pattern Recognition (CVPR), 2001
+            Non-minimal solver from [1]_.
+            
+            .. [1] A. W. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry and lens distortion". In Computer Vision and Pattern Recognition (CVPR), 2001.
+            
         )pbdoc",
         "x"_a,
         "y"_a
@@ -406,10 +413,14 @@ PYBIND11_MODULE(_core, m) {
         "estimate_kukelova_cvpr_2015_two_sided",
         &estimate_kukelova_cvpr_2015_two_sided_wrapper,
         R"pbdoc(
-            Solver from [1].
+            Two-sided solver by Kukelova et al.
             
-            [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
-                and Pattern Recognition (CVPR), 2015
+            Minimal solver re-implemented from [1]_ using the automatic Gröbner basis solver proposed
+            in [2]_.
+            
+            .. [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography". In Computer Vision and Pattern Recognition (CVPR), 2015.
+            .. [2] Larsson et al. "Efficient Solvers for Minimal Problems by Syzygy-based Reduction". In Computer Vision and Pattern Recognition (CVPR), 2017.
+            
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -419,10 +430,12 @@ PYBIND11_MODULE(_core, m) {
         "estimate_kukelova_cvpr_2015_two_sided_6pt",
         &estimate_kukelova_cvpr_2015_two_sided_6pt_wrapper,
         R"pbdoc(
-            Solver from [1].
+            Two-sided solver by Kukelova et al.
+        
+            Non-minimal solver re-implemented from [1]_.
             
-            [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
-                and Pattern Recognition (CVPR), 2015
+            .. [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography". In Computer Vision and Pattern Recognition (CVPR), 2015.
+            
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -432,10 +445,12 @@ PYBIND11_MODULE(_core, m) {
         "estimate_nakano_icpr_2025_one_sided",
         &estimate_nakano_icpr_2025_one_sided_wrapper,
         R"pbdoc(
-            Solver from [1]
+            One-sided solver by Nakano.
             
-            [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
-                International Conference on Pattern Recognition (ICPR), 2024.
+            Minimal solver re-implemented from [1]_.
+            
+            .. [1] Gaku Nakano, "Inverse DLT Method for One-Sided Radial Distortion Homography". In International Conference on Pattern Recognition (ICPR), 2024.
+            
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -445,9 +460,12 @@ PYBIND11_MODULE(_core, m) {
         "estimate_wadenback_3dv_2026_one_sided",
         &estimate_wadenback_3dv_2026_one_sided_wrapper,
         R"pbdoc(
-            Solver from [1]
+            One-sided solver by Wadenbäck et al.
+        
+            Minimal solver from [1]_. Original implementation.
             
-            [1] TODO
+            .. [1] M. Wadenbäck, M. Valtonen Örnhag, J. Edstedt, "Radially Distorted Homographies, Revisited" In International Conference on 3D Vision (3DV), 2026.
+            
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -457,9 +475,12 @@ PYBIND11_MODULE(_core, m) {
         "estimate_wadenback_3dv_2026_two_sided_equal",
         &estimate_wadenback_3dv_2026_two_sided_equal_wrapper,
         R"pbdoc(
-            Solver from [1]
+            Two-sided and equal solver by Wadenbäck et al.
+        
+            Minimal solver from [1]_. Original implementation.
             
-            [1] TODO
+            .. [1] M. Wadenbäck, M. Valtonen Örnhag, J. Edstedt, "Radially Distorted Homographies, Revisited" In International Conference on 3D Vision (3DV), 2026.
+            
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -469,9 +490,12 @@ PYBIND11_MODULE(_core, m) {
         "estimate_wadenback_3dv_2026_two_sided",
         &estimate_wadenback_3dv_2026_two_sided_wrapper,
         R"pbdoc(
-            Solver from [1]
+            Two-sided solver by Wadenbäck et al.
+        
+            Minimal solver from [1]_. Original implementation.
             
-            [1] TODO
+            .. [1] M. Wadenbäck, M. Valtonen Örnhag, J. Edstedt, "Radially Distorted Homographies, Revisited" In International Conference on 3D Vision (3DV), 2026.
+            
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -486,12 +510,15 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_fitzgibbon_cvpr_2001_one_sided",
         &lomsac_fitzgibbon_cvpr_2001_one_sided_wrapper,
         R"pbdoc(
-            Solver from [1] in a LOMSAC framework [2].
+            One-sided solver by Fitzgibbon embedded in a LOMSAC framework.
             
-            [1] A. W. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry and lens distortion," In
+            Solver from [1]_ in a LOMSAC framework [2]_.
+            
+            .. [1] A. W. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry and lens distortion," In
                 Conference on Computer Vision and Pattern Recognition (CVPR), 2001
-            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -501,12 +528,15 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_fitzgibbon_cvpr_2001_two_sided_equal",
         &lomsac_fitzgibbon_cvpr_2001_two_sided_equal_wrapper,
         R"pbdoc(
-            Solver from [1] in a LOMSAC framework [2].
+            Two-sided and equal solver by Fitzgibbon embedded in a LOMSAC framework.
+        
+            Solver from [1]_ in a LOMSAC framework [2]_.
             
-            [1] A. W. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry and lens distortion," In
+            .. [1] A. W. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry and lens distortion," In
                 Conference on Computer Vision and Pattern Recognition (CVPR), 2001
-            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -516,12 +546,15 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_kukelova_cvpr_2015_two_sided",
         &lomsac_kukelova_cvpr_2015_two_sided_wrapper,
         R"pbdoc(
-            Solver from [1] in a LOMSAC framework [2].
+            Two-sided solver by Kukelova et al. embedded in a LOMSAC framework.
             
-            [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
+            Solver from [1]_ in a LOMSAC framework [2]_.
+            
+            .. [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
                 and Pattern Recognition (CVPR), 2015
-            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -531,12 +564,15 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_kukelova_cvpr_2015_two_sided_equal",
         &lomsac_kukelova_cvpr_2015_two_sided_equal_wrapper,
         R"pbdoc(
-            Solver from [1] in a LOMSAC framework [2].
+            Two-sided and equal solver by Kukelova et al. embedded in a LOMSAC framework.
             
-            [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
+            Solver from [1]_ in a LOMSAC framework [2]_.
+            
+            .. [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
                 and Pattern Recognition (CVPR), 2015
-            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -546,12 +582,15 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_kukelova_cvpr_2015_two_sided_equal_6pt",
         &lomsac_kukelova_cvpr_2015_two_sided_equal_6pt_wrapper,
         R"pbdoc(
-            Solver from [1] in a LOMSAC framework [2].
+            Two-sided and equal non-minimal solver by Kukelova et al. embedded in a LOMSAC framework.
+        
+            Solver from [1]_ in a LOMSAC framework [2]_.
             
-            [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
+            .. [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
                 and Pattern Recognition (CVPR), 2015
-            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -561,12 +600,15 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_kukelova_cvpr_2015_two_sided_6pt",
         &lomsac_kukelova_cvpr_2015_two_sided_6pt_wrapper,
         R"pbdoc(
-            Solver from [1] in a LOMSAC framework [2].
+            Two-sided non-minimal solver by Kukelova et al. embedded in a LOMSAC framework.
+           
+            Solver from [1]_ in a LOMSAC framework [2]_.
             
-            [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
+            .. [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
                 and Pattern Recognition (CVPR), 2015
-            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -576,12 +618,15 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_nakano_icpr_2025_one_sided",
         &lomsac_nakano_icpr_2025_one_sided_wrapper,
         R"pbdoc(
-            Solver from [1] in a LOMSAC framework [2].
+            One-sided solver by Nakano embedded in a LOMSAC framework.
+        
+            Solver from [1]_ in a LOMSAC framework [2]_.
             
-            [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
+            .. [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
                 International Conference on Pattern Recognition (ICPR), 2024.
-            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -591,11 +636,15 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_wadenback_3dv_2026_one_sided",
         &lomsac_wadenback_3dv_2026_one_sided_wrapper,
         R"pbdoc(
-            Solver from [1] in a LOMSAC framework [2].
+            One-sided solver by Wadenback et al. embedded in a LOMSAC framework.
+        
+            Solver from [1]_ in a LOMSAC framework [2]_.
             
-            [1] TODO
-            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+            .. [1] Marten Wadenback, Marcus Valtonen Ornhag, and Johan Edstedt. "Radially Distorted Homographies, Revisited",
+                In the Proceedings of the International Conference on 3D Vision (3DV), 2026.
+            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -606,11 +655,15 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_wadenback_3dv_2026_two_sided_equal",
         &lomsac_wadenback_3dv_2026_two_sided_equal_wrapper,
         R"pbdoc(
-            Solver from [1] in a LOMSAC framework [2].
+            Two-sided and equal solver by Wadenback et al. embedded in a LOMSAC framework.
             
-            [1] TODO
-            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+            Solver from [1]_ in a LOMSAC framework [2]_.
+            
+            .. [1] Marten Wadenback, Marcus Valtonen Ornhag, and Johan Edstedt. "Radially Distorted Homographies, Revisited",
+                In the Proceedings of the International Conference on 3D Vision (3DV), 2026.
+            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                
         )pbdoc",
         "x"_a,
         "y"_a,
@@ -620,11 +673,15 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_wadenback_3dv_2026_two_sided",
         &lomsac_wadenback_3dv_2026_two_sided_wrapper,
         R"pbdoc(
-            Solver from [1] in a LOMSAC framework [2].
+            Two-sided solver by Wadenback et al. embedded in a LOMSAC framework.
             
-            [1] TODO
-            [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+            Solver from [1]_ in a LOMSAC framework [2]_.
+            
+            .. [1] Marten Wadenback, Marcus Valtonen Ornhag, and Johan Edstedt. "Radially Distorted Homographies, Revisited",
+                In the Proceedings of the International Conference on 3D Vision (3DV), 2026.
+            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                
         )pbdoc",
         "x"_a,
         "y"_a,
