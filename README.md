@@ -15,8 +15,6 @@ We further support affine-covariant and orientation-covariant solvers, requiring
 fewer correspondences than their point-based counterparts by leveraging the geometric 
 nformation of the corresponding descriptors.
 
-### Point-based solvers
-
 | Authors (year)                           | #Corrs | Minimal            | Radial distortion coeff. | IMU data           | General homography | Descriptor |
 | ---------------------------------------- | ------ | ------------------ | ------------------------ | ------------------ | ------------------ | ---------- |
 | Fitzgibbon (2001)                        | 5      |                    | :heavy_check_mark: (e)   |                    | :heavy_check_mark: | P          |
