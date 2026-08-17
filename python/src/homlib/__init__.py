@@ -22,8 +22,15 @@ from ._core import (
     lomsac_wadenback_3dv_2026_one_sided,
     lomsac_wadenback_3dv_2026_two_sided_equal,
     lomsac_wadenback_3dv_2026_two_sided,
+    lomsac_nakano_icpr_2025_one_sided_affine
+    lomsac_nakano_icpr_2025_one_sided_ori
+    lomsac_affine_no_dist
     LORansacOptions,
     RansacStatistics,
+    DistortionCase,
+    ProblemConfig,
+    ProblemInstance,
+    generate_problem_instance,
 )
 
 __all__ = [
@@ -48,6 +55,13 @@ __all__ = [
     "lomsac_wadenback_3dv_2026_one_sided",
     "lomsac_wadenback_3dv_2026_two_sided_equal",
     "lomsac_wadenback_3dv_2026_two_sided",
+    "lomsac_nakano_icpr_2025_one_sided_affine",
+    "lomsac_nakano_icpr_2025_one_sided_ori",
+    "lomsac_affine_no_dist",
     "LORansacOptions",
     "RansacStatistics",
+    "DistortionCase",
+    "ProblemConfig",
+    "ProblemInstance",
+    "generate_problem_instance",
 ]
