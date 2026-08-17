@@ -1,23 +1,37 @@
-# Read the Docs configuration file
-# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
-
-# Required
 version: 2
 
-# Set the OS, Python version, and other tools you might need
 build:
-  os: ubuntu-24.04
+  os: ubuntu-22.04
   tools:
-    python: "3.13"
+    python: "3.11"
+  apt_packages:
+    - libeigen3-dev
+    - build-essential
+    - cmake
+  jobs:
+    post_checkout:
+      - git submodule update --init --recursive
+    pre_install:
+      - |
+        set -e
+        echo "Building PoseLib..."
+        git clone https://github.com/PoseLib/PoseLib.git /tmp/poselib
+        cd /tmp/poselib
+        mkdir -p build
+        cd build
+        cmake .. -DCMAKE_INSTALL_PREFIX="$HOME/.local" -DCMAKE_BUILD_TYPE=Release
+        make -j4 install
+        echo "PoseLib installed to $HOME/.local"
 
-# Build documentation in the "docs/" directory with Sphinx
+        # Make CMake find PoseLib later during pip install .
+        mkdir -p "$HOME/.cmake/packages/PoseLib"
+        echo "$HOME/.local/lib/cmake/PoseLib" > "$HOME/.cmake/packages/PoseLib/rtd-build"
+
 sphinx:
-   configuration: docs/conf.py
+  configuration: docs/source/conf.py
 
-# Optionally, but recommended,
-# declare the Python requirements required to build your documentation
-# See https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
 python:
-   install:
-   - requirements: docs/requirements.txt
-        
+  install:
+    - method: pip
+      path: .
+    - requirements: docs/requirements.txt
