@@ -2,6 +2,7 @@
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/marcusvaltonen/HomLib)
 ![GitHub](https://img.shields.io/github/license/marcusvaltonen/HomLib)
 ![PyPI](https://img.shields.io/pypi/v/homlib)
+[![Documentation Status](https://readthedocs.org/projects/homlib/badge/?version=latest)](https://homlib.readthedocs.io/en/latest/?badge=latest)
 
 
 C++ library for computing homographies with support in MATLAB and Python.
@@ -10,24 +11,30 @@ C++ library for computing homographies with support in MATLAB and Python.
 This repository contains the following solvers for computing homographies with
 simultaneous radial distortion correction and/or incorporating IMU data.
 
-| Authors (year)                | Number of points | Minimal            | Radial distortion coeff. | IMU data           | General homography | Separarate intrinsic/extrinsic |
-| ----------------------------- | ---------------- | ------------------ | ------------------------ | ------------------ | ------------------ | ------------------------------ |
-| Fitzgibbon (2001)             | 5                |                    | :heavy_check_mark: (e)   |                    | :heavy_check_mark: |                                |
-|                               | 5                |                    | :heavy_check_mark: (1)   |                    | :heavy_check_mark: |                                |
-| Kukelova et al. (2015)        | 5                | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: |                                |
-|                               | 6                |                    | :heavy_check_mark: (2)   |                    | :heavy_check_mark: |                                |
-| Valtonen Örnhag et al. (2020) | 4                | :heavy_check_mark: |                          | :heavy_check_mark: |                    | :heavy_check_mark:             |
-| Valtonen Örnhag et al. (2021) | 3                | :heavy_check_mark: |                          | :heavy_check_mark: |                    | :heavy_check_mark:             |
-|                               | 4                | :heavy_check_mark: | :heavy_check_mark: (e)   | :heavy_check_mark: |                    | :heavy_check_mark:             |
-| Nakano (2024)                 | 5                | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: |                                |
-| Wadenbäck et al. (2026)       | 5                | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: |                                |
-|                               | 5                | :heavy_check_mark: | :heavy_check_mark: (e)   |                    | :heavy_check_mark: |                                |
-|                               | 5                | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: |                                |
+We further support affine-covariant and orientation-covariant solvers, requiring 
+fewer correspondences than their point-based counterparts by leveraging the geometric 
+nformation of the corresponding descriptors.
 
-We use the following convention for the different cases: (1) - single-sided, (e) two-sided and equal, and (2) two-sided.
+### Point-based solvers
 
-> [!NOTE]
-> New paper to be presented at ICPR 2026. Code is coming soon.
+| Authors (year)                           | #Corrs | Minimal            | Radial distortion coeff. | IMU data           | General homography | Descriptor |
+| ---------------------------------------- | ------ | ------------------ | ------------------------ | ------------------ | ------------------ | ---------- |
+| Fitzgibbon (2001)                        | 5      |                    | :heavy_check_mark: (e)   |                    | :heavy_check_mark: | P          |
+|                                          | 5      |                    | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | P          |
+| Kukelova et al. (2015)                   | 5      | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: | P          |
+|                                          | 6      |                    | :heavy_check_mark: (2)   |                    | :heavy_check_mark: | P          |
+| Valtonen Örnhag et al. (2020)            | 4      | :heavy_check_mark: |                          | :heavy_check_mark: |                    | P          |
+| Valtonen Örnhag et al. (2021)            | 3      | :heavy_check_mark: |                          | :heavy_check_mark: |                    | P          |
+|                                          | 4      | :heavy_check_mark: | :heavy_check_mark: (e)   | :heavy_check_mark: |                    | P          |
+| Nakano (2024)                            | 5      | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | P          |
+| Wadenbäck et al. (2026)                  | 5      | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | P          |
+|                                          | 5      | :heavy_check_mark: | :heavy_check_mark: (e)   |                    | :heavy_check_mark: | P          |
+|                                          | 5      | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: | P          |
+| Valtonen Örnhag and Adalbjörnsson (2026) | 2      |                    | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | A          |
+|                                          | 3      | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | O          |
+
+We use the following convention for the different distortion cases: (1) - single-sided, (e) two-sided and equal, and (2) two-sided.
+The following descriptor types: (P) - point-based, (A) affine-covariant, and (O) orientation-covariant.
 
 The solvers by Valtonen Örnhag et al. and Wadenbäck et al. are original implementations, the
 others are re-implementations. If you use the code in your work, please cite
