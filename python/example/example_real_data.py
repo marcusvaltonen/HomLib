@@ -1,6 +1,6 @@
 """
-Homography estimation with radial distortion using homlib
-===========================================================
+Homography estimation with radial distortion
+============================================
 
 This example demonstrates:
 
@@ -10,11 +10,8 @@ This example demonstrates:
 4. Comparing the results visually and numerically against ground truth.
 5. Using AffNet + HardNet features and affine correspondences.
 
-The example assumes that the files ``img/grafA.png``, ``img/grafB.png`` and
-``img/graf_model.txt`` are available in the working directory.
 """
 
-import os
 import random
 import ctypes
 from time import time
@@ -26,18 +23,17 @@ import matplotlib.pyplot as plt
 import homlib
 
 
-# -----------------------------------------------------------------------------
+###############################################################################
 # Constants / Configuration
-# -----------------------------------------------------------------------------
 
 IMAGE1_PATH = 'img/grafA.png'
 IMAGE2_PATH = 'img/grafB.png'
 GT_HOMOGRAPHY_PATH = 'img/graf_model.txt'
 
-DESIRED_KEYPOINTS = 8000          # maximum number of SIFT keypoints
-DIST_COEFF_GT = -0.000003         # ground-truth radial distortion coefficient
+DESIRED_KEYPOINTS = 8000          # Maximum number of SIFT keypoints
+DIST_COEFF_GT = -0.000003         # Ground-truth radial distortion coefficient
 SNN_THRESHOLD = 0.8               # Lowe's ratio‑test threshold
-INLIER_THRESHOLD = 3.0            # pixel reprojection error for RANSAC
+INLIER_THRESHOLD = 3.0            # Pixel reprojection error for RANSAC
 
 # Create a reproducible but random seed
 RANDOM_SEED = random.randint(0, ctypes.c_uint32(-1).value)
@@ -49,12 +45,11 @@ RANSAC_OPTIONS.final_least_squares = True
 RANSAC_OPTIONS.random_seed = RANDOM_SEED
 RANSAC_OPTIONS.lo_starting_iterations = 8
 RANSAC_OPTIONS.min_num_iterations = 70
-RANSAC_OPTIONS.max_num_iterations = 70
+RANSAC_OPTIONS.max_num_iterations = 500
 
 
-# -----------------------------------------------------------------------------
+###############################################################################
 # Image loading and pre‑processing
-# -----------------------------------------------------------------------------
 
 def load_images(img1_path, img2_path, dist_coeff):
     """Load the two images, apply radial distortion to the first one, and return RGB versions."""
@@ -86,9 +81,24 @@ def load_ground_truth_homography(path):
     return np.linalg.inv(np.loadtxt(path))
 
 
-# -----------------------------------------------------------------------------
+###############################################################################
+# Let us look at the images we are working with
+
+img1, img2 = load_images(IMAGE1_PATH, IMAGE2_PATH, DIST_COEFF_GT)
+H_gt = load_ground_truth_homography(GT_HOMOGRAPHY_PATH)
+
+# Display original images (optional)
+plt.figure()
+plt.imshow(img1)
+plt.title('Image 1 (distorted)')
+plt.figure()
+plt.imshow(img2)
+plt.title('Image 2')
+
+
+###########################################################################
 # Feature detection and matching
-# -----------------------------------------------------------------------------
+
 
 def detect_and_match_sift(img1, img2, max_kpts=DESIRED_KEYPOINTS):
     """
@@ -117,9 +127,8 @@ def detect_and_match_sift(img1, img2, max_kpts=DESIRED_KEYPOINTS):
     return kps1, kps2, descs1, descs2, good_matches
 
 
-# -----------------------------------------------------------------------------
+#########################
 # Visualization utilities
-# -----------------------------------------------------------------------------
 
 def decolorize(img):
     """Convert an RGB image to grayscale and back to RGB (for drawing)."""
@@ -164,9 +173,8 @@ def draw_matches(kps1, kps2, tentatives, img1, img2, H, H_gt, mask, title=""):
     plt.axis('off')
 
 
-# -----------------------------------------------------------------------------
+###############################
 # Homography estimation helpers
-# -----------------------------------------------------------------------------
 
 def center_points_and_get_transforms(points, width, height):
     """
@@ -225,9 +233,10 @@ def print_estimation_results(method_name, estimate, stats, H, H_gt):
     print(f"Dist. coeff. error = {abs(estimate.distortion_parameter - DIST_COEFF_GT):.4e}")
 
 
-# -----------------------------------------------------------------------------
-# Estimation wrappers
-# -----------------------------------------------------------------------------
+#######################
+# Let us first try OpenCV, which does not handle radial distortion.
+# --- SIFT + BFMatcher + ratio test ---
+kps1, kps2, _, _, tentatives = detect_and_match_sift(img1, img2)
 
 def verify_cv2(kps1, kps2, tentatives, H_gt, inlier_thresh=INLIER_THRESHOLD):
     """Estimate homography with OpenCV RANSAC."""
@@ -240,6 +249,15 @@ def verify_cv2(kps1, kps2, tentatives, H_gt, inlier_thresh=INLIER_THRESHOLD):
     print(f"H error = {homography_error(H, H_gt):.4e}")
     return H, mask
 
+t = time()
+cv2_H, cv2_mask = verify_cv2(kps1, kps2, tentatives, H_gt)
+print(f"{time() - t:.3f} sec (OpenCV RANSAC)\n")
+draw_matches(kps1, kps2, tentatives, img1, img2, cv2_H, H_gt, cv2_mask,
+             title='OpenCV RANSAC')
+
+#######################
+# The results are not terrible, but there is room for improvement. Let us take a look at
+# the homlib versions.
 
 def verify_homlib_point(kps1, kps2, tentatives, H_gt,
                         width1, height1, width2, height2,
@@ -252,11 +270,13 @@ def verify_homlib_point(kps1, kps2, tentatives, H_gt,
     src_centered, T1, _ = center_points_and_get_transforms(src_pts, width1, height1)
     dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts, width2, height2)
 
+    # This routine assumes the left images is distorted, hence switch places with src and dst
     estimate, stats = homlib.lomsac_nakano_icpr_2025_one_sided(
-        src_centered, dst_centered, options
+        dst_centered, src_centered, options
     )
 
-    H = denormalize_homography(estimate.homography, T1, T2_inv)
+    # Since we swapped dst and src, we seek the inverse
+    H = denormalize_homography(np.linalg.inv(estimate.homography), T1, T2_inv)
 
     mask = np.array([i in stats.inlier_indices for i in range(len(tentatives))], dtype=np.uint8)
 
@@ -291,16 +311,40 @@ def verify_homlib_ori(kps1, kps2, tentatives, H_gt,
     return H, mask
 
 
+# --- 2. homlib: point‑based, one‑sided radial distortion ---
+t = time()
+homlib_H, homlib_mask = verify_homlib_point(
+    kps1, kps2, tentatives, H_gt,
+    img1.shape[1], img1.shape[0], img2.shape[1], img2.shape[0]
+)
+print(f"{time() - t:.3f} sec (homlib point)\n")
+draw_matches(kps1, kps2, tentatives, img1, img2, homlib_H, H_gt, homlib_mask,
+             title='homlib point')
+
+# --- 3. homlib: point + orientation ---
+t = time()
+homlib_H_ori, homlib_mask_ori = verify_homlib_ori(
+    kps1, kps2, tentatives, H_gt,
+    img1.shape[1], img1.shape[0], img2.shape[1], img2.shape[0]
+)
+print(f"{time() - t:.3f} sec (homlib orientation)\n")
+draw_matches(kps1, kps2, tentatives, img1, img2, homlib_H_ori, H_gt, homlib_mask_ori,
+             title='homlib orientation')
+
+############################################################
+# We can use affine features too. Let's compute them first.
+
+
 def verify_homlib_affine(src_pts, dst_pts, A, tentatives, H_gt,
                          width1, height1, width2, height2,
                          options=RANSAC_OPTIONS):
     """Estimate homography using affine correspondences (ACs)."""
     # src_pts and dst_pts are 2xN arrays
-    src_centered, T1, _ = center_points_and_get_transforms(src_pts, width1, height1)
-    dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts, width2, height2)
+    src_centered, T1, _ = center_points_and_get_transforms(src_pts.T, width1, height1)
+    dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts.T, width2, height2)
 
     estimate, stats = homlib.lomsac_nakano_icpr_2025_one_sided_affine(
-        src_centered, dst_centered, A, options
+        src_centered, dst_centered, A.T, options
     )
 
     H = denormalize_homography(estimate.homography, T1, T2_inv)
@@ -387,89 +431,35 @@ def get_affine_correspondences(lafs1, lafs2, tentatives):
         ACs[row, 3] = A[1, 1]
     return xs, ys, ACs
 
+# --- 4. AffNet + HardNet features & affine correspondences ---
+lafs1, descs1, lafs2, descs2 = compute_affnet_hardnet_features(
+    img1, img2, DESIRED_KEYPOINTS
+)
 
-# -----------------------------------------------------------------------------
-# Main execution
-# -----------------------------------------------------------------------------
+# Match descriptors with ratio test
+bf = cv2.BFMatcher()
+knn_matches = bf.knnMatch(descs1, descs2, k=2)
+tentatives_aff = []
+for m, n in knn_matches:
+    if m.distance < SNN_THRESHOLD * n.distance:
+        tentatives_aff.append(m)
 
-def main():
-    # Load images and ground truth
-    img1, img2 = load_images(IMAGE1_PATH, IMAGE2_PATH, DIST_COEFF_GT)
-    H_gt = load_ground_truth_homography(GT_HOMOGRAPHY_PATH)
+# Convert LAFs to affine correspondences
+xs, ys, A = get_affine_correspondences(lafs1, lafs2, tentatives_aff)
 
-    # Display original images (optional)
-    plt.figure()
-    plt.imshow(img1)
-    plt.title('Image 1 (distorted)')
-    plt.figure()
-    plt.imshow(img2)
-    plt.title('Image 2')
+t = time()
+homlib_aff_H, homlib_aff_mask = verify_homlib_affine(
+    xs, ys, A, tentatives_aff, H_gt,
+    img1.shape[1], img1.shape[0], img2.shape[1], img2.shape[0]
+)
+print(f"{time() - t:.3f} sec (homlib affine)\n")
 
-    # --- SIFT + BFMatcher + ratio test ---
-    kps1, kps2, _, _, tentatives = detect_and_match_sift(img1, img2)
+# For visualization, create keypoints from LAF centroids
+kps1_aff, kps2_aff = get_laf_centroids(lafs1, lafs2)
+# Convert to cv2.KeyPoint objects for draw_matches
+kps1_aff_cv = tuple(cv2.KeyPoint(x, y, 1) for x, y in kps1_aff)
+kps2_aff_cv = tuple(cv2.KeyPoint(x, y, 1) for x, y in kps2_aff)
 
-    # --- 1. OpenCV RANSAC ---
-    t = time()
-    cv2_H, cv2_mask = verify_cv2(kps1, kps2, tentatives, H_gt)
-    print(f"{time() - t:.3f} sec (OpenCV RANSAC)\n")
-    draw_matches(kps1, kps2, tentatives, img1, img2, cv2_H, H_gt, cv2_mask,
-                 title='OpenCV RANSAC')
-
-    # --- 2. homlib: point‑based, one‑sided radial distortion ---
-    t = time()
-    homlib_H, homlib_mask = verify_homlib_point(
-        kps1, kps2, tentatives, H_gt,
-        img1.shape[1], img1.shape[0], img2.shape[1], img2.shape[0]
-    )
-    print(f"{time() - t:.3f} sec (homlib point)\n")
-    draw_matches(kps1, kps2, tentatives, img1, img2, homlib_H, H_gt, homlib_mask,
-                 title='homlib point')
-
-    # --- 3. homlib: point + orientation ---
-    t = time()
-    homlib_H_ori, homlib_mask_ori = verify_homlib_ori(
-        kps1, kps2, tentatives, H_gt,
-        img1.shape[1], img1.shape[0], img2.shape[1], img2.shape[0]
-    )
-    print(f"{time() - t:.3f} sec (homlib orientation)\n")
-    draw_matches(kps1, kps2, tentatives, img1, img2, homlib_H_ori, H_gt, homlib_mask_ori,
-                 title='homlib orientation')
-
-    # --- 4. AffNet + HardNet features & affine correspondences ---
-    lafs1, descs1, lafs2, descs2 = compute_affnet_hardnet_features(
-        img1, img2, DESIRED_KEYPOINTS
-    )
-
-    # Match descriptors with ratio test
-    bf = cv2.BFMatcher()
-    knn_matches = bf.knnMatch(descs1, descs2, k=2)
-    tentatives_aff = []
-    for m, n in knn_matches:
-        if m.distance < SNN_THRESHOLD * n.distance:
-            tentatives_aff.append(m)
-
-    # Convert LAFs to affine correspondences
-    xs, ys, A = get_affine_correspondences(lafs1, lafs2, tentatives_aff)
-
-    t = time()
-    homlib_aff_H, homlib_aff_mask = verify_homlib_affine(
-        xs, ys, A, tentatives_aff, H_gt,
-        img1.shape[1], img1.shape[0], img2.shape[1], img2.shape[0]
-    )
-    print(f"{time() - t:.3f} sec (homlib affine)\n")
-
-    # For visualization, create keypoints from LAF centroids
-    kps1_aff, kps2_aff = get_laf_centroids(lafs1, lafs2)
-    # Convert to cv2.KeyPoint objects for draw_matches
-    kps1_aff_cv = tuple(cv2.KeyPoint(x, y, 1) for x, y in kps1_aff)
-    kps2_aff_cv = tuple(cv2.KeyPoint(x, y, 1) for x, y in kps2_aff)
-
-    draw_matches(kps1_aff_cv, kps2_aff_cv, tentatives_aff,
-                 img1, img2, homlib_aff_H, H_gt, homlib_aff_mask,
-                 title='homlib affine')
-
-    plt.show()
-
-
-if __name__ == '__main__':
-    main()
+draw_matches(kps1_aff_cv, kps2_aff_cv, tentatives_aff,
+             img1, img2, homlib_aff_H, H_gt, homlib_aff_mask,
+             title='homlib affine')
