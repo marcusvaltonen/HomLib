@@ -27,12 +27,14 @@
 #include <algorithm>
 #include <iterator>
 #include <stdlib.h>
+#include "get_barath_visapp_2016.hpp"
 #include "get_fitzgibbon_cvpr_2001.hpp"
 #include "get_kukelova_cvpr_2015.hpp"
 #include "get_nakano_icpr_2025.hpp"
 // #include "get_valtonenornhag_icpr_2020.hpp"
 // #include "get_valtonenornhag_wacv_2021.hpp"
 #include "get_wadenback_3dv_2026.hpp"
+#include "get_valtonenornhag_icpr_2026.hpp"
 #include "problem_instance.hpp"
 #include "generate_problem_instance.hpp"
 #include "posedata.hpp"
@@ -98,7 +100,21 @@ struct SolverWadenbackOne {
         return HomLib::Wadenback3DV2026::get_one_sided(inst.x1, inst.x2, false);
     }   
 };
-
+struct SolverAffineNoDist {
+    static inline std::vector<HomLib::PoseData> solve(const HomLib::ProblemInstance inst) {
+        return HomLib::BarathVISAPP2016::get_affine(inst.x1, inst.x2, inst.A);
+    }
+};
+struct SolverAffineWithDist {
+    static inline std::vector<HomLib::PoseData> solve(const HomLib::ProblemInstance inst) {
+        return HomLib::ValtonenOrnhagICPR2026::get_affine(inst.x1, inst.x2, inst.A, false);
+    }
+};
+struct SolverOrientation {
+    static inline std::vector<HomLib::PoseData> solve(const HomLib::ProblemInstance inst) {
+        return HomLib::ValtonenOrnhagICPR2026::get_ori(inst.x1, inst.x2, inst.ori);
+    }
+};
 
 template <typename T> void print_csv_file(std::string name, std::vector<T> v) {
     std::ofstream fd(name);
@@ -142,11 +158,7 @@ template <typename Solver> BenchmarkResults benchmark_solver(HomLib::ProblemConf
         for (size_t j = 0; j < pd.size(); j++)
         {
             hom_err_put.push_back(inst.hom_error(pd[j].homography));
-            if (config.one_sided || config.equal) {
-                dist_err_put.push_back(inst.dist_error(pd[j].distortion_parameter));
-            } else {
-                dist_err_put.push_back(inst.dist_error(pd[j].distortion_parameter, pd[j].distortion_parameter2));
-            }
+            dist_err_put.push_back(inst.dist_error(pd[j].distortion_parameter, pd[j].distortion_parameter2));
         }
         
         // Handle case when no solution is found
@@ -199,8 +211,8 @@ int main(int argc, char *argv[]) {
     std::cout << "================================== BENCHMARKING ==================================" << std::endl;
     std::cout << "nbr_iter = " << nbr_iter << " and point_noise = " << point_noise << std::endl;
     std::cout << "\nDOUBLE (NOT EQUAL)" << std::endl;
-    config.one_sided = false;
-    config.equal = false;
+    
+    config.distortion = HomLib::DistortionCase::TWO_SIDED;
 
     std::cout << "Kukelova et al., CVPR 2015 (5 pt)" << std::endl;
     br = benchmark_solver<SolverKukelova>(config, nbr_iter);
@@ -220,8 +232,7 @@ int main(int argc, char *argv[]) {
         print_files(br, point_noise, "wadenback_two_sided");
 
     std::cout << "\nDOUBLE (EQUAL)" << std::endl;
-    config.one_sided = false;
-    config.equal = true;
+    config.distortion = HomLib::DistortionCase::TWO_SIDED_EQUAL;
     
     std::cout << "Fitzgibbon, CVPR 2001 (5 pt)" << std::endl;   
     br = benchmark_solver<SolverFitzgibbon>(config, nbr_iter);
@@ -246,8 +257,7 @@ int main(int argc, char *argv[]) {
         print_files(br, point_noise, "wadenback_two_sided_equal");
  
     std::cout << "\nSINGLE" << std::endl;
-    config.one_sided = true;  // Does not matter
-    config.equal = true;
+    config.distortion = HomLib::DistortionCase::ONE_SIDED_LEFT;
     
     std::cout << "Nakano 2025, ICPR 2025 (4.5 pt)" << std::endl;
     br = benchmark_solver<SolverNakano>(config, nbr_iter);
@@ -263,10 +273,41 @@ int main(int argc, char *argv[]) {
     br = benchmark_solver<SolverWadenbackOne>(config, nbr_iter);
     if (print_to_file)
         print_files(br, point_noise, "wadenback_one_sided");
+
+
+    // Affine solvers
+    config.number_points = 2;
+    config.distortion = HomLib::DistortionCase::NO_DISTORTION;
+
+    std::cout << "Affine no dist (Barath et al.)" << std::endl;
+    br = benchmark_solver<SolverAffineNoDist>(config, nbr_iter);
+    if (print_to_file)
+        print_files(br, point_noise, "affine_no_dist");
+
+    std::cout << "Affine dist (Valtonen Ornhag, ICPR 2026) - no dist added" << std::endl;
+    br = benchmark_solver<SolverAffineWithDist>(config, nbr_iter);
+    if (print_to_file)
+        print_files(br, point_noise, "affine_dist_no_dist");
+
+    config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
+
+    std::cout << "Affine dist (Valtonen Ornhag, ICPR 2026)" << std::endl;
+    br = benchmark_solver<SolverAffineWithDist>(config, nbr_iter);
+    if (print_to_file)
+        print_files(br, point_noise, "affine_dist");
+
+    // Orientation solver
+    std::cout << "Orientation" << std::endl;
+    config.number_points = 4;
+
+    br = benchmark_solver<SolverOrientation>(config, nbr_iter);
+    if (print_to_file)
+        print_files(br, point_noise, "ori");
     
     std::cout << "\n\nNOTE: Errors are log10" << std::endl;
 
-    std::cout << "\n\nTesting nonlinear refinement - one sided" << std::endl;
+    std::cout << "\n\n==== Testing JACOBIANS ====" << std::endl;
+    std::cout << "\n\nTesting nonlinear refinement - one sided left" << std::endl;
     config.number_points = 12;
     HomLib::ProblemInstance inst = HomLib::generate_problem_instance(config);
     
@@ -274,7 +315,36 @@ int main(int argc, char *argv[]) {
     
     HomLib::PoseData pd;
     pd.homography = inst.posedata.homography;
-    pd.distortion_parameter = inst.posedata.distortion_parameter2;
+    pd.distortion_parameter = 0.0;
+    pd.distortion_parameter2 = inst.posedata.distortion_parameter2;
+
+    pd.homography(0,0) += 0.001;
+    pd.homography(1,0) -= 0.001;
+    pd.homography(2,0) += 0.002;
+    pd.homography(0,1) += 0.001;
+    pd.homography(1,1) += 0.001;
+    pd.homography(2,1) -= 0.001;
+    pd.homography(0,2) -= 0.0001;
+    pd.homography(1,2) += 0.002;
+    pd.homography(2,2) += 0.001;
+    pd.distortion_parameter2 -= 0.0005;
+
+    double error_before = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter, pd.distortion_parameter2);
+    std::cout << "before error: " << error_before << std::endl;
+    HomLib::refinement_onesided(inst.x1, inst.x2, pd);
+    double error_after = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter, pd.distortion_parameter2);
+    std::cout << "before after: " << error_after << std::endl;
+    
+    std::cout << "\n\nTesting nonlinear refinement - one sided right" << std::endl;
+    config.number_points = 12;
+    config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
+    inst = HomLib::generate_problem_instance(config);
+    
+    std::cout << "Number of points: " << inst.x1.size() << std::endl;
+
+    pd.homography = inst.posedata.homography;
+    pd.distortion_parameter = inst.posedata.distortion_parameter;
+    pd.distortion_parameter2 = 0.0;
 
     pd.homography(0,0) += 0.001;
     pd.homography(1,0) -= 0.001;
@@ -287,16 +357,15 @@ int main(int argc, char *argv[]) {
     pd.homography(2,2) += 0.001;
     pd.distortion_parameter -= 0.0005;
 
-    double error_before = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter);
+    error_before = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter, pd.distortion_parameter2);
     std::cout << "before error: " << error_before << std::endl;
-    HomLib::refinement_onesided(inst.x1, inst.x2, pd);
-    double error_after = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter);
+    HomLib::refinement_onesided_right(inst.x1, inst.x2, pd);
+    error_after = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter, pd.distortion_parameter2);
     std::cout << "before after: " << error_after << std::endl;
 
     std::cout << "\n\nTesting nonlinear refinement - two sided equal" << std::endl;
     config.number_points = 12;
-    config.one_sided = false;
-    config.equal = true;
+    config.distortion = HomLib::DistortionCase::TWO_SIDED_EQUAL;
     inst = HomLib::generate_problem_instance(config);
 
     std::cout << "Number of points: " << inst.x1.size() << std::endl;
@@ -314,17 +383,17 @@ int main(int argc, char *argv[]) {
     pd.homography(1,2) += 0.002;
     pd.homography(2,2) += 0.001;
     pd.distortion_parameter -= 0.0005;
+    pd.distortion_parameter2 -= 0.0005;
 
-    error_before = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter);
+    error_before = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter, pd.distortion_parameter2);
     std::cout << "before error: " << error_before << std::endl;
     HomLib::refinement_twosided_equal(inst.x1, inst.x2, pd);
-    error_after = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter);
+    error_after = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter, pd.distortion_parameter2);
     std::cout << "before after: " << error_after << std::endl;
 
     std::cout << "\n\nTesting nonlinear refinement - two sided" << std::endl;
     config.number_points = 12;
-    config.one_sided = false;
-    config.equal = false;
+    config.distortion = HomLib::DistortionCase::TWO_SIDED;
     inst = HomLib::generate_problem_instance(config);
 
     std::cout << "Number of points: " << inst.x1.size() << std::endl;
@@ -351,5 +420,92 @@ int main(int argc, char *argv[]) {
     error_after = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter, pd.distortion_parameter2);
     std::cout << "before after: " << error_after << std::endl;
 
+    std::cout << "\n\nTesting nonlinear refinement - no dist" << std::endl;
+    config.number_points = 12;
+    config.distortion = HomLib::DistortionCase::NO_DISTORTION;
+    inst = HomLib::generate_problem_instance(config);
+
+    std::cout << "Number of points: " << inst.x1.size() << std::endl;
+    
+    pd.homography = inst.posedata.homography;
+    pd.distortion_parameter = inst.posedata.distortion_parameter;
+    pd.distortion_parameter2 = inst.posedata.distortion_parameter2;
+
+    pd.homography(0,0) += 0.001;
+    pd.homography(1,0) -= 0.001;
+    pd.homography(2,0) += 0.002;
+    pd.homography(0,1) += 0.001;
+    pd.homography(1,1) += 0.001;
+    pd.homography(2,1) -= 0.001;
+    pd.homography(0,2) -= 0.0001;
+    pd.homography(1,2) += 0.002;
+    pd.homography(2,2) += 0.001;
+
+    error_before = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter, pd.distortion_parameter2);
+    std::cout << "before error: " << error_before << std::endl;
+    HomLib::refinement_no_dist(inst.x1, inst.x2, pd);
+    error_after = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter, pd.distortion_parameter2);
+    std::cout << "before after: " << error_after << std::endl;
+
+    std::cout << "\n\n==== Testing Guo's method vs DLT ====" << std::endl;
+    config.number_points = 4;
+    config.distortion = HomLib::DistortionCase::NO_DISTORTION;
+    inst = HomLib::generate_problem_instance(config);
+    
+    int n_prob = 1e4;
+    
+    std::vector<long> runtimes_guo;
+    runtimes_guo.reserve(n_prob);
+    std::vector<double> err_guo;
+    err_guo.reserve(n_prob);
+    std::vector<long> runtimes_dlt;
+    runtimes_dlt.reserve(n_prob);
+    std::vector<double> err_dlt;
+    err_dlt.reserve(n_prob);
+
+    
+    for (int i = 0; i < n_prob; i++) {
+        auto start = std::chrono::high_resolution_clock::now();
+        Eigen::Matrix3d H1 = HomLib::Wadenback3DV2026::homography_4pt_guo(inst.x1, inst.x2);
+        auto end = std::chrono::high_resolution_clock::now();
+        runtimes_guo.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
+        err_guo.push_back(inst.hom_error(H1));
+        Eigen::Matrix3d H2;
+        
+        std::vector<Eigen::Vector3d> x1, x2;
+        Eigen::Vector3d tmp;
+        for (int i = 0; i < 4; i++) {
+            tmp = inst.x1[i].homogeneous();
+            x1.push_back(tmp);
+            tmp = inst.x2[i].homogeneous();
+            x2.push_back(tmp);
+        }
+        start = std::chrono::high_resolution_clock::now();
+        poselib::homography_4pt(x1, x2, &H2, false);
+        end = std::chrono::high_resolution_clock::now();
+        runtimes_dlt.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
+        err_dlt.push_back(inst.hom_error(H2));
+    }
+    
+    std::sort(runtimes_guo.begin(), runtimes_guo.end());
+    long runtime_guo_median = runtimes_guo[runtimes_guo.size() / 2];
+    std::sort(err_guo.begin(), err_guo.end());
+    double err_guo_median = err_guo[err_guo.size() / 2];
+    
+    std::sort(runtimes_dlt.begin(), runtimes_dlt.end());
+    long runtime_dlt_median = runtimes_dlt[runtimes_dlt.size() / 2];
+    std::sort(err_dlt.begin(), err_dlt.end());
+    double err_dlt_median = err_dlt[err_dlt.size() / 2];
+    
+    
+    std::cout << "Guo's method:" << std::endl;
+    std::cout << "\tMedian execution time: " << runtime_guo_median << " ns" << std::endl;
+    std::cout << "\tHomography error: " << err_guo_median << " (median)" << std::endl;
+    std::cout << "DLT  method:" << std::endl;
+    std::cout << "\tMedian execution time: " << runtime_dlt_median << " ns" << std::endl;
+    std::cout << "\tHomography error: " << err_dlt_median << " (median)" << std::endl;
+
+
+    
     return 0;
 }

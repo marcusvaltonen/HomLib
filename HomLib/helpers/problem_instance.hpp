@@ -27,10 +27,21 @@
 #include "posedata.hpp"
 
 namespace HomLib {
+
+enum DistortionCase {
+    NO_DISTORTION,
+    ONE_SIDED_LEFT,
+    ONE_SIDED_RIGHT,
+    TWO_SIDED_EQUAL,
+    TWO_SIDED
+}; 
+
 struct ProblemInstance {
     HomLib::PoseData posedata;
     std::vector<Eigen::Vector2d> x1;
     std::vector<Eigen::Vector2d> x2;
+    std::vector<Eigen::Matrix2d> A;
+    std::vector<Eigen::Vector2d> ori;
 
     double hom_error(const Eigen::Matrix3d &H_est) const
     {   
@@ -44,29 +55,21 @@ struct ProblemInstance {
     }
     double dist_error(double k1_est, double k2_est) const
     {   
-        // Computes the algebraic mean (makes more sense to me..)
-        // return std::sqrt(std::abs(posedata.distortion_parameter-k1_est) * std::abs(posedata.distortion_parameter2-k2_est));
-        return 0.5 * (std::abs(posedata.distortion_parameter-k1_est) + std::abs(posedata.distortion_parameter2-k2_est));
-    }
-    double dist_error(double k_est) const
-    {   
-        // In case of one-sided k1 = 0.0, so it is always safe to use k2.
-        return std::abs(posedata.distortion_parameter2-k_est);
+        return 0.5*(std::abs(posedata.distortion_parameter-k1_est) + std::abs(posedata.distortion_parameter2-k2_est));
     }
 };
 
 struct ProblemConfig {
-    bool one_sided;
-    bool equal;
+    DistortionCase distortion;
     double point_noise;
     int number_points;
     double camera_fov_ = 70.0;
     double min_depth_ = 0.1;
     double max_depth_ = 10.0;
-    double min_focal_ = 1000.0;
+    double min_focal_ = 100.0;
     double max_focal_ = 1000.0;
-    double min_dist_ = -0.3;
-    double max_dist_ = -0.3;
+    double min_dist_ = -0.2;
+    double max_dist_ = -0.01;
     bool no_distortion = false;
 };
 }
