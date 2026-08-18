@@ -280,7 +280,7 @@ def verify_homlib_point(kps1, kps2, tentatives, H_gt,
 
     mask = np.array([i in stats.inlier_indices for i in range(len(tentatives))], dtype=np.uint8)
 
-    print_estimation_results("point method", estimate, stats, H, H_gt)
+    print_estimation_results("point method", estimate.distortion_parameter2, H, H_gt)
     return H, mask
 
 
@@ -299,7 +299,7 @@ def verify_homlib_ori(kps1, kps2, tentatives, H_gt,
     src_centered, T1, _ = center_points_and_get_transforms(src_pts, width1, height1)
     dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts, width2, height2)
 
-    estimate, stats = homlib.lomsac_nakano_icpr_2025_one_sided_ori(
+    estimate, stats = homlib.lomsac_valtonenornhag_icpr_2026_one_sided_ori(
         src_centered, dst_centered, ori, options
     )
 
@@ -307,7 +307,7 @@ def verify_homlib_ori(kps1, kps2, tentatives, H_gt,
 
     mask = np.array([i in stats.inlier_indices for i in range(len(tentatives))], dtype=np.uint8)
 
-    print_estimation_results("orientation method", estimate, stats, H, H_gt)
+    print_estimation_results("orientation method", estimate.distortion_parameter, H, H_gt)
     return H, mask
 
 
@@ -343,7 +343,7 @@ def verify_homlib_affine(src_pts, dst_pts, A, tentatives, H_gt,
     src_centered, T1, _ = center_points_and_get_transforms(src_pts.T, width1, height1)
     dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts.T, width2, height2)
 
-    estimate, stats = homlib.lomsac_nakano_icpr_2025_one_sided_affine(
+    estimate, stats = homlib.lomsac_valtonenornhag_icpr_2026_one_sided_affine(
         src_centered, dst_centered, A.T, options
     )
 
@@ -351,7 +351,7 @@ def verify_homlib_affine(src_pts, dst_pts, A, tentatives, H_gt,
 
     mask = np.array([i in stats.inlier_indices for i in range(len(tentatives))], dtype=np.uint8)
 
-    print_estimation_results("affine method", estimate, stats, H, H_gt)
+    print_estimation_results("affine method", estimate.distortion_parameter, H, H_gt)
     return H, mask
 
 
