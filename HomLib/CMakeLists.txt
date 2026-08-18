@@ -6,16 +6,17 @@ set(SRCS
     helpers/radial.cpp
     helpers/roots.cpp
     robust/refinement.cpp
+    solvers/barath_visapp_2016/get_barath_visapp_2016_affine.cpp
     solvers/fitzgibbon_cvpr_2001/get_fitzgibbon_cvpr_2001.cpp
     solvers/fitzgibbon_cvpr_2001/get_fitzgibbon_cvpr_2001_single.cpp
     solvers/kukelova_cvpr_2015/get_kukelova_cvpr_2015.cpp
     solvers/kukelova_cvpr_2015/get_kukelova_cvpr_2015_6pt.cpp
     solvers/kukelova_cvpr_2015/solver_kukelova_cvpr_2015.cpp
     solvers/nakano_icpr_2025/get_nakano_icpr_2025.cpp
-    solvers/nakano_icpr_2025/get_nakano_icpr_2025_affine.cpp
-    solvers/nakano_icpr_2025/get_nakano_icpr_2025_ori.cpp
     solvers/valtonenornhag_icpr_2020/get_valtonenornhag_icpr_2020_fHf.cpp
     solvers/valtonenornhag_icpr_2020/solver_valtonenornhag_icpr_2020_fHf.cpp
+    solvers/valtonenornhag_icpr_2026/get_valtonenornhag_icpr_2026_affine.cpp
+    solvers/valtonenornhag_icpr_2026/get_valtonenornhag_icpr_2026_ori.cpp
     solvers/valtonenornhag_wacv_2021/get_valtonenornhag_wacv_2021_fHf.cpp
     solvers/valtonenornhag_wacv_2021/get_valtonenornhag_wacv_2021_frHfr.cpp
     solvers/valtonenornhag_wacv_2021/solver_valtonenornhag_wacv_2021_fHf.cpp

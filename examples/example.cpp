@@ -27,12 +27,14 @@
 #include <algorithm>
 #include <iterator>
 #include <stdlib.h>
+#include "get_barath_visapp_2016.hpp"
 #include "get_fitzgibbon_cvpr_2001.hpp"
 #include "get_kukelova_cvpr_2015.hpp"
 #include "get_nakano_icpr_2025.hpp"
 // #include "get_valtonenornhag_icpr_2020.hpp"
 // #include "get_valtonenornhag_wacv_2021.hpp"
 #include "get_wadenback_3dv_2026.hpp"
+#include "get_valtonenornhag_icpr_2026.hpp"
 #include "problem_instance.hpp"
 #include "generate_problem_instance.hpp"
 #include "posedata.hpp"
@@ -100,17 +102,17 @@ struct SolverWadenbackOne {
 };
 struct SolverAffineNoDist {
     static inline std::vector<HomLib::PoseData> solve(const HomLib::ProblemInstance inst) {
-        return HomLib::NakanoICPR2025::get_affine_no_dist(inst.x1, inst.x2, inst.A);
+        return HomLib::BarathVISAPP2016::get_affine(inst.x1, inst.x2, inst.A);
     }
 };
 struct SolverAffineWithDist {
     static inline std::vector<HomLib::PoseData> solve(const HomLib::ProblemInstance inst) {
-        return HomLib::NakanoICPR2025::get_affine(inst.x1, inst.x2, inst.A, false);
+        return HomLib::ValtonenOrnhagICPR2026::get_affine(inst.x1, inst.x2, inst.A, false);
     }
 };
 struct SolverOrientation {
     static inline std::vector<HomLib::PoseData> solve(const HomLib::ProblemInstance inst) {
-        return HomLib::NakanoICPR2025::get_ori(inst.x1, inst.x2, inst.ori);
+        return HomLib::ValtonenOrnhagICPR2026::get_ori(inst.x1, inst.x2, inst.ori);
     }
 };
 

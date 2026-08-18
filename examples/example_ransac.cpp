@@ -21,6 +21,7 @@
 #include "get_fitzgibbon_cvpr_2001.hpp"
 #include "get_nakano_icpr_2025.hpp"
 #include "get_wadenback_3dv_2026.hpp"
+#include "get_valtonenornhag_icpr_2026.hpp"
 #include "get_kukelova_cvpr_2015.hpp"
 
 #include "ransac_estimator.h"
@@ -403,13 +404,13 @@ int main(int argc, char *argv[]) {
     std::cout << "======== AFFINE and ORI ========" << std::endl;
     config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
 
-    HomLib::NakanoICPR2025::AffineSolverSingleSided estimator_affine_dist;
+    HomLib::ValtonenOrnhagICPR2026::AffineSolverSingleSided estimator_affine_dist;
 
     br = test_loransac_affine("affine", &estimator_affine_dist, config, nbr_outliers, nbr_iter, nbr_ransac_iter);
     if (print_to_file)
         print_files(br, nbr_outliers, "affine");
 
-    HomLib::NakanoICPR2025::OrientationSolverSingleSided estimator_ori;
+    HomLib::ValtonenOrnhagICPR2026::OrientationSolverSingleSided estimator_ori;
 
     br = test_loransac_ori("ori", &estimator_ori, config, nbr_outliers, nbr_iter, nbr_ransac_iter);
     if (print_to_file)

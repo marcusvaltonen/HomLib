@@ -16,6 +16,7 @@
 #include <get_kukelova_cvpr_2015.hpp>
 #include <get_nakano_icpr_2025.hpp>
 #include <get_wadenback_3dv_2026.hpp>
+#include <get_valtonenornhag_icpr_2026.hpp>
 #include <ransac_estimator.h>
 #include <affine_ransac_estimator.h>
 #include <orientation_ransac_estimator.h>
@@ -369,35 +370,35 @@ template <typename Estimator> std::tuple<HomLib::PoseData, ransac_lib::RansacSta
     return std::make_tuple(std::move(best_model), std::move(ransac_stats));
 }
 
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_nakano_icpr_2025_one_sided_affine_wrapper(
+std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_valtonenornhag_icpr_2026_one_sided_affine_wrapper(
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
     const Eigen::Matrix<double, 4, Eigen::Dynamic> &A_,
     const ransac_lib::LORansacOptions &options
 ) {
-    HomLib::NakanoICPR2025::AffineSolverSingleSided estimator;
+    HomLib::ValtonenOrnhagICPR2026::AffineSolverSingleSided estimator;
     auto output = lomsac_affine_wrapper(&estimator, x_, y_, A_, options);
     return output;
 }
 
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_nakano_icpr_2025_one_sided_ori_wrapper(
+std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_valtonenornhag_icpr_2026_one_sided_ori_wrapper(
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &ori_,
     const ransac_lib::LORansacOptions &options
 ) {
-    HomLib::NakanoICPR2025::OrientationSolverSingleSided estimator;
+    HomLib::ValtonenOrnhagICPR2026::OrientationSolverSingleSided estimator;
     auto output = lomsac_orientation_wrapper(&estimator, x_, y_, ori_, options);
     return output;
 }
 
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_affine_no_dist_wrapper(
+std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_barath_visapp_2016_affine_wrapper(
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
     const Eigen::Matrix<double, 4, Eigen::Dynamic> &A_,
     const ransac_lib::LORansacOptions &options
 ) {
-    HomLib::NakanoICPR2025::AffineSolverNoDist estimator;
+    HomLib::BarathVISAPP2016::AffineSolver estimator;
     auto output = lomsac_affine_wrapper(&estimator, x_, y_, A_, options);
     return output;
 }

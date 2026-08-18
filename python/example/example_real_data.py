@@ -226,11 +226,11 @@ def homography_error(H, H_gt):
     return np.linalg.norm(H_norm - H_gt_norm)
 
 
-def print_estimation_results(method_name, estimate, stats, H, H_gt):
+def print_estimation_results(method_name, distortion_parameter, H, H_gt):
     """Print the common information for every homography estimation method."""
     print(f"homlib {method_name}:")
     print(f"H error = {homography_error(H, H_gt):.4e}")
-    print(f"Dist. coeff. error = {abs(estimate.distortion_parameter - DIST_COEFF_GT):.4e}")
+    print(f"Dist. coeff. error = {abs(distortion_parameter - DIST_COEFF_GT):.4e}")
 
 
 #######################

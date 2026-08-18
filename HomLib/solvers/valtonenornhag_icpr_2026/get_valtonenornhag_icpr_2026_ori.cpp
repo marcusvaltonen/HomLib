@@ -28,10 +28,10 @@
 #include "posedata.hpp"
 
 #include "radial.hpp"
-#include "get_nakano_icpr_2025.hpp"
+#include "get_valtonenornhag_icpr_2026.hpp"
 
 namespace HomLib {
-namespace NakanoICPR2025 {
+namespace ValtonenOrnhagICPR2026 {
     std::vector<HomLib::PoseData> get_ori(
         const std::vector<Eigen::Vector2d> &x,
         const std::vector<Eigen::Vector2d> &y,
@@ -157,5 +157,5 @@ namespace NakanoICPR2025 {
         return output;
     }
 
-}  // namespace NakanoICPR2025
+}  // namespace ValtonenOrnhagICPR2026
 }  // namespace HomLib
