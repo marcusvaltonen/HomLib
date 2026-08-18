@@ -12,6 +12,7 @@
 #include <RansacLib/ransac.h>
 
 #include <posedata.hpp>
+#include <get_barath_visapp_2016.hpp>
 #include <get_fitzgibbon_cvpr_2001.hpp>
 #include <get_kukelova_cvpr_2015.hpp>
 #include <get_nakano_icpr_2025.hpp>
@@ -439,10 +440,9 @@ PYBIND11_MODULE(_core, m) {
             lomsac_wadenback_3dv_2026_two_sided_equal
             lomsac_wadenback_3dv_2026_two_sided
 
-            lomsac_nakano_icpr_2025_one_sided_affine
-            lomsac_nakano_icpr_2025_one_sided_ori
-            lomsac_affine_no_dist
-            lomsac_nakano_icpr_2025_one_sided_right
+            lomsac_valtonenornhag_icpr_2026_one_sided_affine
+            lomsac_valtonenornhag_icpr_2026_one_sided_ori
+            lomsac_barath_visapp_2016_affine
 
             DistortionCase
             ProblemConfig
@@ -946,15 +946,15 @@ PYBIND11_MODULE(_core, m) {
         "options"_a
     );
     m.def(
-        "lomsac_nakano_icpr_2025_one_sided_affine",
-        &lomsac_nakano_icpr_2025_one_sided_affine_wrapper,
+        "lomsac_valtonenornhag_icpr_2026_one_sided_affine",
+        &lomsac_valtonenornhag_icpr_2026_one_sided_affine_wrapper,
         R"pbdoc(
             Solver from [1]_ in a LOMSAC framework [2]_ modified for affine-covariant features according to [3]_.
 
             .. [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
                 International Conference on Pattern Recognition (ICPR), 2024.
             .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
             .. [3] Marcus Valtonen Ornhag and Stefan Adalbjornsson. "Radial Distortion Homography Estimation From
                 Affine-Covariant Or Orientation-Covariant Features", In the Proceedings of the International
                 Conference on Pattern Recognition (ICPR), 2026.
@@ -965,15 +965,15 @@ PYBIND11_MODULE(_core, m) {
         "options"_a
     );
     m.def(
-        "lomsac_nakano_icpr_2025_one_sided_ori",
-        &lomsac_nakano_icpr_2025_one_sided_ori_wrapper,
+        "lomsac_valtonenornhag_icpr_2026_one_sided_ori",
+        &lomsac_valtonenornhag_icpr_2026_one_sided_ori_wrapper,
         R"pbdoc(
             Solver from [1]_ in a LOMSAC framework [2]_ modified for orientation-covariant features according to [3]_.
 
             .. [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
                 International Conference on Pattern Recognition (ICPR), 2024.
             .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
             .. [3] Marcus Valtonen Ornhag and Stefan Adalbjornsson. "Radial Distortion Homography Estimation From
                 Affine-Covariant Or Orientation-Covariant Features", In the Proceedings of the International
                 Conference on Pattern Recognition (ICPR), 2026.
@@ -984,10 +984,15 @@ PYBIND11_MODULE(_core, m) {
         "options"_a
     );
     m.def(
-        "lomsac_affine_no_dist",
-        &lomsac_affine_no_dist_wrapper,
+        "lomsac_barath_visapp_2016_affine",
+        &lomsac_barath_visapp_2016_affine_wrapper,
         R"pbdoc(
-            Stolen from GC-RANSAC
+            Solver from [1]_ in a LOMSAC framework [2]_.
+
+            .. [1] Daniel Barath and Levente Hajder. "Novel Ways to Estimate Homography from Local Affine
+                Transformations", In International Conference on Computer Vision Theory and Application (VISAPP), 2016.
+            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
+            Proceedings of the British Machine Vision Conference (BMVC), 2012.
         )pbdoc",
         "x"_a,
         "y"_a,
