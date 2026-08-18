@@ -23,6 +23,7 @@ add_executable(HomLibTests
     test_kukelova_cvpr_2015.cpp
     test_nakano_icpr_2025.cpp
     test_valtonenornhag_icpr_2020.cpp
+    test_valtonenornhag_icpr_2026.cpp
     test_valtonenornhag_wacv_2021.cpp
     test_wadenback_3dv_2026.cpp
 )

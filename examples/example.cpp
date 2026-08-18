@@ -284,14 +284,14 @@ int main(int argc, char *argv[]) {
     if (print_to_file)
         print_files(br, point_noise, "affine_no_dist");
 
-    std::cout << "Affine dist (ours) - no dist input" << std::endl;
+    std::cout << "Affine dist (Valtonen Ornhag, ICPR 2026) - no dist added" << std::endl;
     br = benchmark_solver<SolverAffineWithDist>(config, nbr_iter);
     if (print_to_file)
         print_files(br, point_noise, "affine_dist_no_dist");
 
     config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
 
-    std::cout << "Affine dist (ours)" << std::endl;
+    std::cout << "Affine dist (Valtonen Ornhag, ICPR 2026)" << std::endl;
     br = benchmark_solver<SolverAffineWithDist>(config, nbr_iter);
     if (print_to_file)
         print_files(br, point_noise, "affine_dist");
@@ -299,7 +299,7 @@ int main(int argc, char *argv[]) {
     // Orientation solver
     std::cout << "Orientation" << std::endl;
     config.number_points = 4;
-    //config.distortion = HomLib::DistortionCase::NO_DISTORTION;
+
     br = benchmark_solver<SolverOrientation>(config, nbr_iter);
     if (print_to_file)
         print_files(br, point_noise, "ori");
