@@ -28,6 +28,7 @@ nformation of the corresponding descriptors.
 | Wadenbäck et al. (2026)                  | 5      | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | P          |
 |                                          | 5      | :heavy_check_mark: | :heavy_check_mark: (e)   |                    | :heavy_check_mark: | P          |
 |                                          | 5      | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: | P          |
+| Barath and Hajder (2016)                 | 2      |                    |                          |                    | :heavy_check_mark: | A          |
 | Valtonen Örnhag and Adalbjörnsson (2026) | 2      |                    | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | A          |
 |                                          | 3      | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | O          |
 
