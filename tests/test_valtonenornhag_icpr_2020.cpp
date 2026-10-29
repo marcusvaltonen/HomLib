@@ -24,7 +24,6 @@
 #include <catch2/catch_approx.hpp>
 #include "get_valtonenornhag_icpr_2020.hpp"
 #include "posedata.hpp"
-#include <iostream>
 
 TEST_CASE("Valtonen Ornhag ICPR 2020") {
     Eigen::Matrix3d R1, R2;
@@ -54,7 +53,6 @@ TEST_CASE("Valtonen Ornhag ICPR 2020") {
     // Test distortion parameter and focal length
     REQUIRE(posedata.focal_length == Catch::Approx(1.194848331672758).margin(tol));
 
-    std::cout << posedata.homography << std::endl;
     // Test homography
     Eigen::Matrix3d expected;
     expected << 0.73948604786043, -1.78006293093289,  2.34478746256462,

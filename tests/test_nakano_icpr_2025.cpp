@@ -50,8 +50,9 @@ TEST_CASE("Nakano ICPR 2025") {
     REQUIRE(posedata.size() == 1);
 
     // Test distortion parameters
-    REQUIRE(posedata[0].distortion_parameter == Catch::Approx(-0.3).margin(tol));  //TODO: Is this correct? Should the distortion parameters not switch places??
-    REQUIRE(posedata[0].distortion_parameter2 == Catch::Approx(0.0).margin(tol));
+    // One-sided (left): solver undistorts y, so distortion is in distortion_parameter2.
+    REQUIRE(posedata[0].distortion_parameter == Catch::Approx(0.0).margin(tol));
+    REQUIRE(posedata[0].distortion_parameter2 == Catch::Approx(-0.3).margin(tol));
 
     // Test homographies
     tol = 1e-7;

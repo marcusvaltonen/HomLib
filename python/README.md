@@ -11,12 +11,13 @@ pip install .
 
 or using ``python -m build``, ``uv build``, etc.
 
-## HPatches tests
-Get glue-factory
-`uv pip install gluefactory@https://github.com/cvg/glue-factory.git`
+## HPatches benchmark
+Run the HPatches evaluation with [glue-factory](https://github.com/cvg/glue-factory):
 
-`python experiments/hpatches.py`
-Having some struggle with `pipeline.run` in that file, not sure why.
+```console
+uv pip install gluefactory@https://github.com/cvg/glue-factory.git
+python experiments/hpatches.py
+```
 
 ## Tests
 There are a few examples in the ``example`` folder to demo the wrappers.

@@ -47,6 +47,7 @@ TEST_CASE("Kukelova CVPR 2015") {
     double tol = 1e-12;
 
     // Test size
+    // Solver returns inconsistent results across platforms; skip pending investigation.
     SKIP();
     REQUIRE(posedata.size() == 5);
 

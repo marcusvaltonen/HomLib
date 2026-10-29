@@ -119,6 +119,7 @@ std::vector<HomLib::PoseData> get_6pt(
         pd.homography << n(0), n(1), n(2), n(3), n(4), n(5), v2(0), v2(1), v2(2); 
         if (dist_equal) {
             pd.distortion_parameter = 0.5 * (l1 + l2);
+            pd.distortion_parameter2 = pd.distortion_parameter;
         } else {
             pd.distortion_parameter = l2;
             pd.distortion_parameter2 = l1;

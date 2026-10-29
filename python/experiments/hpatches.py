@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from omegaconf import OmegaConf
 from tqdm import tqdm
-import homlib
+import homlib  # noqa: F401
 from gluefactory.datasets import get_dataset
 from gluefactory.models.cache_loader import CacheLoader
 from gluefactory.settings import EVAL_PATH
@@ -26,17 +26,16 @@ from gluefactory.eval.utils import (
 )
 
 homlib_solvers = (
-    #"lomsac_fitzgibbon_cvpr_2001_one_sided",
-    #"lomsac_fitzgibbon_cvpr_2001_two_sided_equal",
-    #"lomsac_kukelova_cvpr_2015_two_sided",
+    "lomsac_fitzgibbon_cvpr_2001_one_sided",
+    "lomsac_fitzgibbon_cvpr_2001_two_sided_equal",
+    "lomsac_kukelova_cvpr_2015_two_sided",
     "lomsac_kukelova_cvpr_2015_two_sided_equal",
-    #"lomsac_kukelova_cvpr_2015_two_sided_equal_6pt",
-    #"lomsac_kukelova_cvpr_2015_two_sided_6pt",
-    #"lomsac_nakano_icpr_2025_one_sided",
-    #"lomsac_wadenback_2025_unsided",
-    #"lomsac_wadenback_2025_one_sided",
-    #"lomsac_wadenback_2025_two_sided_equal",
-    #"lomsac_wadenback_2025_two_sided",
+    "lomsac_kukelova_cvpr_2015_two_sided_equal_6pt",
+    "lomsac_kukelova_cvpr_2015_two_sided_6pt",
+    "lomsac_nakano_icpr_2025_one_sided",
+    "lomsac_wadenback_3dv_2026_one_sided",
+    "lomsac_wadenback_3dv_2026_two_sided_equal",
+    "lomsac_wadenback_3dv_2026_two_sided",
 )
 
 
@@ -139,12 +138,12 @@ class HPatchesPipeline(EvalPipeline):
                         data,
                         pred,
                         {
-                        "estimator": conf.estimator,
-                        "ransac_th": th,
-                        "image_size0": data["view0"]["image_size"].detach().cpu().numpy().tolist(),
-                        "image_size1": data["view1"]["image_size"].detach().cpu().numpy().tolist(),
-                        "solver": solver,
-                        "num_ransac_iter": num_ransac_iter
+                            "estimator": conf.estimator,
+                            "ransac_th": th,
+                            "image_size0": data["view0"]["image_size"].detach().cpu().numpy().tolist(),
+                            "image_size1": data["view1"]["image_size"].detach().cpu().numpy().tolist(),
+                            "solver": solver,
+                            "num_ransac_iter": num_ransac_iter,
                         },
                     )
 
@@ -197,7 +196,9 @@ class HPatchesPipeline(EvalPipeline):
         }
 
         for solver in homlib_solvers:
-            np.savetxt(f'hpatches_time_mAA_{solver}_{num_ransac_iter:05d}.npy', [summaries[f'mtime_{solver}'], summaries[f'H_error_{solver}_mAA']], delimiter=',')
+            fname = f'hpatches_time_mAA_{solver}_{num_ransac_iter:05d}.npy'
+            vals = [summaries[f'mtime_{solver}'], summaries[f'H_error_{solver}_mAA']]
+            np.savetxt(fname, vals, delimiter=',')
 
         return summaries, figures, results
 

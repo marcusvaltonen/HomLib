@@ -149,6 +149,7 @@ namespace FitzgibbonCVPR2001 {
                     minres = res;
                     posedata.homography = Htmp;
                     posedata.distortion_parameter = ltmp;
+                    posedata.distortion_parameter2 = ltmp;
                 }
             }
         }

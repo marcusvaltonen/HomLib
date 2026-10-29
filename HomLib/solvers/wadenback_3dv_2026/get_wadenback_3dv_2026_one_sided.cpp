@@ -72,7 +72,7 @@ std::vector<HomLib::PoseData> get_one_sided(
         // Package
         HomLib::PoseData pd;
         pd.homography = H;
-        pd.distortion_parameter = k;
+        pd.distortion_parameter2 = k;
 
         output.push_back(pd);
     } else {
@@ -90,7 +90,7 @@ std::vector<HomLib::PoseData> get_one_sided(
             H = HomLib::Wadenback3DV2026::homography_4pt_guo(x, y_undist);
             // Package
             pd.homography = H;
-            pd.distortion_parameter = k;
+            pd.distortion_parameter2 = k;
 
             output.push_back(pd);
         }

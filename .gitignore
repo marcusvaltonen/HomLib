@@ -77,3 +77,4 @@ coverage.info
 Testing/
 venv/
 .idea/
+docs/source/gallery/

@@ -13,7 +13,7 @@ simultaneous radial distortion correction and/or incorporating IMU data.
 
 We further support affine-covariant and orientation-covariant solvers, requiring 
 fewer correspondences than their point-based counterparts by leveraging the geometric 
-nformation of the corresponding descriptors.
+information of the corresponding descriptors.
 
 | Authors (year)                           | #Corrs | Minimal            | Radial distortion coeff. | IMU data           | General homography | Descriptor |
 | ---------------------------------------- | ------ | ------------------ | ------------------------ | ------------------ | ------------------ | ---------- |

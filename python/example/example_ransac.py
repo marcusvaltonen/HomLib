@@ -5,6 +5,17 @@ Synthetic RANSAC experiment
 In this example, we show how to robustly estimate a homography
 in the presence of outliers using synthetic data and different
 distortion profiles.
+
+The one-sided solver by Wadenbäck et al. [1]_ is used, embedded in
+a LOMSAC framework [2]_.
+
+References
+----------
+.. [1] M. Wadenbäck, M. Valtonen Örnhag, and J. Edstedt, "Radially Distorted
+   Homographies, Revisited," in Proc. International Conference on 3D Vision (3DV),
+   2026.
+.. [2] K. Lebeda, J. Matas, and O. Chum, "Fixing the Locally Optimized RANSAC,"
+   in Proc. British Machine Vision Conference (BMVC), 2012.
 """
 
 import numpy as np
@@ -34,8 +45,8 @@ y = y[:2] / y[2]
 
 noise_std = 1e-4
 for i in range(N):
-    x[:,i] += np.random.randn(2) * noise_std
-    y[:,i] += np.random.randn(2) * noise_std
+    x[:, i] += np.random.randn(2) * noise_std
+    y[:, i] += np.random.randn(2) * noise_std
 
 
 ###############################################################################
@@ -43,15 +54,14 @@ for i in range(N):
 
 nbr_outliers = 20
 for i in range(nbr_outliers):
-    x[:,i] = np.random.randn(2) * 10
-    y[:,i] = np.random.randn(2) * 10
+    x[:, i] = np.random.randn(2) * 10
+    y[:, i] = np.random.randn(2) * 10
 
 ###############################################################################
 # Estimate homography and distortion coefficient
-	
+
 estimate, stats = homlib.lomsac_wadenback_3dv_2026_one_sided(x, y, options)
 
-print(f"H error = {np.linalg.norm(estimate.homography / estimate.homography[2,2] - H / H[2,2]):4e}")
-print(f"Dist. error = {np.linalg.norm(estimate.distortion_parameter):4e}")  # No distortion added - should be zero
+print(f"H error = {np.linalg.norm(estimate.homography / estimate.homography[2, 2] - H / H[2, 2]):4e}")
+print(f"Dist. error = {np.linalg.norm(estimate.distortion_parameter2):4e}")  # No distortion added - should be zero
 print(stats.inlier_indices)
-
