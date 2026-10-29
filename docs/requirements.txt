@@ -1,3 +1,7 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+kornia
+kornia_moons
 matplotlib
 opencv-python
 Sphinx==5.3.0
