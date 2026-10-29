@@ -39,20 +39,44 @@ Or manually:
    cmake -DCMAKE_BUILD_TYPE=Release ..
    cmake --build . --config Release -- -j $(nproc)
 
+Building with SupeRANSAC (optional)
+------------------------------------
+
+To enable the `SupeRANSAC <https://github.com/danini/SuperRANSAC>`__ robust
+estimation backend, you additionally need Boost and OpenCV 4.x:
+
+.. code-block:: bash
+
+   apt install libboost-all-dev libopencv-dev
+
+Pull the SupeRANSAC submodule:
+
+.. code-block:: bash
+
+   git submodule update --init thirdparty/superansac
+
+Then build with ``-DHOMLIB_USE_SUPERANSAC=ON``:
+
+.. code-block:: bash
+
+   mkdir -p build && cd build
+   cmake -DCMAKE_BUILD_TYPE=Release -DHOMLIB_USE_SUPERANSAC=ON ..
+   cmake --build . --config Release -- -j $(nproc)
+
 Python package from source
 --------------------------
 
-After building the C++ library, install the Python package in your virtual environment:
+Install the Python package in your virtual environment:
 
 .. code-block:: bash
 
    pip install .
 
-For an editable development install (changes to Python code take effect immediately):
+With SupeRANSAC support:
 
 .. code-block:: bash
 
-   pip install -e .
+   CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=ON" pip install .
 
 Running tests
 -------------

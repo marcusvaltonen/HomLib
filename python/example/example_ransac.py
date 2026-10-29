@@ -24,11 +24,10 @@ import homlib
 
 
 ###############################################################################
-# Configure RANSAC options
+# Create a solver and configure LOMSAC
 
-options = homlib.LORansacOptions()
-options.squared_inlier_threshold = 0.005
-options.final_least_squares = True
+solver = homlib.Wadenback3DV2026OneSided()
+lomsac = homlib.LOMSAC(solver, squared_inlier_threshold=0.005, final_least_squares=True)
 
 ###############################################################################
 # Generate random problem instance (no radial distortion added for simplicity)
@@ -60,7 +59,7 @@ for i in range(nbr_outliers):
 ###############################################################################
 # Estimate homography and distortion coefficient
 
-estimate, stats = homlib.lomsac_wadenback_3dv_2026_one_sided(x, y, options)
+estimate, stats = lomsac.estimate(x, y)
 
 print(f"H error = {np.linalg.norm(estimate.homography / estimate.homography[2, 2] - H / H[2, 2]):4e}")
 print(f"Dist. error = {np.linalg.norm(estimate.distortion_parameter2):4e}")  # No distortion added - should be zero

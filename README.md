@@ -5,14 +5,36 @@
 [![Documentation Status](https://readthedocs.org/projects/homlib/badge/?version=latest)](https://homlib.readthedocs.io/en/latest/?badge=latest)
 
 
-C++ library for computing homographies with support in MATLAB and Python.
+C++ library for computing homographies with support in Python.
+
+## Quick start
+
+```python
+import numpy as np
+import homlib
+
+# Estimate homography with one-sided radial distortion
+solver = homlib.Wadenback3DV2026OneSided()
+poses = solver.estimate(x, y)  # returns list[PoseData]
+
+# Robust estimation with LOMSAC
+lomsac = homlib.LOMSAC(solver, squared_inlier_threshold=0.005)
+estimate, stats = lomsac.estimate(x_noisy, y_noisy)
+```
+
+If built with SupeRANSAC support:
+
+```python
+sa = homlib.SupeRANSAC(solver, inlier_threshold=0.07)
+estimate, stats = sa.estimate(x_noisy, y_noisy)
+```
 
 ## Solvers
 This repository contains the following solvers for computing homographies with
 simultaneous radial distortion correction and/or incorporating IMU data.
 
-We further support affine-covariant and orientation-covariant solvers, requiring 
-fewer correspondences than their point-based counterparts by leveraging the geometric 
+We further support affine-covariant and orientation-covariant solvers, requiring
+fewer correspondences than their point-based counterparts by leveraging the geometric
 information of the corresponding descriptors.
 
 | Authors (year)                           | #Corrs | Minimal            | Radial distortion coeff. | IMU data           | General homography | Descriptor |
@@ -94,38 +116,99 @@ the respective article:
     booktitle = {Proceedings of the International Conference on Pattern Recognition (ICPR)},
     year      = {2026},
 }
+
+@Article{barath-2025-superansac,
+    author    = {Barath, Daniel},
+    title     = {{SupeRANSAC}: One {RANSAC} to Rule Them All},
+    journal   = {arXiv preprint arXiv:2506.04803},
+    year      = {2025},
+}
 ```
 
-## Dependencies
-The source code depends on Eigen 3 (older versions not compatible).
-Installation for Ubuntu/Debian:
+## Installation
+
+### Python (from PyPI)
+Pre-built wheels for all standard platforms and supported Python versions:
 ```bash
-    $ apt-get install libeigen3-dev
+pip install homlib
 ```
 
-Furthermore, [PoseLib](https://github.com/PoseLib/PoseLib/tree/master) is required. Follow the installation
-instruction in the repo.
+### Python (from source)
+Requires [PoseLib](https://github.com/PoseLib/PoseLib/tree/master) and Eigen 3.
 
-If you want to use the solvers in an LOMSAC framework, we rely
-on [RansacLib](https://github.com/tsattler/RansacLib), which is included as a submodule. You can recursively
-clone it
-
-```console
-git submodule update --init --recursive
-```
-
-## Using the solver in Python
-Python wheels for all standard platforms and supported Python versions are available at PyPI. To install, simply use
 ```bash
-    $ pip install homlib
+pip install .
 ```
-*Note:* Solvers with known IMU data is not yet supported in the python package.
 
-## Using the solver in MATLAB
-(OUTDATED)
-It is possible to MEX-compile the solver and use it in MATLAB. Check the
-`compile_mex.m` function in the MATLAB directory. You may have to change the path to Eigen,
-e.g. `/usr/local/include/eigen3`.
+#### With SupeRANSAC support
+Requires Boost and OpenCV in addition to the above.
+
+```bash
+git submodule update --init thirdparty/superansac
+CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=ON" pip install .
+```
+
+### C++ (from source)
+Dependencies:
+- **Eigen 3**: `apt-get install libeigen3-dev`
+- **[PoseLib](https://github.com/PoseLib/PoseLib)**: build and install from source
+- **RansacLib** (submodule): `git submodule update --init --recursive`
+
+```bash
+mkdir -p build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . --config Release
+```
+
+## Python usage
+
+### Direct estimation
+```python
+import homlib
+
+# Point-based solver
+solver = homlib.Wadenback3DV2026OneSided()
+poses = solver.estimate(x, y)  # x, y are 2xN numpy arrays
+
+# Affine-covariant solver (fewer correspondences needed)
+aff_solver = homlib.ValtonenOrnhagICPR2026AffineSingleSided()
+poses = aff_solver.estimate(x, y, A=affine_matrices)  # A is 4xN
+
+# Orientation-covariant solver
+ori_solver = homlib.ValtonenOrnhagICPR2026OrientationSingleSided()
+poses = ori_solver.estimate(x, y, ori=orientations)  # ori is 2xN
+```
+
+### Robust estimation with LOMSAC
+```python
+solver = homlib.Wadenback3DV2026OneSided()
+lomsac = homlib.LOMSAC(solver, squared_inlier_threshold=0.005)
+estimate, stats = lomsac.estimate(x, y)
+
+print(estimate.homography)
+print(estimate.distortion_parameter)
+print(f"{len(stats.inlier_indices)} inliers")
+```
+
+### Robust estimation with SupeRANSAC
+Requires building with `-DHOMLIB_USE_SUPERANSAC=ON`.
+
+```python
+solver = homlib.Wadenback3DV2026OneSided()
+sa = homlib.SupeRANSAC(solver, inlier_threshold=0.07)
+estimate, stats = sa.estimate(x, y)
+
+print(f"{len(stats.inliers)} inliers, {stats.num_iterations} iterations")
+```
+
+Any solver can be used with any RANSAC backend:
+```python
+for solver in [homlib.FitzgibbonCVPR2001OneSided(),
+               homlib.NakanoICPR2025OneSided(),
+               homlib.Wadenback3DV2026OneSided()]:
+    lomsac = homlib.LOMSAC(solver, squared_inlier_threshold=0.005)
+    estimate, stats = lomsac.estimate(x, y)
+```
 
 ## About the solvers
 Many of the solvers were generated using the automatic generator proposed by

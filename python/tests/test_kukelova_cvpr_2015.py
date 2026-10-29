@@ -21,15 +21,16 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
         ])
 
         self.tol = 10
+        self.solver = homlib.KukelovaCVPR2015TwoSided()
 
     @pytest.mark.skip(reason="Something strange with the Kukelova solver")
     def test_estimate_kukelova_cvpr_2015_two_sided_length(self):
-        sols = homlib.estimate_kukelova_cvpr_2015_two_sided(self.p1, self.p2, False)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
 
     @pytest.mark.skip(reason="Something strange with the Kukelova solver")
     def test_estimate_kukelova_cvpr_2015_two_sided_sol0(self):
-        sols = homlib.estimate_kukelova_cvpr_2015_two_sided(self.p1, self.p2, False)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
         self.assertAlmostEqual(sols[0].distortion_parameter, 0.2537509800067458, self.tol)
         self.assertAlmostEqual(sols[0].distortion_parameter2, -1.9785613160596929, self.tol)
@@ -37,7 +38,7 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
 
     @pytest.mark.skip(reason="Something strange with the Kukelova solver")
     def test_estimate_kukelova_cvpr_2015_two_sided_sol1(self):
-        sols = homlib.estimate_kukelova_cvpr_2015_two_sided(self.p1, self.p2, False)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
         self.assertAlmostEqual(sols[1].distortion_parameter, -1.1832137508476386, self.tol)
         self.assertAlmostEqual(sols[1].distortion_parameter2, -1.8809663034629707, self.tol)
@@ -45,7 +46,7 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
 
     @pytest.mark.skip(reason="Something strange with the Kukelova solver")
     def test_estimate_kukelova_cvpr_2015_two_sided_sol2(self):
-        sols = homlib.estimate_kukelova_cvpr_2015_two_sided(self.p1, self.p2, False)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
         self.assertAlmostEqual(sols[2].distortion_parameter, -1.7814746086320201, self.tol)
         self.assertAlmostEqual(sols[2].distortion_parameter2, -2.079301697963529, self.tol)
@@ -53,7 +54,7 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
 
     @pytest.mark.skip(reason="Something strange with the Kukelova solver")
     def test_estimate_kukelova_cvpr_2015_two_sided_sol3(self):
-        sols = homlib.estimate_kukelova_cvpr_2015_two_sided(self.p1, self.p2, False)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
         self.assertAlmostEqual(sols[3].distortion_parameter, -2.136402668559706, self.tol)
         self.assertAlmostEqual(sols[3].distortion_parameter2, 0.6928831549898077, self.tol)
@@ -61,7 +62,7 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
 
     @pytest.mark.skip(reason="Something strange with the Kukelova solver")
     def test_estimate_kukelova_cvpr_2015_two_sided_sol4(self):
-        sols = homlib.estimate_kukelova_cvpr_2015_two_sided(self.p1, self.p2, False)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
         self.assertAlmostEqual(sols[4].distortion_parameter, -0.6554778901775545, self.tol)
         self.assertAlmostEqual(sols[4].distortion_parameter2, -0.6554778901775485, self.tol)
@@ -72,11 +73,11 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
         p1 = np.random.randn(2, 5)
         p2 = np.random.randn(3, 5)
         with self.assertRaises(TypeError):
-            _ = homlib.estimate_kukelova_cvpr_2015_two_sided(p1, p2, False)
+            _ = self.solver.estimate(p1, p2)
 
     def test_estimate_kukelova_cvpr_2015_two_sided_dimensions02(self):
         """Check that an exception is raised when dimensions are incorrect."""
         p1 = np.random.randn(2, 5)
         p2 = np.random.randn(2, 6)
         with self.assertRaises(ValueError):
-            _ = homlib.estimate_kukelova_cvpr_2015_two_sided(p1, p2, False)
+            _ = self.solver.estimate(p1, p2)

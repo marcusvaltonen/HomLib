@@ -29,6 +29,26 @@ To build the core C++ library from source you need:
 
      git submodule update --init --recursive
 
+Optional (SupeRANSAC backend)
+-----------------------------
+
+To build with the `SupeRANSAC <https://github.com/danini/SuperRANSAC>`__ robust
+estimation backend you additionally need:
+
+- **Boost** — on Ubuntu: ``apt-get install libboost-all-dev``
+- **OpenCV** 4.x — on Ubuntu: ``apt-get install libopencv-dev``
+- **SupeRANSAC** submodule:
+
+  .. code-block:: bash
+
+     git submodule update --init thirdparty/superansac
+
+Then build with ``-DHOMLIB_USE_SUPERANSAC=ON``:
+
+.. code-block:: bash
+
+   CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=ON" pip install .
+
 Optional (for examples)
 -----------------------
 

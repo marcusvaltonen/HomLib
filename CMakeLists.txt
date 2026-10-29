@@ -42,14 +42,24 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ftree-vectorize -funroll-loops")
 endif()
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+option(HOMLIB_USE_SUPERANSAC "Enable SupeRANSAC backend (requires Boost, OpenCV)" OFF)
 
 find_package(Eigen3 REQUIRED)
 set(EIGEN_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 
 find_package(PoseLib REQUIRED)
 include_directories(${CMAKE_SOURCE_DIR})
+
+if(HOMLIB_USE_SUPERANSAC)
+    set(SUPERANSAC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/superansac/include)
+    add_subdirectory(thirdparty/superansac/src)
+    # The submodule's src/CMakeLists.txt uses PROJECT_SOURCE_DIR/include which
+    # resolves incorrectly when built as a subdirectory. Fix the include path.
+    target_include_directories(SupeRANSAC PUBLIC ${SUPERANSAC_INCLUDE_DIR})
+endif()
 
 
 set(HOMLIB_INCLUDE_DIRS

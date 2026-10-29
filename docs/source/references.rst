@@ -12,15 +12,17 @@ Point-based solvers
    and lens distortion," in *Proceedings of the IEEE Computer Society Conference on Computer
    Vision and Pattern Recognition (CVPR)*, 2001.
 
-   See :func:`~homlib.estimate_fitzgibbon_cvpr_2001_one_sided`,
-   :func:`~homlib.estimate_fitzgibbon_cvpr_2001_two_sided_equal`.
+   See :class:`~homlib.FitzgibbonCVPR2001OneSided`,
+   :class:`~homlib.FitzgibbonCVPR2001TwoSidedEqual`.
 
 .. [Kukelova2015] Z. Kukelova, J. Heller, M. Bujnak, and T. Pajdla, "Radial Distortion
    Homography," in *Proceedings of the IEEE Conference on Computer Vision and Pattern
    Recognition (CVPR)*, 2015.
 
-   See :func:`~homlib.estimate_kukelova_cvpr_2015_two_sided`,
-   :func:`~homlib.estimate_kukelova_cvpr_2015_two_sided_6pt`.
+   See :class:`~homlib.KukelovaCVPR2015TwoSided`,
+   :class:`~homlib.KukelovaCVPR2015TwoSided6Pt`,
+   :class:`~homlib.KukelovaCVPR2015TwoSidedEqual`,
+   :class:`~homlib.KukelovaCVPR2015TwoSidedEqual6Pt`.
 
 .. [ValtonenOrnhag2020] M. Valtonen Örnhag, P. Persson, M. Wadenbäck, K. Åström, and
    A. Heyden, "Minimal Solvers for Indoor UAV Positioning," in *Proceedings of the
@@ -35,17 +37,18 @@ Point-based solvers
    in *Proceedings of the International Conference on Pattern Recognition (ICPR)*, 2024,
    pp. 448--462.
 
-   See :func:`~homlib.estimate_nakano_icpr_2025_one_sided`.
-   Note: The function name uses ``icpr_2025`` (the conference year), while the
+   See :class:`~homlib.NakanoICPR2025OneSided`,
+   :class:`~homlib.NakanoICPR2025OneSidedRight`.
+   Note: The class name uses ``ICPR2025`` (the conference year), while the
    publication is dated 2024.
 
 .. [Wadenback2026] M. Wadenbäck, M. Valtonen Örnhag, and J. Edstedt, "Radially Distorted
    Homographies, Revisited," in *Proceedings of the International Conference on 3D Vision
    (3DV)*, 2026.
 
-   See :func:`~homlib.estimate_wadenback_3dv_2026_one_sided`,
-   :func:`~homlib.estimate_wadenback_3dv_2026_two_sided_equal`,
-   :func:`~homlib.estimate_wadenback_3dv_2026_two_sided`.
+   See :class:`~homlib.Wadenback3DV2026OneSided`,
+   :class:`~homlib.Wadenback3DV2026TwoSidedEqual`,
+   :class:`~homlib.Wadenback3DV2026TwoSided`.
 
 Affine-covariant and orientation-covariant solvers
 ---------------------------------------------------
@@ -54,20 +57,28 @@ Affine-covariant and orientation-covariant solvers
    Transformations," in *Proceedings of the International Conference on Computer Vision Theory
    and Applications (VISAPP)*, 2016.
 
-   See :func:`~homlib.lomsac_barath_visapp_2016_affine`.
+   See :class:`~homlib.BarathVISAPP2016Affine`.
 
 .. [ValtonenOrnhagAdalbjornsson2026] M. Valtonen Örnhag and S. Adalbjörnsson, "Radial
    Distortion Homography Estimation from Affine-Covariant or Orientation-Covariant Features,"
    in *Proceedings of the International Conference on Pattern Recognition (ICPR)*, 2026.
 
-   See :func:`~homlib.lomsac_valtonenornhag_icpr_2026_one_sided_affine`,
-   :func:`~homlib.lomsac_valtonenornhag_icpr_2026_one_sided_ori`.
+   See :class:`~homlib.ValtonenOrnhagICPR2026AffineSingleSided`,
+   :class:`~homlib.ValtonenOrnhagICPR2026OrientationSingleSided`.
 
 Robust estimation
 -----------------
 
 .. [Lebeda2012] K. Lebeda, J. Matas, and O. Chum, "Fixing the Locally Optimized RANSAC," in
    *Proceedings of the British Machine Vision Conference (BMVC)*, 2012.
+
+   See :class:`~homlib.LOMSAC`.
+
+.. [Barath2025] D. Barath, "SupeRANSAC: One RANSAC to Rule Them All,"
+   *arXiv preprint arXiv:2506.04803*, 2025.
+
+   See :class:`~homlib.SupeRANSAC`.
+   `arXiv <https://arxiv.org/abs/2506.04803>`__
 
 Automatic solver generation
 ----------------------------

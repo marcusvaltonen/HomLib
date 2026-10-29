@@ -44,5 +44,20 @@ target_compile_definitions(_core PRIVATE HOMLIB_VERSION="${PROJECT_VERSION_FULL}
 if(MSVC)
     target_compile_definitions(_core PRIVATE _USE_MATH_DEFINES)
 endif()
+
+if(HOMLIB_USE_SUPERANSAC)
+    target_link_libraries(_core PRIVATE SupeRANSAC)
+    target_include_directories(_core PRIVATE ${SUPERANSAC_INCLUDE_DIR})
+    target_compile_definitions(_core PRIVATE HOMLIB_HAS_SUPERANSAC)
+    if(NOT MSVC)
+        set_target_properties(_core PROPERTIES
+            INSTALL_RPATH "$ORIGIN"
+            BUILD_WITH_INSTALL_RPATH TRUE)
+    endif()
+endif()
+
 # The install directory is the output (wheel) directory
 install(TARGETS _core DESTINATION homlib)
+if(HOMLIB_USE_SUPERANSAC)
+    install(TARGETS SupeRANSAC DESTINATION homlib)
+endif()

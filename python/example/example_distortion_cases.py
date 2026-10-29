@@ -35,17 +35,17 @@ cases = [
     (
         "One-sided",
         homlib.DistortionCase.ONE_SIDED_LEFT,
-        lambda x, y: homlib.estimate_wadenback_3dv_2026_one_sided(x, y, True),
+        homlib.Wadenback3DV2026OneSided(),
     ),
     (
         "Two-sided equal",
         homlib.DistortionCase.TWO_SIDED_EQUAL,
-        lambda x, y: homlib.estimate_wadenback_3dv_2026_two_sided_equal(x, y, True),
+        homlib.Wadenback3DV2026TwoSidedEqual(),
     ),
     (
         "Two-sided",
         homlib.DistortionCase.TWO_SIDED,
-        lambda x, y: homlib.estimate_wadenback_3dv_2026_two_sided(x, y, True),
+        homlib.Wadenback3DV2026TwoSided(),
     ),
 ]
 
@@ -55,14 +55,14 @@ cases = [
 print(f"{'Case':<22s} {'H error':>10s} {'k error':>10s} {'k1 est':>10s} {'k2 est':>10s} {'k1 gt':>10s} {'k2 gt':>10s}")
 print("-" * 88)
 
-for name, dist_case, solver_fn in cases:
+for name, dist_case, solver in cases:
     config = homlib.ProblemConfig(dist_case, 0.0, 5)
     instance = homlib.generate_problem_instance(config)
 
     x = np.array(instance.x1).T
     y = np.array(instance.x2).T
 
-    poses = solver_fn(x, y)
+    poses = solver.estimate(x, y)
 
     gt = instance.posedata
 

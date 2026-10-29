@@ -23,7 +23,8 @@ class FitzgibbonCVPR2001TestCase(unittest.TestCase):
             [-0.340077827788294,  -0.680480654905349,   0.410935343442919,   0.882649958739618,   0.738720655679304]
         ])
 
-        sols = homlib.estimate_fitzgibbon_cvpr_2001_two_sided_equal(p1, p2)
+        solver = homlib.FitzgibbonCVPR2001TwoSidedEqual()
+        sols = solver.estimate(p1, p2)
         self.assertEqual(len(sols), 1)
         self.assertAlmostEqual(sols[0].distortion_parameter, -0.6554778901775142, 12)
         self.assertAlmostEqual(sols[0].distortion_parameter2, -0.6554778901775142, 12)
@@ -34,12 +35,14 @@ class FitzgibbonCVPR2001TestCase(unittest.TestCase):
         p1 = np.random.randn(2, 5)
         p2 = np.random.randn(3, 5)
 
+        solver = homlib.FitzgibbonCVPR2001TwoSidedEqual()
         with self.assertRaises(TypeError):
-            _ = homlib.estimate_fitzgibbon_cvpr_2001_two_sided_equal(p1, p2)
+            _ = solver.estimate(p1, p2)
 
     def test_estimate_fitzgibbon_cvpr_2001_two_sided_equal_dimensions02(self):
         """Check that an exception is raised when dimensions are incorrect."""
         p1 = np.random.randn(2, 5)
         p2 = np.random.randn(2, 6)
+        solver = homlib.FitzgibbonCVPR2001TwoSidedEqual()
         with self.assertRaises(ValueError):
-            sols = homlib.estimate_fitzgibbon_cvpr_2001_two_sided_equal(p1, p2) # noqa
+            sols = solver.estimate(p1, p2) # noqa

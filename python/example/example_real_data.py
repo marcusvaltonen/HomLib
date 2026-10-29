@@ -294,9 +294,9 @@ def verify_homlib_point(kps1, kps2, tentatives, H_gt,
     dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts, width2, height2)
 
     # This routine assumes the left image is distorted, hence switch places with src and dst
-    estimate, stats = homlib.lomsac_wadenback_3dv_2026_one_sided(
-        dst_centered, src_centered, options
-    )
+    solver = homlib.Wadenback3DV2026OneSided()
+    lomsac = homlib.LOMSAC(solver, options=options)
+    estimate, stats = lomsac.estimate(dst_centered, src_centered)
 
     # Since we swapped dst and src, we seek the inverse
     H = denormalize_homography(np.linalg.inv(estimate.homography), T1, T2_inv)
@@ -322,9 +322,9 @@ def verify_homlib_ori(kps1, kps2, tentatives, H_gt,
     src_centered, T1, _ = center_points_and_get_transforms(src_pts, width1, height1)
     dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts, width2, height2)
 
-    estimate, stats = homlib.lomsac_valtonenornhag_icpr_2026_one_sided_ori(
-        src_centered, dst_centered, ori, options
-    )
+    solver = homlib.ValtonenOrnhagICPR2026OrientationSingleSided()
+    lomsac = homlib.LOMSAC(solver, options=options)
+    estimate, stats = lomsac.estimate(src_centered, dst_centered, ori=ori)
 
     H = denormalize_homography(estimate.homography, T1, T2_inv)
 
@@ -366,9 +366,9 @@ def verify_homlib_affine(src_pts, dst_pts, A, tentatives, H_gt,
     src_centered, T1, _ = center_points_and_get_transforms(src_pts.T, width1, height1)
     dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts.T, width2, height2)
 
-    estimate, stats = homlib.lomsac_valtonenornhag_icpr_2026_one_sided_affine(
-        src_centered, dst_centered, A.T, options
-    )
+    solver = homlib.ValtonenOrnhagICPR2026AffineSingleSided()
+    lomsac = homlib.LOMSAC(solver, options=options)
+    estimate, stats = lomsac.estimate(src_centered, dst_centered, A=A.T)
 
     H = denormalize_homography(estimate.homography, T1, T2_inv)
 

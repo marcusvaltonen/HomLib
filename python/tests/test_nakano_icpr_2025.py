@@ -16,17 +16,19 @@ class NakanoICPR2025TestCase(unittest.TestCase):
             [0.161874840375985,  0.528540478431576,  0.291358438524245,  0.0216079362297207, 0.583861165740761]
         ])
 
+        self.solver = homlib.NakanoICPR2025OneSided(extra_check=False)
+
     def test_length(self):
-        sols = homlib.estimate_nakano_icpr_2025_one_sided(self.p1, self.p2, False)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 1)
 
     def test_distortion(self):
-        sols = homlib.estimate_nakano_icpr_2025_one_sided(self.p1, self.p2, False)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertAlmostEqual(sols[0].distortion_parameter, 0.0, 12)
         self.assertAlmostEqual(sols[0].distortion_parameter2, -0.3, 12)
 
     def test_homography(self):
-        sols = homlib.estimate_nakano_icpr_2025_one_sided(self.p1, self.p2, False)
+        sols = self.solver.estimate(self.p1, self.p2)
         expected = np.array([
             [-0.966294723999024,  1.424868744982000, -0.0570986060219543],
             [-1.118034960806880, -0.916112342444385, -0.9604495174992110],
@@ -38,10 +40,10 @@ class NakanoICPR2025TestCase(unittest.TestCase):
         p1 = np.random.randn(2, 5)
         p2 = np.random.randn(3, 5)
         with self.assertRaises(TypeError):
-            homlib.estimate_nakano_icpr_2025_one_sided(p1, p2, False)
+            self.solver.estimate(p1, p2)
 
     def test_dimensions_cols(self):
         p1 = np.random.randn(2, 5)
         p2 = np.random.randn(2, 6)
         with self.assertRaises(ValueError):
-            homlib.estimate_nakano_icpr_2025_one_sided(p1, p2, False)
+            self.solver.estimate(p1, p2)

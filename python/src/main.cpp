@@ -1,6 +1,7 @@
 #include <tuple>
 #include <vector>
 #include <sstream>
+#include <type_traits>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -12,20 +13,19 @@
 #include <RansacLib/ransac.h>
 
 #include <posedata.hpp>
-#include <get_barath_visapp_2016.hpp>
-#include <get_fitzgibbon_cvpr_2001.hpp>
-#include <get_kukelova_cvpr_2015.hpp>
-#include <get_nakano_icpr_2025.hpp>
-#include <get_wadenback_3dv_2026.hpp>
-#include <get_valtonenornhag_icpr_2026.hpp>
-#include <ransac_estimator.h>
-#include <affine_ransac_estimator.h>
-#include <orientation_ransac_estimator.h>
+#include <solver_id.h>
+#include <solver_dispatch.h>
+#include <lomsac_runner.h>
 #include <generate_problem_instance.hpp>
-#include <iostream>
+
+#ifdef HOMLIB_HAS_SUPERANSAC
+#include <superansac_runner.h>
+#endif
 
 namespace py = pybind11;
 using namespace pybind11::literals;
+
+// --- Helpers ---
 
 template <typename T>
 std::string to_string_with_precision(const T a_value, const int n = 6)
@@ -63,7 +63,7 @@ void preprocess_affine(
         throw std::invalid_argument("x and y should be of equal size.");
     }
     if (x_.cols() != A_.cols()) {
-        throw std::invalid_argument("x and y should be of equal size.");
+        throw std::invalid_argument("x and A should be of equal size.");
     }
     for (size_t i=0; i < x_.cols(); i++) {
         x->push_back(x_.col(i));
@@ -87,7 +87,7 @@ void preprocess_orientation(
         throw std::invalid_argument("x and y should be of equal size.");
     }
     if (x_.cols() != ori_.cols()) {
-        throw std::invalid_argument("x and y should be of equal size.");
+        throw std::invalid_argument("x and ori should be of equal size.");
     }
     for (size_t i=0; i < x_.cols(); i++) {
         x->push_back(x_.col(i));
@@ -96,359 +96,197 @@ void preprocess_orientation(
     }
 }
 
+// --- Solver construction with optional extra_check ---
 
-std::vector<HomLib::PoseData> estimate_fitzgibbon_cvpr_2001_one_sided_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_
-) {
+template <typename Solver>
+Solver make_solver(bool extra_check) {
+    if constexpr (std::is_constructible_v<Solver, bool>) {
+        return Solver(extra_check);
+    } else {
+        return Solver();
+    }
+}
+
+// --- PySolver: wraps SolverId + params for use from Python ---
+
+struct PySolver {
+    HomLib::SolverId id;
+    HomLib::FeatureType feature_type;
+    bool extra_check;
+
+    PySolver(HomLib::SolverId id, bool extra_check = false)
+        : id(id), feature_type(HomLib::feature_type_for(id)), extra_check(extra_check) {}
+};
+
+// --- Dispatch: direct estimation ---
+
+std::vector<HomLib::PoseData> dispatch_estimate_point(
+    const PySolver& solver,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_)
+{
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
-    std::vector<HomLib::PoseData> poses = HomLib::FitzgibbonCVPR2001::get_single(x, y);
-    return poses;
-} 
 
-std::vector<HomLib::PoseData> estimate_fitzgibbon_cvpr_2001_two_sided_equal_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_
-) {
-    std::vector<Eigen::Vector2d> x, y;
-    preprocess(x_, y_, &x, &y);
-    std::vector<HomLib::PoseData> poses = HomLib::FitzgibbonCVPR2001::get(x, y);
-    return poses;
+    return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
+        using Solver = std::decay_t<decltype(tag)>;
+        auto s = make_solver<Solver>(solver.extra_check);
+        std::vector<HomLib::PoseData> poses;
+        s.solve(x, y, &poses);
+        return poses;
+    });
 }
 
-std::vector<HomLib::PoseData> estimate_kukelova_cvpr_2015_two_sided_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    bool dist_equal
-) {
-    std::vector<Eigen::Vector2d> x, y;
-    preprocess(x_, y_, &x, &y);
-    std::vector<HomLib::PoseData> poses = HomLib::KukelovaCVPR2015::get(x, y, dist_equal);
-    return poses;
-}
-
-std::vector<HomLib::PoseData> estimate_kukelova_cvpr_2015_two_sided_6pt_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    bool dist_equal
-) {
-    std::vector<Eigen::Vector2d> x, y;
-    preprocess(x_, y_, &x, &y);
-    std::vector<HomLib::PoseData> poses = HomLib::KukelovaCVPR2015::get_6pt(x, y, dist_equal);
-    return poses;
-}
-
-std::vector<HomLib::PoseData> estimate_nakano_icpr_2025_one_sided_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    bool extra_check
-) {
-    std::vector<Eigen::Vector2d> x, y;
-    preprocess(x_, y_, &x, &y);
-    std::vector<HomLib::PoseData> poses = HomLib::NakanoICPR2025::get(x, y, extra_check);
-    return poses;
-}
-
-std::vector<HomLib::PoseData> estimate_wadenback_3dv_2026_one_sided_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    bool extra_check
-) {
-    std::vector<Eigen::Vector2d> x, y;
-    preprocess(x_, y_, &x, &y);
-    std::vector<HomLib::PoseData> poses = HomLib::Wadenback3DV2026::get_one_sided(x, y, extra_check);
-    return poses;
-}
-
-std::vector<HomLib::PoseData> estimate_wadenback_3dv_2026_two_sided_equal_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    bool extra_check
-) {
-    std::vector<Eigen::Vector2d> x, y;
-    preprocess(x_, y_, &x, &y);
-    std::vector<HomLib::PoseData> poses = HomLib::Wadenback3DV2026::get_double_sided_equal(x, y, extra_check);
-    return poses;
-}
-
-std::vector<HomLib::PoseData> estimate_wadenback_3dv_2026_two_sided_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    bool extra_check
-) {
-    std::vector<Eigen::Vector2d> x, y;
-    preprocess(x_, y_, &x, &y);
-    std::vector<HomLib::PoseData> poses = HomLib::Wadenback3DV2026::get_double_sided(x, y, extra_check);
-    return poses;
-}
-
-template <typename Estimator> std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wrapper(
-    Estimator* estimator,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const ransac_lib::LORansacOptions &options
-) {
-    std::vector<Eigen::Vector2d> x, y;
-    preprocess(x_, y_, &x, &y);
-    
-    ransac_lib::RansacStatistics ransac_stats;
-    int inliers = 0;
-    HomLib::PoseData best_model;
-    best_model.homography = Eigen::Matrix3d::Identity();
-    best_model.focal_length = 0.0;
-    best_model.distortion_parameter = 0.0;
-    best_model.distortion_parameter2 = 0.0;
-    
-    HomLib::RansacEstimator<Estimator> solver(x, y, *estimator);
-    ransac_lib::LocallyOptimizedMSAC<
-        HomLib::PoseData,
-        std::vector<HomLib::PoseData>,
-        HomLib::RansacEstimator<Estimator>> lomsac;
-    inliers = lomsac.EstimateModel(options, solver, &best_model, &ransac_stats);
-    (void)inliers;  // Suppress warnings
-
-    return std::make_tuple(std::move(best_model), std::move(ransac_stats));
-}
-
-
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_fitzgibbon_cvpr_2001_one_sided_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::FitzgibbonCVPR2001::SolverSingleSided estimator;
-    auto output = lomsac_wrapper(&estimator, x_, y_, options);
-    return output;
-}
-
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_fitzgibbon_cvpr_2001_two_sided_equal_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::FitzgibbonCVPR2001::SolverTwoSidedEqual estimator;
-    auto output = lomsac_wrapper(&estimator, x_, y_, options);
-    return output;
-}
-
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_kukelova_cvpr_2015_two_sided_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::KukelovaCVPR2015::SolverTwoSided estimator;
-    auto output = lomsac_wrapper(&estimator, x_, y_, options);
-    return output;
-}
-
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_kukelova_cvpr_2015_two_sided_equal_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::KukelovaCVPR2015::SolverTwoSidedEqual estimator;
-    auto output = lomsac_wrapper(&estimator, x_, y_, options);
-    return output;
-}
-
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_kukelova_cvpr_2015_two_sided_equal_6pt_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::KukelovaCVPR2015::SolverTwoSidedEqual6Pt estimator;
-    auto output = lomsac_wrapper(&estimator, x_, y_, options);
-    return output;
-}
-
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_kukelova_cvpr_2015_two_sided_6pt_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::KukelovaCVPR2015::SolverTwoSided6Pt estimator;
-    auto output = lomsac_wrapper(&estimator, x_, y_, options);
-    return output;
-}
-
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_nakano_icpr_2025_one_sided_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::NakanoICPR2025::SolverSingleSided estimator;
-    auto output = lomsac_wrapper(&estimator, x_, y_, options);
-    return output;
-}
-
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_3dv_2026_one_sided_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::Wadenback3DV2026::SolverSingleSided estimator;
-    auto output = lomsac_wrapper(&estimator, x_, y_, options);
-    return output;
-}
-
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_3dv_2026_two_sided_equal_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::Wadenback3DV2026::SolverTwoSidedEqual estimator;
-    auto output = lomsac_wrapper(&estimator, x_, y_, options);
-    return output;
-}
-
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_wadenback_3dv_2026_two_sided_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::Wadenback3DV2026::SolverTwoSided estimator;
-    auto output = lomsac_wrapper(&estimator, x_, y_, options);
-    return output;
-}
-
-template <typename Estimator> std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_affine_wrapper(
-    Estimator* estimator,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const Eigen::Matrix<double, 4, Eigen::Dynamic> &A_,
-    const ransac_lib::LORansacOptions &options
-) {
+std::vector<HomLib::PoseData> dispatch_estimate_affine(
+    const PySolver& solver,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const Eigen::Matrix<double, 4, Eigen::Dynamic>& A_)
+{
     std::vector<Eigen::Vector2d> x, y;
     std::vector<Eigen::Matrix2d> A;
     preprocess_affine(x_, y_, A_, &x, &y, &A);
-    
-    ransac_lib::RansacStatistics ransac_stats;
-    int inliers = 0;
-    HomLib::PoseData best_model;
-    best_model.homography = Eigen::Matrix3d::Identity();
-    best_model.focal_length = 0.0;
-    best_model.distortion_parameter = 0.0;
-    best_model.distortion_parameter2 = 0.0;
-    
-    HomLib::AffineRansacEstimator<Estimator> solver(x, y, A, *estimator);
-    ransac_lib::LocallyOptimizedMSAC<
-        HomLib::PoseData,
-        std::vector<HomLib::PoseData>,
-        HomLib::AffineRansacEstimator<Estimator>> lomsac;
-    inliers = lomsac.EstimateModel(options, solver, &best_model, &ransac_stats);
 
-    return std::make_tuple(std::move(best_model), std::move(ransac_stats));
+    return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
+        using Solver = std::decay_t<decltype(tag)>;
+        auto s = make_solver<Solver>(solver.extra_check);
+        std::vector<HomLib::PoseData> poses;
+        s.solve(x, y, A, &poses);
+        return poses;
+    });
 }
 
-
-template <typename Estimator> std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_orientation_wrapper(
-    Estimator* estimator,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &ori_,
-    const ransac_lib::LORansacOptions &options
-) {
-    std::vector<Eigen::Vector2d> x, y;
-    std::vector<Eigen::Vector2d> ori;
+std::vector<HomLib::PoseData> dispatch_estimate_orientation(
+    const PySolver& solver,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& ori_)
+{
+    std::vector<Eigen::Vector2d> x, y, ori;
     preprocess_orientation(x_, y_, ori_, &x, &y, &ori);
 
-    ransac_lib::RansacStatistics ransac_stats;
-    int inliers = 0;
-    HomLib::PoseData best_model;
-    best_model.homography = Eigen::Matrix3d::Identity();
-    best_model.focal_length = 0.0;
-    best_model.distortion_parameter = 0.0;
-    best_model.distortion_parameter2 = 0.0;
-
-    HomLib::OrientationRansacEstimator<Estimator> solver(x, y, ori, *estimator);
-    ransac_lib::LocallyOptimizedMSAC<
-        HomLib::PoseData,
-        std::vector<HomLib::PoseData>,
-        HomLib::OrientationRansacEstimator<Estimator>> lomsac;
-    inliers = lomsac.EstimateModel(options, solver, &best_model, &ransac_stats);
-
-    return std::make_tuple(std::move(best_model), std::move(ransac_stats));
+    return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
+        using Solver = std::decay_t<decltype(tag)>;
+        auto s = make_solver<Solver>(solver.extra_check);
+        std::vector<HomLib::PoseData> poses;
+        s.solve(x, y, ori, &poses);
+        return poses;
+    });
 }
 
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_valtonenornhag_icpr_2026_one_sided_affine_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const Eigen::Matrix<double, 4, Eigen::Dynamic> &A_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::ValtonenOrnhagICPR2026::AffineSolverSingleSided estimator;
-    auto output = lomsac_affine_wrapper(&estimator, x_, y_, A_, options);
-    return output;
+// --- Dispatch: LOMSAC ---
+
+std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_point(
+    const PySolver& solver,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const ransac_lib::LORansacOptions& options)
+{
+    std::vector<Eigen::Vector2d> x, y;
+    preprocess(x_, y_, &x, &y);
+
+    return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
+        using Solver = std::decay_t<decltype(tag)>;
+        auto s = make_solver<Solver>(solver.extra_check);
+        return HomLib::run_lomsac_point(s, x, y, options);
+    });
 }
 
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_valtonenornhag_icpr_2026_one_sided_ori_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &ori_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::ValtonenOrnhagICPR2026::OrientationSolverSingleSided estimator;
-    auto output = lomsac_orientation_wrapper(&estimator, x_, y_, ori_, options);
-    return output;
+std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_affine(
+    const PySolver& solver,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const Eigen::Matrix<double, 4, Eigen::Dynamic>& A_,
+    const ransac_lib::LORansacOptions& options)
+{
+    std::vector<Eigen::Vector2d> x, y;
+    std::vector<Eigen::Matrix2d> A;
+    preprocess_affine(x_, y_, A_, &x, &y, &A);
+
+    return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
+        using Solver = std::decay_t<decltype(tag)>;
+        auto s = make_solver<Solver>(solver.extra_check);
+        return HomLib::run_lomsac_affine(s, x, y, A, options);
+    });
 }
 
-std::tuple<HomLib::PoseData, ransac_lib::RansacStatistics> lomsac_barath_visapp_2016_affine_wrapper(
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
-    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
-    const Eigen::Matrix<double, 4, Eigen::Dynamic> &A_,
-    const ransac_lib::LORansacOptions &options
-) {
-    HomLib::BarathVISAPP2016::AffineSolver estimator;
-    auto output = lomsac_affine_wrapper(&estimator, x_, y_, A_, options);
-    return output;
+std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_orientation(
+    const PySolver& solver,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& ori_,
+    const ransac_lib::LORansacOptions& options)
+{
+    std::vector<Eigen::Vector2d> x, y, ori;
+    preprocess_orientation(x_, y_, ori_, &x, &y, &ori);
+
+    return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
+        using Solver = std::decay_t<decltype(tag)>;
+        auto s = make_solver<Solver>(solver.extra_check);
+        return HomLib::run_lomsac_orientation(s, x, y, ori, options);
+    });
 }
 
+
+// --- Dispatch: SupeRANSAC (conditional) ---
+
+#ifdef HOMLIB_HAS_SUPERANSAC
+std::pair<HomLib::PoseData, HomLib::SuperansacStatistics> dispatch_superansac_point(
+    const PySolver& solver,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const superansac::RANSACSettings& settings)
+{
+    std::vector<Eigen::Vector2d> x, y;
+    preprocess(x_, y_, &x, &y);
+
+    return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
+        using Solver = std::decay_t<decltype(tag)>;
+        auto s = make_solver<Solver>(solver.extra_check);
+        return HomLib::run_superansac_point(s, x, y, settings);
+    });
+}
+
+std::pair<HomLib::PoseData, HomLib::SuperansacStatistics> dispatch_superansac_affine(
+    const PySolver& solver,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const Eigen::Matrix<double, 4, Eigen::Dynamic>& A_,
+    const superansac::RANSACSettings& settings)
+{
+    std::vector<Eigen::Vector2d> x, y;
+    std::vector<Eigen::Matrix2d> A;
+    preprocess_affine(x_, y_, A_, &x, &y, &A);
+
+    return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
+        using Solver = std::decay_t<decltype(tag)>;
+        auto s = make_solver<Solver>(solver.extra_check);
+        return HomLib::run_superansac_affine(s, x, y, A, settings);
+    });
+}
+
+std::pair<HomLib::PoseData, HomLib::SuperansacStatistics> dispatch_superansac_orientation(
+    const PySolver& solver,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& ori_,
+    const superansac::RANSACSettings& settings)
+{
+    std::vector<Eigen::Vector2d> x, y, ori;
+    preprocess_orientation(x_, y_, ori_, &x, &y, &ori);
+
+    return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
+        using Solver = std::decay_t<decltype(tag)>;
+        auto s = make_solver<Solver>(solver.extra_check);
+        return HomLib::run_superansac_orientation(s, x, y, ori, settings);
+    });
+}
+#endif // HOMLIB_HAS_SUPERANSAC
 
 
 PYBIND11_MODULE(_core, m) {
     m.doc() = R"pbdoc(
         Wrappers for C++ core algorithms of HomLib.
-        -----------------------
-
-        .. currentmodule:: _core
-
-        .. autosummary::
-           :toctree: _generate
-           
-            PoseData
-            LORansacOptions
-            RansacStatistics
-
-            estimate_fitzgibbon_cvpr_2001_one_sided
-            estimate_fitzgibbon_cvpr_2001_two_sided_equal
-            estimate_kukelova_cvpr_2015_two_sided
-            estimate_kukelova_cvpr_2015_two_sided_6pt
-            estimate_nakano_icpr_2025_one_sided
-            estimate_wadenback_3dv_2026_one_sided
-            estimate_wadenback_3dv_2026_two_sided_equal
-            estimate_wadenback_3dv_2026_two_sided
-
-            lomsac_fitzgibbon_cvpr_2001_one_sided
-            lomsac_fitzgibbon_cvpr_2001_two_sided_equal
-            lomsac_kukelova_cvpr_2015_two_sided
-            lomsac_kukelova_cvpr_2015_two_sided_equal
-            lomsac_kukelova_cvpr_2015_two_sided_equal_6pt
-            lomsac_kukelova_cvpr_2015_two_sided_6pt
-            lomsac_nakano_icpr_2025_one_sided
-            lomsac_wadenback_3dv_2026_one_sided
-            lomsac_wadenback_3dv_2026_two_sided_equal
-            lomsac_wadenback_3dv_2026_two_sided
-
-            lomsac_valtonenornhag_icpr_2026_one_sided_affine
-            lomsac_valtonenornhag_icpr_2026_one_sided_ori
-            lomsac_barath_visapp_2016_affine
-
-            DistortionCase
-            ProblemConfig
-            ProblemInstance
-            generate_problem_instance
-           
     )pbdoc";
 
     #ifdef HOMLIB_VERSION
@@ -456,7 +294,69 @@ PYBIND11_MODULE(_core, m) {
     #else
         m.attr("__version__") = py::str("dev");
     #endif
-    
+
+    // --- Enums ---
+
+    py::enum_<HomLib::SolverId>(m, "SolverId",
+        R"pbdoc(
+            Identifier for a specific minimal solver algorithm.
+        )pbdoc")
+        .value("FitzgibbonCVPR2001OneSided", HomLib::SolverId::FitzgibbonCVPR2001OneSided)
+        .value("FitzgibbonCVPR2001TwoSidedEqual", HomLib::SolverId::FitzgibbonCVPR2001TwoSidedEqual)
+        .value("KukelovaCVPR2015TwoSidedEqual", HomLib::SolverId::KukelovaCVPR2015TwoSidedEqual)
+        .value("KukelovaCVPR2015TwoSidedEqual6Pt", HomLib::SolverId::KukelovaCVPR2015TwoSidedEqual6Pt)
+        .value("KukelovaCVPR2015TwoSided", HomLib::SolverId::KukelovaCVPR2015TwoSided)
+        .value("KukelovaCVPR2015TwoSided6Pt", HomLib::SolverId::KukelovaCVPR2015TwoSided6Pt)
+        .value("NakanoICPR2025OneSided", HomLib::SolverId::NakanoICPR2025OneSided)
+        .value("NakanoICPR2025OneSidedRight", HomLib::SolverId::NakanoICPR2025OneSidedRight)
+        .value("Wadenback3DV2026OneSided", HomLib::SolverId::Wadenback3DV2026OneSided)
+        .value("Wadenback3DV2026TwoSidedEqual", HomLib::SolverId::Wadenback3DV2026TwoSidedEqual)
+        .value("Wadenback3DV2026TwoSided", HomLib::SolverId::Wadenback3DV2026TwoSided)
+        .value("BarathVISAPP2016Affine", HomLib::SolverId::BarathVISAPP2016Affine)
+        .value("ValtonenOrnhagICPR2026AffineSingleSided", HomLib::SolverId::ValtonenOrnhagICPR2026AffineSingleSided)
+        .value("ValtonenOrnhagICPR2026OrientationSingleSided", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationSingleSided);
+
+    py::enum_<HomLib::FeatureType>(m, "FeatureType",
+        R"pbdoc(
+            Type of input features expected by a solver.
+        )pbdoc")
+        .value("Points", HomLib::FeatureType::Points)
+        .value("Affine", HomLib::FeatureType::Affine)
+        .value("Orientation", HomLib::FeatureType::Orientation);
+
+    // --- PySolver ---
+
+    py::class_<PySolver>(m, "Solver",
+        R"pbdoc(
+            A solver for homography estimation with optional radial distortion correction.
+
+            Wraps a specific solver algorithm identified by :class:`SolverId`.
+            Solver-specific parameters (e.g. ``extra_check``) are set at construction.
+        )pbdoc")
+        .def(py::init<HomLib::SolverId, bool>(),
+            R"pbdoc(
+                Construct a Solver.
+
+                Parameters
+                ----------
+                id : SolverId
+                    Which solver algorithm to use.
+                extra_check : bool
+                    Whether to apply extra validation checks (only affects solvers that support it).
+            )pbdoc",
+            "id"_a, "extra_check"_a = false)
+        .def_readonly("id", &PySolver::id, "Solver identifier (:class:`SolverId`).")
+        .def_readonly("feature_type", &PySolver::feature_type, "Feature type (:class:`FeatureType`).")
+        .def_readonly("extra_check", &PySolver::extra_check, "Whether extra validation checks are enabled.")
+        .def("__repr__", [](const PySolver& s) {
+            auto py_id = py::cast(s.id);
+            std::string name = py_id.attr("name").cast<std::string>();
+            return "Solver(SolverId." + name +
+                   ", extra_check=" + std::string(s.extra_check ? "True" : "False") + ")";
+        });
+
+    // --- PoseData ---
+
     py::class_<HomLib::PoseData>(m, "PoseData",
         R"pbdoc(
             Solver output containing the estimated homography and distortion parameters.
@@ -499,6 +399,8 @@ PYBIND11_MODULE(_core, m) {
             }
         );
 
+    // --- DistortionCase ---
+
     py::enum_<HomLib::DistortionCase>(m, "DistortionCase",
         R"pbdoc(
             Radial distortion model used when generating synthetic problems.
@@ -517,7 +419,9 @@ PYBIND11_MODULE(_core, m) {
         .value("TWO_SIDED", HomLib::DistortionCase::TWO_SIDED,
             "Independent distortion on each set of points.")
         .export_values();
-        
+
+    // --- ProblemConfig ---
+
     py::class_<HomLib::ProblemConfig>(m, "ProblemConfig",
         R"pbdoc(
             Configuration for synthetic problem generation.
@@ -566,7 +470,7 @@ PYBIND11_MODULE(_core, m) {
             	    case HomLib::DistortionCase::TWO_SIDED_EQUAL:
                         distortion = "TWO_SIDED_EQUAL";
 		                break;
-            	    case HomLib::DistortionCase::TWO_SIDED: 
+            	    case HomLib::DistortionCase::TWO_SIDED:
             	        distortion = "TWO_SIDED";
 		                break;
         	    }
@@ -584,7 +488,9 @@ PYBIND11_MODULE(_core, m) {
                     ")";
             }
         );
-    
+
+    // --- ProblemInstance ---
+
     py::class_<HomLib::ProblemInstance>(m, "ProblemInstance",
         R"pbdoc(
             A synthetic problem instance with ground-truth data and point correspondences.
@@ -666,6 +572,9 @@ PYBIND11_MODULE(_core, m) {
         )pbdoc",
         "settings"_a
     );
+
+    // --- LORansacOptions ---
+
     py::class_<ransac_lib::LORansacOptions>(m, "LORansacOptions",
         R"pbdoc(
             Options for the Locally Optimized MSAC (LOMSAC) estimator.
@@ -715,7 +624,9 @@ PYBIND11_MODULE(_core, m) {
                     ")";
             }
         );
-    
+
+    // --- RansacStatistics ---
+
     py::class_<ransac_lib::RansacStatistics>(m, "RansacStatistics",
         R"pbdoc(
             Statistics from a RANSAC / LOMSAC estimation run.
@@ -747,375 +658,248 @@ PYBIND11_MODULE(_core, m) {
                     ")";
             }
         );
-    
-    /*
-     *  Wrappers for minimal solvers
-     */
-    m.def(
-        "estimate_fitzgibbon_cvpr_2001_one_sided",
-        &estimate_fitzgibbon_cvpr_2001_one_sided_wrapper,
-        R"pbdoc(
-            One-sided solver by Fitzgibbon.
-            
-            Solver from [1]_ as modified by [2]_.
-            
-            .. [1] A. W. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry and lens distortion". In Computer Vision and Pattern Recognition (CVPR), 2001.
-            .. [2] Gaku Nakano, "Inverse DLT Method for One-Sided Radial Distortion Homography". In International Conference on Pattern Recognition (ICPR), 2024.
-            
-        )pbdoc",
-        "x"_a,
-        "y"_a
-    );
-    m.def(
-        "estimate_fitzgibbon_cvpr_2001_two_sided_equal",
-        &estimate_fitzgibbon_cvpr_2001_two_sided_equal_wrapper,
-        R"pbdoc(
-            Two-sided and equal solver by Fitzgibbon.
-            
-            Non-minimal solver from [1]_.
-            
-            .. [1] A. W. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry and lens distortion". In Computer Vision and Pattern Recognition (CVPR), 2001.
-            
-        )pbdoc",
-        "x"_a,
-        "y"_a
-    );
-    m.def(
-        "estimate_kukelova_cvpr_2015_two_sided",
-        &estimate_kukelova_cvpr_2015_two_sided_wrapper,
-        R"pbdoc(
-            Two-sided solver by Kukelova et al.
-            
-            Minimal solver re-implemented from [1]_ using the automatic Gröbner basis solver proposed
-            in [2]_.
-            
-            .. [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography". In Computer Vision and Pattern Recognition (CVPR), 2015.
-            .. [2] Larsson et al. "Efficient Solvers for Minimal Problems by Syzygy-based Reduction". In Computer Vision and Pattern Recognition (CVPR), 2017.
-            
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "dist_equal"_a
-    );
-    m.def(
-        "estimate_kukelova_cvpr_2015_two_sided_6pt",
-        &estimate_kukelova_cvpr_2015_two_sided_6pt_wrapper,
-        R"pbdoc(
-            Two-sided solver by Kukelova et al.
-        
-            Non-minimal solver re-implemented from [1]_.
-            
-            .. [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography". In Computer Vision and Pattern Recognition (CVPR), 2015.
-            
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "dist_equal"_a
-    );
-    m.def(
-        "estimate_nakano_icpr_2025_one_sided",
-        &estimate_nakano_icpr_2025_one_sided_wrapper,
-        R"pbdoc(
-            One-sided solver by Nakano.
-            
-            Minimal solver re-implemented from [1]_.
-            
-            .. [1] Gaku Nakano, "Inverse DLT Method for One-Sided Radial Distortion Homography". In International Conference on Pattern Recognition (ICPR), 2024.
-            
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "extra_check"_a
-    );
-    m.def(
-        "estimate_wadenback_3dv_2026_one_sided",
-        &estimate_wadenback_3dv_2026_one_sided_wrapper,
-        R"pbdoc(
-            One-sided solver by Wadenbäck et al.
-        
-            Minimal solver from [1]_. Original implementation.
-            
-            .. [1] M. Wadenbäck, M. Valtonen Örnhag, J. Edstedt, "Radially Distorted Homographies, Revisited" In International Conference on 3D Vision (3DV), 2026.
-            
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "extra_check"_a
-    );
-    m.def(
-        "estimate_wadenback_3dv_2026_two_sided_equal",
-        &estimate_wadenback_3dv_2026_two_sided_equal_wrapper,
-        R"pbdoc(
-            Two-sided and equal solver by Wadenbäck et al.
-        
-            Minimal solver from [1]_. Original implementation.
-            
-            .. [1] M. Wadenbäck, M. Valtonen Örnhag, J. Edstedt, "Radially Distorted Homographies, Revisited" In International Conference on 3D Vision (3DV), 2026.
-            
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "extra_check"_a
-    );
-    m.def(
-        "estimate_wadenback_3dv_2026_two_sided",
-        &estimate_wadenback_3dv_2026_two_sided_wrapper,
-        R"pbdoc(
-            Two-sided solver by Wadenbäck et al.
-        
-            Minimal solver from [1]_. Original implementation.
-            
-            .. [1] M. Wadenbäck, M. Valtonen Örnhag, J. Edstedt, "Radially Distorted Homographies, Revisited" In International Conference on 3D Vision (3DV), 2026.
-            
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "extra_check"_a
-    );
-    
-    /*
-     *  LOMSAC wrappers
-     */
-    
-    m.def(
-        "lomsac_fitzgibbon_cvpr_2001_one_sided",
-        &lomsac_fitzgibbon_cvpr_2001_one_sided_wrapper,
-        R"pbdoc(
-            One-sided solver by Fitzgibbon embedded in a LOMSAC framework.
-            
-            Solver from [1]_ in a LOMSAC framework [2]_.
-            
-            .. [1] A. W. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry and lens distortion," In
-                Conference on Computer Vision and Pattern Recognition (CVPR), 2001
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
-                
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "options"_a
-    );
-    m.def(
-        "lomsac_fitzgibbon_cvpr_2001_two_sided_equal",
-        &lomsac_fitzgibbon_cvpr_2001_two_sided_equal_wrapper,
-        R"pbdoc(
-            Two-sided and equal solver by Fitzgibbon embedded in a LOMSAC framework.
-        
-            Solver from [1]_ in a LOMSAC framework [2]_.
-            
-            .. [1] A. W. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry and lens distortion," In
-                Conference on Computer Vision and Pattern Recognition (CVPR), 2001
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
-                
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "options"_a
-    );
-    m.def(
-        "lomsac_kukelova_cvpr_2015_two_sided",
-        &lomsac_kukelova_cvpr_2015_two_sided_wrapper,
-        R"pbdoc(
-            Two-sided solver by Kukelova et al. embedded in a LOMSAC framework.
-            
-            Solver from [1]_ in a LOMSAC framework [2]_.
-            
-            .. [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
-                and Pattern Recognition (CVPR), 2015
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
-                
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "options"_a
-    );
-    m.def(
-        "lomsac_kukelova_cvpr_2015_two_sided_equal",
-        &lomsac_kukelova_cvpr_2015_two_sided_equal_wrapper,
-        R"pbdoc(
-            Two-sided and equal solver by Kukelova et al. embedded in a LOMSAC framework.
-            
-            Solver from [1]_ in a LOMSAC framework [2]_.
-            
-            .. [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
-                and Pattern Recognition (CVPR), 2015
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
-                
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "options"_a
-    );
-    m.def(
-        "lomsac_kukelova_cvpr_2015_two_sided_equal_6pt",
-        &lomsac_kukelova_cvpr_2015_two_sided_equal_6pt_wrapper,
-        R"pbdoc(
-            Two-sided and equal non-minimal solver by Kukelova et al. embedded in a LOMSAC framework.
-        
-            Solver from [1]_ in a LOMSAC framework [2]_.
-            
-            .. [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
-                and Pattern Recognition (CVPR), 2015
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
-                
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "options"_a
-    );
-    m.def(
-        "lomsac_kukelova_cvpr_2015_two_sided_6pt",
-        &lomsac_kukelova_cvpr_2015_two_sided_6pt_wrapper,
-        R"pbdoc(
-            Two-sided non-minimal solver by Kukelova et al. embedded in a LOMSAC framework.
-           
-            Solver from [1]_ in a LOMSAC framework [2]_.
-            
-            .. [1] Z. Kukelova, J. Heller, M. Bujnak and T. Pajdla, "Radial distortion homography," In Computer Vision
-                and Pattern Recognition (CVPR), 2015
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
-                
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "options"_a
-    );
-    m.def(
-        "lomsac_nakano_icpr_2025_one_sided",
-        &lomsac_nakano_icpr_2025_one_sided_wrapper,
-        R"pbdoc(
-            One-sided solver by Nakano embedded in a LOMSAC framework.
-        
-            Solver from [1]_ in a LOMSAC framework [2]_.
-            
-            .. [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
-                International Conference on Pattern Recognition (ICPR), 2024.
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
-                
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "options"_a
-    );
-    m.def(
-        "lomsac_wadenback_3dv_2026_one_sided",
-        &lomsac_wadenback_3dv_2026_one_sided_wrapper,
-        R"pbdoc(
-            One-sided solver by Wadenback et al. embedded in a LOMSAC framework.
-        
-            Solver from [1]_ in a LOMSAC framework [2]_.
-            
-            .. [1] Marten Wadenback, Marcus Valtonen Ornhag, and Johan Edstedt. "Radially Distorted Homographies, Revisited",
-                In the Proceedings of the International Conference on 3D Vision (3DV), 2026.
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
-                
-        )pbdoc",
-        "x"_a,
-        "y"_a,
-        "options"_a
-    );
 
-    m.def(
-        "lomsac_wadenback_3dv_2026_two_sided_equal",
-        &lomsac_wadenback_3dv_2026_two_sided_equal_wrapper,
+    // --- Dispatch functions ---
+
+    m.def("dispatch_estimate_point", &dispatch_estimate_point,
         R"pbdoc(
-            Two-sided and equal solver by Wadenback et al. embedded in a LOMSAC framework.
-            
-            Solver from [1]_ in a LOMSAC framework [2]_.
-            
-            .. [1] Marten Wadenback, Marcus Valtonen Ornhag, and Johan Edstedt. "Radially Distorted Homographies, Revisited",
-                In the Proceedings of the International Conference on 3D Vision (3DV), 2026.
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
-                
+            Run a point-based minimal solver directly (no RANSAC).
+
+            Parameters
+            ----------
+            solver : Solver
+                A point-based solver instance.
+            x : numpy.ndarray
+                2xN array of points in the first image.
+            y : numpy.ndarray
+                2xN array of points in the second image.
+
+            Returns
+            -------
+            list[PoseData]
+                List of candidate solutions.
         )pbdoc",
-        "x"_a,
-        "y"_a,
-        "options"_a
-    );
-    m.def(
-        "lomsac_wadenback_3dv_2026_two_sided",
-        &lomsac_wadenback_3dv_2026_two_sided_wrapper,
+        "solver"_a, "x"_a, "y"_a);
+
+    m.def("dispatch_estimate_affine", &dispatch_estimate_affine,
         R"pbdoc(
-            Two-sided solver by Wadenback et al. embedded in a LOMSAC framework.
-            
-            Solver from [1]_ in a LOMSAC framework [2]_.
-            
-            .. [1] Marten Wadenback, Marcus Valtonen Ornhag, and Johan Edstedt. "Radially Distorted Homographies, Revisited",
-                In the Proceedings of the International Conference on 3D Vision (3DV), 2026.
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
-                
+            Run an affine-covariant minimal solver directly (no RANSAC).
+
+            Parameters
+            ----------
+            solver : Solver
+                An affine-covariant solver instance.
+            x : numpy.ndarray
+                2xN array of points in the first image.
+            y : numpy.ndarray
+                2xN array of points in the second image.
+            A : numpy.ndarray
+                4xN array of local affine transformations (row-major 2x2 per column).
+
+            Returns
+            -------
+            list[PoseData]
+                List of candidate solutions.
         )pbdoc",
-        "x"_a,
-        "y"_a,
-        "options"_a
-    );
-    m.def(
-        "lomsac_valtonenornhag_icpr_2026_one_sided_affine",
-        &lomsac_valtonenornhag_icpr_2026_one_sided_affine_wrapper,
+        "solver"_a, "x"_a, "y"_a, "A"_a);
+
+    m.def("dispatch_estimate_orientation", &dispatch_estimate_orientation,
         R"pbdoc(
-            Affine-covariant one-sided solver in a LOMSAC framework.
+            Run an orientation-covariant minimal solver directly (no RANSAC).
 
-            From [1]_ modified for affine-covariant features according to [3]_, in the LOMSAC framework of [2]_.
+            Parameters
+            ----------
+            solver : Solver
+                An orientation-covariant solver instance.
+            x : numpy.ndarray
+                2xN array of points in the first image.
+            y : numpy.ndarray
+                2xN array of points in the second image.
+            ori : numpy.ndarray
+                2xN array of orientation vectors.
 
-            .. [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
-                International Conference on Pattern Recognition (ICPR), 2024.
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
-            .. [3] Marcus Valtonen Ornhag and Stefan Adalbjornsson. "Radial Distortion Homography Estimation From
-                Affine-Covariant Or Orientation-Covariant Features", In the Proceedings of the International
-                Conference on Pattern Recognition (ICPR), 2026.
+            Returns
+            -------
+            list[PoseData]
+                List of candidate solutions.
         )pbdoc",
-        "x"_a,
-        "y"_a,
-        "A"_a,
-        "options"_a
-    );
-    m.def(
-        "lomsac_valtonenornhag_icpr_2026_one_sided_ori",
-        &lomsac_valtonenornhag_icpr_2026_one_sided_ori_wrapper,
+        "solver"_a, "x"_a, "y"_a, "ori"_a);
+
+    m.def("dispatch_lomsac_point", &dispatch_lomsac_point,
         R"pbdoc(
-            Orientation-covariant one-sided solver in a LOMSAC framework.
+            Run a point-based solver within the LOMSAC framework.
 
-            From [1]_ modified for orientation-covariant features according to [3]_, in the LOMSAC framework of [2]_.
+            Parameters
+            ----------
+            solver : Solver
+                A point-based solver instance.
+            x : numpy.ndarray
+                2xN array of points in the first image.
+            y : numpy.ndarray
+                2xN array of points in the second image.
+            options : LORansacOptions
+                LOMSAC options.
 
-            .. [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
-                International Conference on Pattern Recognition (ICPR), 2024.
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
-            .. [3] Marcus Valtonen Ornhag and Stefan Adalbjornsson. "Radial Distortion Homography Estimation From
-                Affine-Covariant Or Orientation-Covariant Features", In the Proceedings of the International
-                Conference on Pattern Recognition (ICPR), 2026.
+            Returns
+            -------
+            tuple[PoseData, RansacStatistics]
+                Best model and estimation statistics.
         )pbdoc",
-        "x"_a,
-        "y"_a,
-        "ori"_a,
-        "options"_a
-    );
-    m.def(
-        "lomsac_barath_visapp_2016_affine",
-        &lomsac_barath_visapp_2016_affine_wrapper,
+        "solver"_a, "x"_a, "y"_a, "options"_a);
+
+    m.def("dispatch_lomsac_affine", &dispatch_lomsac_affine,
         R"pbdoc(
-            Affine homography solver in a LOMSAC framework.
+            Run an affine-covariant solver within the LOMSAC framework.
 
-            From [1]_ in the LOMSAC framework of [2]_.
+            Parameters
+            ----------
+            solver : Solver
+                An affine-covariant solver instance.
+            x : numpy.ndarray
+                2xN array of points in the first image.
+            y : numpy.ndarray
+                2xN array of points in the second image.
+            A : numpy.ndarray
+                4xN array of local affine transformations.
+            options : LORansacOptions
+                LOMSAC options.
 
-            .. [1] Daniel Barath and Levente Hajder. "Novel Ways to Estimate Homography from Local Affine
-                Transformations", In International Conference on Computer Vision Theory and Application (VISAPP), 2016.
-            .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-                Proceedings of the British Machine Vision Conference (BMVC), 2012.
+            Returns
+            -------
+            tuple[PoseData, RansacStatistics]
+                Best model and estimation statistics.
         )pbdoc",
-        "x"_a,
-        "y"_a,
-        "A"_a,
-        "options"_a
-    );
+        "solver"_a, "x"_a, "y"_a, "A"_a, "options"_a);
+
+    m.def("dispatch_lomsac_orientation", &dispatch_lomsac_orientation,
+        R"pbdoc(
+            Run an orientation-covariant solver within the LOMSAC framework.
+
+            Parameters
+            ----------
+            solver : Solver
+                An orientation-covariant solver instance.
+            x : numpy.ndarray
+                2xN array of points in the first image.
+            y : numpy.ndarray
+                2xN array of points in the second image.
+            ori : numpy.ndarray
+                2xN array of orientation vectors.
+            options : LORansacOptions
+                LOMSAC options.
+
+            Returns
+            -------
+            tuple[PoseData, RansacStatistics]
+                Best model and estimation statistics.
+        )pbdoc",
+        "solver"_a, "x"_a, "y"_a, "ori"_a, "options"_a);
+
+    // --- SupeRANSAC bindings (conditional) ---
+
+#ifdef HOMLIB_HAS_SUPERANSAC
+    m.attr("_has_superansac") = true;
+
+    py::class_<HomLib::SuperansacStatistics>(m, "SuperansacStatistics",
+        R"pbdoc(
+            Statistics from a SupeRANSAC estimation run.
+        )pbdoc")
+        .def(py::init<>())
+        .def_readwrite("num_iterations", &HomLib::SuperansacStatistics::num_iterations,
+            "Total number of RANSAC iterations.")
+        .def_readwrite("inliers", &HomLib::SuperansacStatistics::inliers,
+            "Indices of inlier correspondences.")
+        .def_readwrite("best_score", &HomLib::SuperansacStatistics::best_score,
+            "Score of the best model.")
+        .def("__repr__",
+            [](const HomLib::SuperansacStatistics& s) {
+                return "SuperansacStatistics("
+                    "num_iterations=" + std::to_string(s.num_iterations) + ", "
+                    "inliers=[list of length " + std::to_string(s.inliers.size()) + "], "
+                    "best_score=" + std::to_string(s.best_score) +
+                    ")";
+            });
+
+    py::class_<superansac::RANSACSettings>(m, "SuperansacSettings",
+        R"pbdoc(
+            Settings for SupeRANSAC estimation.
+        )pbdoc")
+        .def(py::init<>())
+        .def_readwrite("inlier_threshold", &superansac::RANSACSettings::inlierThreshold,
+            "Inlier threshold.")
+        .def_readwrite("confidence", &superansac::RANSACSettings::confidence,
+            "Desired confidence level.")
+        .def_readwrite("min_iterations", &superansac::RANSACSettings::minIterations,
+            "Minimum number of iterations.")
+        .def_readwrite("max_iterations", &superansac::RANSACSettings::maxIterations,
+            "Maximum number of iterations.")
+        .def_readwrite("top_k", &superansac::RANSACSettings::topKForLocalOptimization,
+            "Number of top models for local optimization.")
+        .def_readwrite("use_sprt", &superansac::RANSACSettings::useSprt,
+            "Whether to use SPRT test.")
+        .def_readwrite("sampler", &superansac::RANSACSettings::sampler,
+            "Sampler type (default: PROSAC). Use SuperansacSamplerType enum.")
+        .def_readwrite("scoring", &superansac::RANSACSettings::scoring,
+            "Scoring type (default: MAGSAC). Use SuperansacScoringType enum.")
+        .def_readwrite("local_optimization", &superansac::RANSACSettings::localOptimization,
+            "Local optimization type. Use SuperansacLocalOptType enum.")
+        .def_readwrite("final_optimization", &superansac::RANSACSettings::finalOptimization,
+            "Final optimization type. Use SuperansacLocalOptType enum.")
+        .def("__repr__",
+            [](const superansac::RANSACSettings& s) {
+                return "SuperansacSettings("
+                    "inlier_threshold=" + std::to_string(s.inlierThreshold) + ", "
+                    "confidence=" + std::to_string(s.confidence) + ", "
+                    "min_iterations=" + std::to_string(s.minIterations) + ", "
+                    "max_iterations=" + std::to_string(s.maxIterations) +
+                    ")";
+            });
+
+    // Scoring type enum
+    py::enum_<superansac::scoring::ScoringType>(m, "SuperansacScoringType")
+        .value("RANSAC", superansac::scoring::ScoringType::RANSAC)
+        .value("MSAC", superansac::scoring::ScoringType::MSAC)
+        .value("MAGSAC", superansac::scoring::ScoringType::MAGSAC)
+        .value("MINPRAN", superansac::scoring::ScoringType::MINPRAN)
+        .value("ACRANSAC", superansac::scoring::ScoringType::ACRANSAC)
+        .value("GAU", superansac::scoring::ScoringType::GAU)
+        .value("ML", superansac::scoring::ScoringType::ML)
+        .value("GRID", superansac::scoring::ScoringType::GRID);
+
+    // Sampler type enum
+    py::enum_<superansac::samplers::SamplerType>(m, "SuperansacSamplerType")
+        .value("Uniform", superansac::samplers::SamplerType::Uniform)
+        .value("PROSAC", superansac::samplers::SamplerType::PROSAC)
+        .value("NAPSAC", superansac::samplers::SamplerType::NAPSAC)
+        .value("ProgressiveNAPSAC", superansac::samplers::SamplerType::ProgressiveNAPSAC)
+        .value("ImportanceSampler", superansac::samplers::SamplerType::ImportanceSampler)
+        .value("ARSampler", superansac::samplers::SamplerType::ARSampler);
+
+    // Local optimization type enum
+    py::enum_<superansac::local_optimization::LocalOptimizationType>(m, "SuperansacLocalOptType")
+        .value("None_", superansac::local_optimization::LocalOptimizationType::None)
+        .value("LSQ", superansac::local_optimization::LocalOptimizationType::LSQ)
+        .value("IRLS", superansac::local_optimization::LocalOptimizationType::IRLS)
+        .value("NestedRANSAC", superansac::local_optimization::LocalOptimizationType::NestedRANSAC)
+        .value("GCRANSAC", superansac::local_optimization::LocalOptimizationType::GCRANSAC)
+        .value("IteratedLMEDS", superansac::local_optimization::LocalOptimizationType::IteratedLMEDS)
+        .value("CrossValidation", superansac::local_optimization::LocalOptimizationType::CrossValidation);
+
+    // Expose scoring/sampler/lo setters on settings
+    py::class_<superansac::RANSACSettings> settings_class = m.attr("SuperansacSettings").cast<py::class_<superansac::RANSACSettings>>();
+
+    m.def("dispatch_superansac_point", &dispatch_superansac_point,
+        "Run a point-based solver within the SupeRANSAC framework.",
+        "solver"_a, "x"_a, "y"_a, "settings"_a);
+
+    m.def("dispatch_superansac_affine", &dispatch_superansac_affine,
+        "Run an affine-covariant solver within the SupeRANSAC framework.",
+        "solver"_a, "x"_a, "y"_a, "A"_a, "settings"_a);
+
+    m.def("dispatch_superansac_orientation", &dispatch_superansac_orientation,
+        "Run an orientation-covariant solver within the SupeRANSAC framework.",
+        "solver"_a, "x"_a, "y"_a, "ori"_a, "settings"_a);
+#else
+    m.attr("_has_superansac") = false;
+#endif // HOMLIB_HAS_SUPERANSAC
 };

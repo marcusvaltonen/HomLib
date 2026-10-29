@@ -30,9 +30,9 @@ import homlib
 # Define solvers to compare
 
 solver_specs = {
-    "Wadenbäck (3DV 2026)": lambda x, y: homlib.estimate_wadenback_3dv_2026_one_sided(x, y, True),
-    "Nakano (ICPR 2025)": lambda x, y: homlib.estimate_nakano_icpr_2025_one_sided(x, y, True),
-    "Fitzgibbon (CVPR 2001)": lambda x, y: homlib.estimate_fitzgibbon_cvpr_2001_one_sided(x, y),
+    "Wadenbäck (3DV 2026)": homlib.Wadenback3DV2026OneSided(),
+    "Nakano (ICPR 2025)": homlib.NakanoICPR2025OneSided(),
+    "Fitzgibbon (CVPR 2001)": homlib.FitzgibbonCVPR2001OneSided(),
 }
 
 ###############################################################################
@@ -49,9 +49,9 @@ for _ in range(n_instances):
     x = np.array(instance.x1).T
     y = np.array(instance.x2).T
 
-    for name, fn in solver_specs.items():
+    for name, solver in solver_specs.items():
         t0 = time.perf_counter()
-        poses = fn(x, y)
+        poses = solver.estimate(x, y)
         elapsed = (time.perf_counter() - t0) * 1000
 
         best_err = float("inf")

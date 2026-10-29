@@ -40,6 +40,18 @@ source venv/bin/activate
 CMAKE_PREFIX_PATH=/home/elramav/Scripts/PoseLib/install uv pip install .
 ```
 
+#### With SupeRANSAC (optional)
+Requires Boost and OpenCV. Pass `CMAKE_ARGS` to enable:
+```bash
+source venv/bin/activate
+CMAKE_PREFIX_PATH=/home/elramav/Scripts/PoseLib/install CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=ON" uv pip install .
+```
+
+#### Build debugging tips
+- Always redirect build output to a file for long builds: `... > /tmp/homlib_build.log 2>&1`
+- `uv pip install .` always does a clean build (scikit-build-core). Do NOT use `--no-build-isolation` (missing scikit-build-core).
+- For iterating on C++ only, use the `build/` or `build_superansac/` dirs with cmake directly — much faster than pip rebuild.
+
 ### Python tests
 ```bash
 source venv/bin/activate
@@ -51,6 +63,7 @@ pytest -s python/tests
 - **Eigen3** (required): `apt-get install libeigen3-dev`
 - **PoseLib** (required): must be built and installed from source (see PoseLib GitHub repo). CI pins commit `a69263d5d8`.
 - **RansacLib** (submodule, for LOMSAC/RANSAC): `git submodule update --init --recursive`
+- **SupeRANSAC** (optional submodule): `git submodule update --init thirdparty/superansac`. Requires Boost and OpenCV. Enable with `-DHOMLIB_USE_SUPERANSAC=ON`.
 - **Catch2 v3** (fetched automatically by CMake for tests)
 - **pybind11** (fetched automatically by CMake for Python bindings)
 

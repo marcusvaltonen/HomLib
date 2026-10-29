@@ -29,6 +29,7 @@ std::vector<HomLib::PoseData> get_one_sided(
 class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
     public:
         SolverSingleSided() = default;
+        explicit SolverSingleSided(bool extra_check) : extra_check(extra_check) {}
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::Wadenback3DV2026::get_one_sided(x, y, extra_check);
             for (size_t i = 0; i < output.size(); i++) {
@@ -48,6 +49,7 @@ class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
 class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
     public:
         SolverTwoSidedEqual() = default;
+        explicit SolverTwoSidedEqual(bool extra_check) : extra_check(extra_check) {}
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::Wadenback3DV2026::get_double_sided_equal(x, y, extra_check);
             for (size_t i = 0; i < output.size(); i++) {
@@ -67,6 +69,7 @@ class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
 class SolverTwoSided : public PoseEstimator<SolverTwoSided> {
     public:
         SolverTwoSided() = default;
+        explicit SolverTwoSided(bool extra_check) : extra_check(extra_check) {}
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::Wadenback3DV2026::get_double_sided(x, y, extra_check);
             for (size_t i = 0; i < output.size(); i++) {
