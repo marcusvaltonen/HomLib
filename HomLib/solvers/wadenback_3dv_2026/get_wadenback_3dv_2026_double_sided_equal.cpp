@@ -77,6 +77,7 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
         HomLib::PoseData pd;
         pd.homography = H;
         pd.distortion_parameter = k;
+        pd.distortion_parameter2 = k;
         output.push_back(pd);
     } else {
         // Compute homography
@@ -99,6 +100,7 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
             // Package
             pd.homography = H;
             pd.distortion_parameter = k;
+            pd.distortion_parameter2 = k;
             output.push_back(pd);
         }
     }

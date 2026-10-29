@@ -78,7 +78,7 @@ jobs:
             cmake_args="$cmake_args -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
           fi
           cmake .. $cmake_args
-          cmake --build . --config ${{env.BUILD_CONFIGURATION}} --parallel
+          cmake --build . --config ${{env.BUILD_CONFIGURATION}} --parallel 4
           cmake --install . --config ${{env.BUILD_CONFIGURATION}}
         shell: bash
 
@@ -214,6 +214,24 @@ jobs:
           python -m pip install "$wheel_file"
           python -m pytest -s python/tests
         shell: bash
+
+  lint:
+    name: Lint Python
+    needs: [build_python]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Run flake8
+        run: |
+          python -m pip install flake8
+          flake8 --max-line-length=120 python/src/ python/tests/ python/example/
 
   build_wheels:
     name: Build wheels for ${{ matrix.config.name }}

@@ -2,7 +2,14 @@ r"""
 Synthetic experiment
 ====================
 
-In this example, we show how to estimate a homography from synthetic data.
+In this example, we show how to estimate a homography from synthetic data
+using the one-sided solver by Wadenbäck et al. [1]_.
+
+References
+----------
+.. [1] M. Wadenbäck, M. Valtonen Örnhag, and J. Edstedt, "Radially Distorted
+   Homographies, Revisited," in Proc. International Conference on 3D Vision (3DV),
+   2026.
 """
 
 import numpy as np
@@ -28,6 +35,6 @@ poses = homlib.estimate_wadenback_3dv_2026_one_sided(x, y, True)
 
 for i, p in enumerate(poses):
     print(f"Pose {i}: {p} with H =")
-    print(p.homography / p.homography[2,2])
-    print(f"H error = {np.linalg.norm(p.homography / p.homography[2,2] - H / H[2,2]):4e}")
-    print(f"Dist. error = {np.linalg.norm(p.distortion_parameter):4e}")  # No distortion added - should be zero
+    print(p.homography / p.homography[2, 2])
+    print(f"H error = {np.linalg.norm(p.homography / p.homography[2, 2] - H / H[2, 2]):4e}")
+    print(f"Dist. error = {np.linalg.norm(p.distortion_parameter2):4e}")  # No distortion added - should be zero

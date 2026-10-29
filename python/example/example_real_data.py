@@ -1,14 +1,34 @@
-"""
+r"""
 Homography estimation with radial distortion
 ============================================
 
 This example demonstrates:
 
-1. Loading and pre‑processing two images (including adding a small radial distortion).
+1. Loading and pre-processing two images (including adding a small radial distortion).
 2. Detecting SIFT features and matching them with Lowe's ratio test.
 3. Estimating a homography with OpenCV RANSAC and several homlib methods.
 4. Comparing the results visually and numerically against ground truth.
 5. Using AffNet + HardNet features and affine correspondences.
+
+The following homlib solvers are used in this example:
+
+- **Point-based (one-sided)**: Wadenbäck et al. [1]_ embedded in a LOMSAC
+  framework [2]_.
+- **Orientation-covariant (one-sided)**: Valtonen Örnhag and Adalbjörnsson [3]_
+  embedded in a LOMSAC framework [2]_.
+- **Affine-covariant (one-sided)**: Valtonen Örnhag and Adalbjörnsson [3]_
+  embedded in a LOMSAC framework [2]_.
+
+References
+----------
+.. [1] M. Wadenbäck, M. Valtonen Örnhag, and J. Edstedt, "Radially Distorted
+   Homographies, Revisited," in Proc. International Conference on 3D Vision (3DV),
+   2026.
+.. [2] K. Lebeda, J. Matas, and O. Chum, "Fixing the Locally Optimized RANSAC,"
+   in Proc. British Machine Vision Conference (BMVC), 2012.
+.. [3] M. Valtonen Örnhag and S. Adalbjörnsson, "Radial Distortion Homography
+   Estimation from Affine-Covariant or Orientation-Covariant Features,"
+   in Proc. International Conference on Pattern Recognition (ICPR), 2026.
 
 """
 
@@ -238,6 +258,7 @@ def print_estimation_results(method_name, distortion_parameter, H, H_gt):
 # --- SIFT + BFMatcher + ratio test ---
 kps1, kps2, _, _, tentatives = detect_and_match_sift(img1, img2)
 
+
 def verify_cv2(kps1, kps2, tentatives, H_gt, inlier_thresh=INLIER_THRESHOLD):
     """Estimate homography with OpenCV RANSAC."""
     src_pts = np.float32([kps1[m.queryIdx].pt for m in tentatives]).reshape(-1, 1, 2)
@@ -249,6 +270,7 @@ def verify_cv2(kps1, kps2, tentatives, H_gt, inlier_thresh=INLIER_THRESHOLD):
     print(f"H error = {homography_error(H, H_gt):.4e}")
     return H, mask
 
+
 t = time()
 cv2_H, cv2_mask = verify_cv2(kps1, kps2, tentatives, H_gt)
 print(f"{time() - t:.3f} sec (OpenCV RANSAC)\n")
@@ -259,10 +281,11 @@ draw_matches(kps1, kps2, tentatives, img1, img2, cv2_H, H_gt, cv2_mask,
 # The results are not terrible, but there is room for improvement. Let us take a look at
 # the homlib versions.
 
+
 def verify_homlib_point(kps1, kps2, tentatives, H_gt,
                         width1, height1, width2, height2,
                         options=RANSAC_OPTIONS):
-    """Estimate homography with homlib using point correspondences (one‑sided radial distortion)."""
+    """Estimate homography with homlib using point correspondences (one-sided radial distortion)."""
     src_pts = np.float32([kps1[m.queryIdx].pt for m in tentatives]).reshape(-1, 2).T
     dst_pts = np.float32([kps2[m.trainIdx].pt for m in tentatives]).reshape(-1, 2).T
 
@@ -270,8 +293,8 @@ def verify_homlib_point(kps1, kps2, tentatives, H_gt,
     src_centered, T1, _ = center_points_and_get_transforms(src_pts, width1, height1)
     dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts, width2, height2)
 
-    # This routine assumes the left images is distorted, hence switch places with src and dst
-    estimate, stats = homlib.lomsac_nakano_icpr_2025_one_sided(
+    # This routine assumes the left image is distorted, hence switch places with src and dst
+    estimate, stats = homlib.lomsac_wadenback_3dv_2026_one_sided(
         dst_centered, src_centered, options
     )
 
@@ -430,6 +453,7 @@ def get_affine_correspondences(lafs1, lafs2, tentatives):
         ACs[row, 2] = A[1, 0]
         ACs[row, 3] = A[1, 1]
     return xs, ys, ACs
+
 
 # --- 4. AffNet + HardNet features & affine correspondences ---
 lafs1, descs1, lafs2, descs2 = compute_affnet_hardnet_features(

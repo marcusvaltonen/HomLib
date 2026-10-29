@@ -51,12 +51,12 @@ TEST_CASE("Wadenback 3DV 2026 - one-sided") {
     REQUIRE(posedata.size() == 3);
 
     // Test distortion parameters
-    REQUIRE(posedata[0].distortion_parameter == Catch::Approx(5.11091).margin(tol));
-    REQUIRE(posedata[0].distortion_parameter2 == Catch::Approx(0.0).margin(tol));
-    REQUIRE(posedata[1].distortion_parameter == Catch::Approx(2.73767).margin(tol));
-    REQUIRE(posedata[1].distortion_parameter2 == Catch::Approx(0.0).margin(tol));
-    REQUIRE(posedata[2].distortion_parameter == Catch::Approx(-0.3).margin(tol));
-    REQUIRE(posedata[2].distortion_parameter2 == Catch::Approx(0.0).margin(tol));
+    REQUIRE(posedata[0].distortion_parameter == Catch::Approx(0.0).margin(tol));
+    REQUIRE(posedata[0].distortion_parameter2 == Catch::Approx(5.11091).margin(tol));
+    REQUIRE(posedata[1].distortion_parameter == Catch::Approx(0.0).margin(tol));
+    REQUIRE(posedata[1].distortion_parameter2 == Catch::Approx(2.73767).margin(tol));
+    REQUIRE(posedata[2].distortion_parameter == Catch::Approx(0.0).margin(tol));
+    REQUIRE(posedata[2].distortion_parameter2 == Catch::Approx(-0.3).margin(tol));
 
     // Test homographies
     tol = 1e-7;
@@ -78,57 +78,6 @@ TEST_CASE("Wadenback 3DV 2026 - one-sided") {
     REQUIRE(posedata[2].homography.isApprox(expected, tol));
 
 }
-
-
-
-/*
-Wadenback 2025 (4.5 pt)
-Not found: homography =
--13.6284238835806,  14.1792115247234, -2.18751115985823;
--13.5032381875633, -12.3737062846023,  8.92508296873142;
- 4.57310999703002,  6.95986054985586,  17.8251082781653
-distortion_parameter = -0.3
-distortion_parameter2 = -0.3
-x1 =
--0.093972209335993;
-0.0431909090094019
-x2 =
--0.0150485985127741;
-  0.504312576320796
-x1 =
--0.0969912533237537;
- 0.0171160938161422
-x2 =
--0.0324017385815406;
-  0.525321116499528
-x1 =
--0.123299663772998;
- 0.500859415499538
-x2 =
-0.335015888737872;
-0.182133325842435
-x1 =
--0.300610529524079;
- 0.477995136756032
-x2 =
-0.448124752741167;
-0.313117448200805
-x1 =
-0.143634675965547;
-0.402159621931429
-x2 =
-0.0822796392160207;
-0.0746306773026531
-pd[0].homography =
--5.37070541971519e-06,  5.58776046545164e-06, -8.62056987828971e-07;
--5.32137209241095e-06, -4.87624482275744e-06,  3.51720726336518e-06;
- 1.80217660206107e-06,  2.74275008576624e-06,  7.02453977468668e-06
-pd[0].distortion_parameter = -0.3
-pd[0].distortion_parameter2 = -0.3
-
-*/
-
-
 
 
 TEST_CASE("Wadenback 3DV 2026 - two-sided equal") {
@@ -157,7 +106,7 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided equal") {
 
     // Test distortion parameters
     REQUIRE(posedata[0].distortion_parameter == Catch::Approx(-0.3).margin(tol));
-    // REQUIRE(posedata[0].distortion_parameter2 == Catch::Approx(-0.3).margin(tol));
+    REQUIRE(posedata[0].distortion_parameter2 == Catch::Approx(-0.3).margin(tol));
 
     // Test homographies
     tol = 1e-7;

@@ -13,7 +13,13 @@ extensions = [
     'sphinx.ext.extlinks',
     'sphinx.ext.napoleon',
     'sphinx_gallery.gen_gallery',
+    'sphinx.ext.intersphinx',
 ]
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+}
 
 
 # Generate autodoc stubs with summaries from code
@@ -23,7 +29,7 @@ autosummary_generate = True
 autodoc_member_order = 'bysource'
 
 # Default flags used by autodoc directives
-autodoc_default_flags = ['members']
+autodoc_default_options = {'members': True}
 
 #autodoc_typehints = "description"
 
@@ -32,7 +38,7 @@ sphinx_gallery_conf = {
     'examples_dirs': ['../../python/example'],
     # path where to save gallery generated examples
     'gallery_dirs': ['gallery'],
-    'filename_pattern': '\.py',
+    'filename_pattern': r'\.py',
     # Remove the "Download all examples" button from the top level gallery
     'download_all_examples': False,
     # Sort gallery example by file name instead of number of lines (default)
@@ -42,7 +48,7 @@ sphinx_gallery_conf = {
     # Modules for which function level galleries are created.
     'doc_module': 'homlib',
     # Insert links to documentation of objects in the examples
-    'reference_url': {'satoa': None},
+    'reference_url': {'homlib': None},
     # Allow animations
     'matplotlib_animations': False,
 }
@@ -65,7 +71,11 @@ project = 'HomLib'
 copyright = '{}, Marcus Valtonen Örnhag'.format(year)
 
 # Version
-version = 'latest'
+try:
+    from importlib.metadata import version as _get_version
+    version = _get_version('homlib')
+except Exception:
+    version = 'latest'
 
 # These enable substitutions using |variable| in the rst files
 rst_epilog = """

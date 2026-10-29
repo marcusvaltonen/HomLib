@@ -151,6 +151,7 @@ namespace KukelovaCVPR2015 {
             if (dist_equal) {
 
                 pd.distortion_parameter = 0.5 * (xx(0) + xx(1)) * std::pow(scale, 2);
+                pd.distortion_parameter2 = pd.distortion_parameter;
             } else {
                 pd.distortion_parameter = xx(0) * std::pow(scale, 2);
                 pd.distortion_parameter2 = xx(1) * std::pow(scale, 2);

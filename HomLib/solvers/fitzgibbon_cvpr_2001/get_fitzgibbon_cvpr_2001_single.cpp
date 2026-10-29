@@ -86,7 +86,7 @@ namespace FitzgibbonCVPR2001 {
                 if (res < min_res) {
                     min_res = res;
                     posedata.homography = H;
-                    posedata.distortion_parameter = k;
+                    posedata.distortion_parameter2 = k;
                 }
             }
         }

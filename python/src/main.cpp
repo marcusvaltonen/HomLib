@@ -457,19 +457,37 @@ PYBIND11_MODULE(_core, m) {
         m.attr("__version__") = py::str("dev");
     #endif
     
-    py::class_<HomLib::PoseData>(m, "PoseData")
+    py::class_<HomLib::PoseData>(m, "PoseData",
+        R"pbdoc(
+            Solver output containing the estimated homography and distortion parameters.
+        )pbdoc")
         .def(
             py::init<Eigen::Matrix3d, double, double, double>(),
-            "Constructor for PoseData.",
+            R"pbdoc(
+                Construct a PoseData instance.
+
+                Parameters
+                ----------
+                homography : numpy.ndarray
+                    3x3 homography matrix.
+                focal_length : float
+                    Focal length.
+                distortion_parameter : float
+                    Distortion parameter for the first image.
+                distortion_parameter2 : float
+                    Distortion parameter for the second image.
+            )pbdoc",
             "homography"_a,
             "focal_length"_a,
             "distortion_parameter"_a,
             "distortion_parameter2"_a
         )
-        .def_readwrite("homography", &HomLib::PoseData::homography)
-        .def_readwrite("focal_length", &HomLib::PoseData::focal_length)
-        .def_readwrite("distortion_parameter", &HomLib::PoseData::distortion_parameter)
-        .def_readwrite("distortion_parameter2", &HomLib::PoseData::distortion_parameter2)
+        .def_readwrite("homography", &HomLib::PoseData::homography, "3x3 homography matrix (numpy.ndarray).")
+        .def_readwrite("focal_length", &HomLib::PoseData::focal_length, "Estimated focal length.")
+        .def_readwrite("distortion_parameter", &HomLib::PoseData::distortion_parameter,
+            "Radial distortion parameter for the first set of points (x).")
+        .def_readwrite("distortion_parameter2", &HomLib::PoseData::distortion_parameter2,
+            "Radial distortion parameter for the second set of points (y).")
         .def("__repr__",
             [](const HomLib::PoseData &p) {
                 return "PoseData("
@@ -481,32 +499,57 @@ PYBIND11_MODULE(_core, m) {
             }
         );
 
-    py::enum_<HomLib::DistortionCase>(m, "DistortionCase")
-        .value("NO_DISTORTION", HomLib::DistortionCase::NO_DISTORTION)
-        .value("ONE_SIDED_LEFT", HomLib::DistortionCase::ONE_SIDED_LEFT)
-        .value("ONE_SIDED_RIGHT", HomLib::DistortionCase::ONE_SIDED_RIGHT)
-        .value("TWO_SIDED_EQUAL", HomLib::DistortionCase::TWO_SIDED_EQUAL)
-        .value("TWO_SIDED", HomLib::DistortionCase::TWO_SIDED)
+    py::enum_<HomLib::DistortionCase>(m, "DistortionCase",
+        R"pbdoc(
+            Radial distortion model used when generating synthetic problems.
+
+            "Left" and "right" refer to the side of the homography equation
+            ``undistort(y) = H * x``, not to image ordering. Left-sided means
+            distortion is on y (x2); right-sided means distortion is on x (x1).
+        )pbdoc")
+        .value("NO_DISTORTION", HomLib::DistortionCase::NO_DISTORTION, "No radial distortion.")
+        .value("ONE_SIDED_LEFT", HomLib::DistortionCase::ONE_SIDED_LEFT,
+            "Distortion on x2 (left-hand side of the equation); x1 is undistorted.")
+        .value("ONE_SIDED_RIGHT", HomLib::DistortionCase::ONE_SIDED_RIGHT,
+            "Distortion on x1 (right-hand side of the equation); x2 is undistorted.")
+        .value("TWO_SIDED_EQUAL", HomLib::DistortionCase::TWO_SIDED_EQUAL,
+            "Equal distortion on both sets of points.")
+        .value("TWO_SIDED", HomLib::DistortionCase::TWO_SIDED,
+            "Independent distortion on each set of points.")
         .export_values();
         
-    py::class_<HomLib::ProblemConfig>(m, "ProblemConfig")
+    py::class_<HomLib::ProblemConfig>(m, "ProblemConfig",
+        R"pbdoc(
+            Configuration for synthetic problem generation.
+        )pbdoc")
         .def(
             py::init<HomLib::DistortionCase, double, int>(),
-            "Constructor for ProblemConfig.",
+            R"pbdoc(
+                Construct a ProblemConfig.
+
+                Parameters
+                ----------
+                distortion : DistortionCase
+                    Which distortion model to use.
+                point_noise : float
+                    Standard deviation of Gaussian noise on point coordinates.
+                number_points : int
+                    Number of point correspondences.
+            )pbdoc",
             "distortion"_a,
             "point_noise"_a,
             "number_points"_a
         )
-        .def_readwrite("distortion", &HomLib::ProblemConfig::distortion)
-        .def_readwrite("point_noise", &HomLib::ProblemConfig::point_noise)
-        .def_readwrite("number_points", &HomLib::ProblemConfig::number_points)
-        .def_readwrite("camera_fov", &HomLib::ProblemConfig::camera_fov_)
-        .def_readwrite("min_depth", &HomLib::ProblemConfig::min_depth_)
-        .def_readwrite("max_depth", &HomLib::ProblemConfig::max_depth_)
-        .def_readwrite("min_focal", &HomLib::ProblemConfig::min_focal_)
-        .def_readwrite("max_focal", &HomLib::ProblemConfig::max_focal_)
-        .def_readwrite("min_dist", &HomLib::ProblemConfig::min_dist_)
-        .def_readwrite("max_dist", &HomLib::ProblemConfig::max_dist_)
+        .def_readwrite("distortion", &HomLib::ProblemConfig::distortion, "Distortion model (:class:`DistortionCase`).")
+        .def_readwrite("point_noise", &HomLib::ProblemConfig::point_noise, "Gaussian noise standard deviation.")
+        .def_readwrite("number_points", &HomLib::ProblemConfig::number_points, "Number of point correspondences.")
+        .def_readwrite("camera_fov", &HomLib::ProblemConfig::camera_fov_, "Camera field of view in degrees.")
+        .def_readwrite("min_depth", &HomLib::ProblemConfig::min_depth_, "Minimum scene depth.")
+        .def_readwrite("max_depth", &HomLib::ProblemConfig::max_depth_, "Maximum scene depth.")
+        .def_readwrite("min_focal", &HomLib::ProblemConfig::min_focal_, "Minimum focal length.")
+        .def_readwrite("max_focal", &HomLib::ProblemConfig::max_focal_, "Maximum focal length.")
+        .def_readwrite("min_dist", &HomLib::ProblemConfig::min_dist_, "Minimum distortion parameter.")
+        .def_readwrite("max_dist", &HomLib::ProblemConfig::max_dist_, "Maximum distortion parameter.")
         .def("__repr__",
             [](const HomLib::ProblemConfig &p) {
                 std::string distortion;
@@ -542,21 +585,54 @@ PYBIND11_MODULE(_core, m) {
             }
         );
     
-    py::class_<HomLib::ProblemInstance>(m, "ProblemInstance")
+    py::class_<HomLib::ProblemInstance>(m, "ProblemInstance",
+        R"pbdoc(
+            A synthetic problem instance with ground-truth data and point correspondences.
+        )pbdoc")
         .def(
             py::init<HomLib::PoseData, std::vector<Eigen::Vector2d>, std::vector<Eigen::Vector2d>, std::vector<Eigen::Matrix2d>>(),
-            "Constructor for ProblemInstance.",
+            "Construct a ProblemInstance.",
             "posedata"_a,
             "x1"_a,
             "x2"_a,
             "A"_a
         )
-        .def_readwrite("posedata", &HomLib::ProblemInstance::posedata)
-        .def_readwrite("x1", &HomLib::ProblemInstance::x1)
-        .def_readwrite("x2", &HomLib::ProblemInstance::x2)
-        .def_readwrite("A", &HomLib::ProblemInstance::A)
-        .def("hom_error", &HomLib::ProblemInstance::hom_error)
-        .def("dist_error", &HomLib::ProblemInstance::dist_error)
+        .def_readwrite("posedata", &HomLib::ProblemInstance::posedata, "Ground-truth :class:`PoseData`.")
+        .def_readwrite("x1", &HomLib::ProblemInstance::x1, "First set of 2D points.")
+        .def_readwrite("x2", &HomLib::ProblemInstance::x2, "Second set of 2D points.")
+        .def_readwrite("A", &HomLib::ProblemInstance::A, "Local affine transformations (2x2).")
+        .def("hom_error", &HomLib::ProblemInstance::hom_error,
+            R"pbdoc(
+                Homography error between an estimate and the ground truth.
+
+                Parameters
+                ----------
+                H_est : numpy.ndarray
+                    Estimated 3x3 homography matrix.
+
+                Returns
+                -------
+                float
+                    Frobenius norm between the normalised ground-truth and estimated homographies.
+            )pbdoc",
+            "H_est"_a)
+        .def("dist_error", &HomLib::ProblemInstance::dist_error,
+            R"pbdoc(
+                Mean absolute distortion error.
+
+                Parameters
+                ----------
+                k1_est : float
+                    Estimated distortion parameter for the first image.
+                k2_est : float
+                    Estimated distortion parameter for the second image.
+
+                Returns
+                -------
+                float
+                    ``0.5 * (|k1_gt - k1_est| + |k2_gt - k2_est|)``.
+            )pbdoc",
+            "k1_est"_a, "k2_est"_a)
         .def("__repr__",
             [](const HomLib::ProblemInstance &p) {
                 return "ProblemInstance("
@@ -571,26 +647,56 @@ PYBIND11_MODULE(_core, m) {
         "generate_problem_instance",
         &HomLib::generate_problem_instance,
         R"pbdoc(
-            Generate a synthetic problem instance.
+            Generate a synthetic problem instance with a random homography and point correspondences.
+
+            Creates a random 3D plane, projects points through two cameras, and applies
+            radial distortion according to the configuration. The returned instance
+            contains ground-truth data and can be used for solver evaluation.
+
+            Parameters
+            ----------
+            settings : ProblemConfig
+                Configuration controlling distortion model, noise level, and number of points.
+
+            Returns
+            -------
+            ProblemInstance
+                The generated problem instance with ground-truth ``posedata``, distorted
+                point correspondences ``x1`` and ``x2``, and local affine data ``A``.
         )pbdoc",
         "settings"_a
     );
-    py::class_<ransac_lib::LORansacOptions>(m, "LORansacOptions")
+    py::class_<ransac_lib::LORansacOptions>(m, "LORansacOptions",
+        R"pbdoc(
+            Options for the Locally Optimized MSAC (LOMSAC) estimator.
+        )pbdoc")
         .def(
             py::init<>()
         )
-        .def_readwrite("min_num_iterations", &ransac_lib::LORansacOptions::min_num_iterations_)
-        .def_readwrite("max_num_iterations", &ransac_lib::LORansacOptions::max_num_iterations_)
-        .def_readwrite("success_probability", &ransac_lib::LORansacOptions::success_probability_)
-        .def_readwrite("squared_inlier_threshold", &ransac_lib::LORansacOptions::squared_inlier_threshold_)
-        .def_readwrite("random_seed", &ransac_lib::LORansacOptions::random_seed_)
-        .def_readwrite("num_lo_steps", &ransac_lib::LORansacOptions::num_lo_steps_)
-        .def_readwrite("threshold_multiplier", &ransac_lib::LORansacOptions::threshold_multiplier_)
-        .def_readwrite("num_lsq_iterations", &ransac_lib::LORansacOptions::num_lsq_iterations_)
-        .def_readwrite("min_sample_multiplicator", &ransac_lib::LORansacOptions::min_sample_multiplicator_)
-        .def_readwrite("non_min_sample_multiplier", &ransac_lib::LORansacOptions::non_min_sample_multiplier_)
-        .def_readwrite("lo_starting_iterations", &ransac_lib::LORansacOptions::lo_starting_iterations_)
-        .def_readwrite("final_least_squares", &ransac_lib::LORansacOptions::final_least_squares_)
+        .def_readwrite("min_num_iterations", &ransac_lib::LORansacOptions::min_num_iterations_,
+            "Minimum number of RANSAC iterations.")
+        .def_readwrite("max_num_iterations", &ransac_lib::LORansacOptions::max_num_iterations_,
+            "Maximum number of RANSAC iterations.")
+        .def_readwrite("success_probability", &ransac_lib::LORansacOptions::success_probability_,
+            "Desired probability of finding the correct model.")
+        .def_readwrite("squared_inlier_threshold", &ransac_lib::LORansacOptions::squared_inlier_threshold_,
+            "Squared inlier threshold for the MSAC score.")
+        .def_readwrite("random_seed", &ransac_lib::LORansacOptions::random_seed_,
+            "Seed for the random number generator.")
+        .def_readwrite("num_lo_steps", &ransac_lib::LORansacOptions::num_lo_steps_,
+            "Number of local optimisation steps.")
+        .def_readwrite("threshold_multiplier", &ransac_lib::LORansacOptions::threshold_multiplier_,
+            "Multiplier applied to the threshold during local optimisation.")
+        .def_readwrite("num_lsq_iterations", &ransac_lib::LORansacOptions::num_lsq_iterations_,
+            "Number of least-squares iterations in local optimisation.")
+        .def_readwrite("min_sample_multiplicator", &ransac_lib::LORansacOptions::min_sample_multiplicator_,
+            "Multiplicator for the minimum sample size.")
+        .def_readwrite("non_min_sample_multiplier", &ransac_lib::LORansacOptions::non_min_sample_multiplier_,
+            "Multiplier for the non-minimal sample size in local optimisation.")
+        .def_readwrite("lo_starting_iterations", &ransac_lib::LORansacOptions::lo_starting_iterations_,
+            "Number of initial iterations before local optimisation begins.")
+        .def_readwrite("final_least_squares", &ransac_lib::LORansacOptions::final_least_squares_,
+            "Whether to run a final least-squares refinement.")
         .def("__repr__",
             [](const ransac_lib::LORansacOptions &opt) {
                 return "LORansacOptions("
@@ -608,19 +714,27 @@ PYBIND11_MODULE(_core, m) {
                     "final_least_squares=" + std::to_string(opt.final_least_squares_) +
                     ")";
             }
-        )
-        .doc() = "Options for LO RANSAC.";;
+        );
     
-    py::class_<ransac_lib::RansacStatistics>(m, "RansacStatistics")
+    py::class_<ransac_lib::RansacStatistics>(m, "RansacStatistics",
+        R"pbdoc(
+            Statistics from a RANSAC / LOMSAC estimation run.
+        )pbdoc")
         .def(
             py::init<>()
         )
-        .def_readwrite("num_iterations", &ransac_lib::RansacStatistics::num_iterations)
-        .def_readwrite("best_num_inliers", &ransac_lib::RansacStatistics::best_num_inliers)
-        .def_readwrite("best_model_score", &ransac_lib::RansacStatistics::best_model_score)
-        .def_readwrite("inlier_ratio", &ransac_lib::RansacStatistics::inlier_ratio)
-        .def_readwrite("inlier_indices", &ransac_lib::RansacStatistics::inlier_indices)
-        .def_readwrite("number_lo_iterations", &ransac_lib::RansacStatistics::number_lo_iterations)
+        .def_readwrite("num_iterations", &ransac_lib::RansacStatistics::num_iterations,
+            "Total number of RANSAC iterations.")
+        .def_readwrite("best_num_inliers", &ransac_lib::RansacStatistics::best_num_inliers,
+            "Number of inliers for the best model.")
+        .def_readwrite("best_model_score", &ransac_lib::RansacStatistics::best_model_score,
+            "MSAC score of the best model.")
+        .def_readwrite("inlier_ratio", &ransac_lib::RansacStatistics::inlier_ratio,
+            "Ratio of inliers to total correspondences.")
+        .def_readwrite("inlier_indices", &ransac_lib::RansacStatistics::inlier_indices,
+            "Indices of inlier correspondences.")
+        .def_readwrite("number_lo_iterations", &ransac_lib::RansacStatistics::number_lo_iterations,
+            "Number of local optimisation iterations.")
         .def("__repr__",
             [](const ransac_lib::RansacStatistics &s) {
                 return "RansacStatistics("
@@ -632,8 +746,7 @@ PYBIND11_MODULE(_core, m) {
                     "number_lo_iterations=" + std::to_string(s.number_lo_iterations) + ", "
                     ")";
             }
-        )
-        .doc() = "Statistics related to the RANSAC estimation process.";;
+        );
     
     /*
      *  Wrappers for minimal solvers
@@ -949,7 +1062,9 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_valtonenornhag_icpr_2026_one_sided_affine",
         &lomsac_valtonenornhag_icpr_2026_one_sided_affine_wrapper,
         R"pbdoc(
-            Solver from [1]_ in a LOMSAC framework [2]_ modified for affine-covariant features according to [3]_.
+            Affine-covariant one-sided solver in a LOMSAC framework.
+
+            From [1]_ modified for affine-covariant features according to [3]_, in the LOMSAC framework of [2]_.
 
             .. [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
                 International Conference on Pattern Recognition (ICPR), 2024.
@@ -968,7 +1083,9 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_valtonenornhag_icpr_2026_one_sided_ori",
         &lomsac_valtonenornhag_icpr_2026_one_sided_ori_wrapper,
         R"pbdoc(
-            Solver from [1]_ in a LOMSAC framework [2]_ modified for orientation-covariant features according to [3]_.
+            Orientation-covariant one-sided solver in a LOMSAC framework.
+
+            From [1]_ modified for orientation-covariant features according to [3]_, in the LOMSAC framework of [2]_.
 
             .. [1] Gaku Nakano. "Inverse DLT Method for One-Sided Radial Distortion Homography", In
                 International Conference on Pattern Recognition (ICPR), 2024.
@@ -987,12 +1104,14 @@ PYBIND11_MODULE(_core, m) {
         "lomsac_barath_visapp_2016_affine",
         &lomsac_barath_visapp_2016_affine_wrapper,
         R"pbdoc(
-            Solver from [1]_ in a LOMSAC framework [2]_.
+            Affine homography solver in a LOMSAC framework.
+
+            From [1]_ in the LOMSAC framework of [2]_.
 
             .. [1] Daniel Barath and Levente Hajder. "Novel Ways to Estimate Homography from Local Affine
                 Transformations", In International Conference on Computer Vision Theory and Application (VISAPP), 2016.
             .. [2] Karel Lebeda, Jiri Matas, and Ondrej Chum. "Fixing the Locally Optimized RANSAC", In the
-            Proceedings of the British Machine Vision Conference (BMVC), 2012.
+                Proceedings of the British Machine Vision Conference (BMVC), 2012.
         )pbdoc",
         "x"_a,
         "y"_a,

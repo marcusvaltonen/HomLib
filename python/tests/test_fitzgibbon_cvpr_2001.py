@@ -1,9 +1,11 @@
 import unittest
+
 from approvaltests import verify
-from tests.helpers import verify_numpy_array
 
 import numpy as np
 import homlib
+
+from tests.helpers import verify_numpy_array
 
 
 class FitzgibbonCVPR2001TestCase(unittest.TestCase):
@@ -24,8 +26,8 @@ class FitzgibbonCVPR2001TestCase(unittest.TestCase):
         sols = homlib.estimate_fitzgibbon_cvpr_2001_two_sided_equal(p1, p2)
         self.assertEqual(len(sols), 1)
         self.assertAlmostEqual(sols[0].distortion_parameter, -0.6554778901775142, 12)
-        self.assertAlmostEqual(sols[0].distortion_parameter2, 0.0, 12)
-        # verify(verify_numpy_array(sols[0].homography))  # FIXME: Need to debug this error  RuntimeError: This machine has no reporter configuration
+        self.assertAlmostEqual(sols[0].distortion_parameter2, -0.6554778901775142, 12)
+        verify(verify_numpy_array(sols[0].homography))
 
     def test_estimate_fitzgibbon_cvpr_2001_two_sided_equal_dimensions01(self):
         """Check that an exception is raised when dimensions are incorrect."""

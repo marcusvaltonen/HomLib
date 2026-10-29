@@ -55,7 +55,7 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
     def test_estimate_kukelova_cvpr_2015_two_sided_sol3(self):
         sols = homlib.estimate_kukelova_cvpr_2015_two_sided(self.p1, self.p2, False)
         self.assertEqual(len(sols), 5)
-        self.assertAlmostEqual(sols[3].distortion_parameter2, -2.136402668559706, self.tol)
+        self.assertAlmostEqual(sols[3].distortion_parameter, -2.136402668559706, self.tol)
         self.assertAlmostEqual(sols[3].distortion_parameter2, 0.6928831549898077, self.tol)
         verify(verify_numpy_array(sols[3].homography))
 
