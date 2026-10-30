@@ -131,7 +131,7 @@ namespace KukelovaCVPR2015 {
         std::vector<HomLib::PoseData> output;
         Eigen::Array3d xx;
 
-        for (int i = 0; i < sols.size(); i++) {
+        for (int i = 0; i < sols.cols(); i++) {
             if (sols.col(i).imag().squaredNorm() > thresh) {
                 continue;
             }
