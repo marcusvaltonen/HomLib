@@ -40,6 +40,18 @@ source venv/bin/activate
 CMAKE_PREFIX_PATH=/home/elramav/Scripts/PoseLib/install uv pip install .
 ```
 
+#### With SupeRANSAC (optional)
+Requires Boost and OpenCV. Pass `CMAKE_ARGS` to enable:
+```bash
+source venv/bin/activate
+CMAKE_PREFIX_PATH=/home/elramav/Scripts/PoseLib/install CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=ON" uv pip install .
+```
+
+#### Build debugging tips
+- Always redirect build output to a file for long builds: `... > /tmp/homlib_build.log 2>&1`
+- `uv pip install .` always does a clean build (scikit-build-core). Do NOT use `--no-build-isolation` (missing scikit-build-core).
+- For iterating on C++ only, use the `build/` or `build_superansac/` dirs with cmake directly — much faster than pip rebuild.
+
 ### Python tests
 ```bash
 source venv/bin/activate
@@ -51,6 +63,7 @@ pytest -s python/tests
 - **Eigen3** (required): `apt-get install libeigen3-dev`
 - **PoseLib** (required): must be built and installed from source (see PoseLib GitHub repo). CI pins commit `a69263d5d8`.
 - **RansacLib** (submodule, for LOMSAC/RANSAC): `git submodule update --init --recursive`
+- **SupeRANSAC** (optional submodule): `git submodule update --init thirdparty/superansac`. Requires Boost and OpenCV. Enable with `-DHOMLIB_USE_SUPERANSAC=ON`.
 - **Catch2 v3** (fetched automatically by CMake for tests)
 - **pybind11** (fetched automatically by CMake for Python bindings)
 
@@ -73,6 +86,17 @@ Solver functions and files follow the pattern `{author}_{venue}_{year}`. Distort
 
 ### CI
 GitHub Actions (`.github/workflows/main.yml`) builds and tests on Linux, macOS, and Windows. On tag push (`v*`), it builds wheels via cibuildwheel and publishes to PyPI.
+
+## RANSAC Backend Architecture
+
+All RANSAC backends (LOMSAC, SupeRANSAC, GC-RANSAC, MAGSAC++) must share the same solver code paths:
+
+- **Minimal solvers**: A single shared implementation that calls `solver.estimate()` on the sampled points. Each backend provides only a thin adapter to convert between its framework's data types and the shared interface.
+- **Non-minimal solvers**: A single shared implementation (e.g. `multi_sample_estimate` in `solver_utils.h`) that handles the "sample → solve → score → refine" loop. Backends must not have their own non-minimal solver logic.
+- **Residual computation**: Shared via `compute_squared_residual()` in `solver_utils.h`. Backends call this through their estimator's `squaredResidual()` override.
+- **Local optimization**: Shared logic where possible; backend-specific only for framework requirements (e.g. GC-RANSAC's graph-cut step).
+
+**Rationale**: Duplicated solver logic across backends causes bugs that only surface in some backends and makes fixes fail to propagate. Keep backend-specific code to the minimum adapter layer.
 
 ## Adding a New Solver
 

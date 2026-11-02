@@ -42,14 +42,48 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ftree-vectorize -funroll-loops")
 endif()
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+option(HOMLIB_USE_SUPERANSAC "Enable SupeRANSAC backend (requires Boost, OpenCV)" ON)
+option(HOMLIB_USE_GCRANSAC "Enable GC-RANSAC backend (requires OpenCV)" ON)
+option(HOMLIB_USE_MAGSAC "Enable MAGSAC backend (requires OpenCV, gflags)" ON)
 
 find_package(Eigen3 REQUIRED)
 set(EIGEN_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 
 find_package(PoseLib REQUIRED)
 include_directories(${CMAKE_SOURCE_DIR})
+
+if(HOMLIB_USE_SUPERANSAC)
+    set(SUPERANSAC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/superansac/include)
+    add_subdirectory(thirdparty/superansac/src)
+    # The submodule's src/CMakeLists.txt uses PROJECT_SOURCE_DIR/include which
+    # resolves incorrectly when built as a subdirectory. Fix the include path.
+    target_include_directories(SupeRANSAC PUBLIC ${SUPERANSAC_INCLUDE_DIR})
+endif()
+
+if(HOMLIB_USE_GCRANSAC OR HOMLIB_USE_MAGSAC)
+    find_package(OpenCV REQUIRED)
+    set(GCRANSAC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/graph-cut-ransac/src/pygcransac/include)
+
+    # GCoptimization sources needed by GCRANSAC headers
+    set(GCOPTIMIZATION_SOURCES
+        ${GCRANSAC_INCLUDE_DIR}/GCoptimization.cpp
+        ${GCRANSAC_INCLUDE_DIR}/LinkedBlockList.cpp
+        ${GCRANSAC_INCLUDE_DIR}/graph.cpp
+        ${GCRANSAC_INCLUDE_DIR}/maxflow.cpp
+    )
+    add_library(GCoptimization STATIC ${GCOPTIMIZATION_SOURCES})
+    target_include_directories(GCoptimization PUBLIC ${GCRANSAC_INCLUDE_DIR})
+    target_link_libraries(GCoptimization PUBLIC Eigen3::Eigen ${OpenCV_LIBS})
+    set_target_properties(GCoptimization PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
+
+if(HOMLIB_USE_MAGSAC)
+    find_package(gflags REQUIRED)
+    set(MAGSAC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/magsac/src/pymagsac/include)
+endif()
 
 
 set(HOMLIB_INCLUDE_DIRS

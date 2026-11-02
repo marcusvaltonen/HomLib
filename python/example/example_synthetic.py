@@ -28,7 +28,8 @@ print(f"H={H / H[2,2]}")
 
 ######################################
 # Run estimator from homlib on the minimal sample.
-poses = homlib.estimate_wadenback_3dv_2026_one_sided(x, y, True)
+solver = homlib.Wadenback3DV2026OneSided()
+poses = solver.estimate(x, y)
 
 ######################################
 # Test against ground truth

@@ -33,10 +33,10 @@ class LomsacIntegrationTestCase(unittest.TestCase):
         self.n_outliers = n_outliers
 
     def test_lomsac_wadenback_one_sided(self):
-        options = homlib.LORansacOptions()
-        options.squared_inlier_threshold = 0.005
+        solver = homlib.Wadenback3DV2026OneSided()
+        lomsac = homlib.LOMSAC(solver, squared_inlier_threshold=0.005)
 
-        estimate, stats = homlib.lomsac_wadenback_3dv_2026_one_sided(self.x, self.y, options)
+        estimate, stats = lomsac.estimate(self.x, self.y)
 
         H_est = estimate.homography / estimate.homography[2, 2]
         H_gt = self.H / self.H[2, 2]
@@ -45,10 +45,10 @@ class LomsacIntegrationTestCase(unittest.TestCase):
         self.assertGreater(len(stats.inlier_indices), self.N - self.n_outliers - 10)
 
     def test_lomsac_fitzgibbon_one_sided(self):
-        options = homlib.LORansacOptions()
-        options.squared_inlier_threshold = 0.005
+        solver = homlib.FitzgibbonCVPR2001OneSided()
+        lomsac = homlib.LOMSAC(solver, squared_inlier_threshold=0.005)
 
-        estimate, stats = homlib.lomsac_fitzgibbon_cvpr_2001_one_sided(self.x, self.y, options)
+        estimate, stats = lomsac.estimate(self.x, self.y)
 
         H_est = estimate.homography / estimate.homography[2, 2]
         H_gt = self.H / self.H[2, 2]
@@ -60,10 +60,10 @@ class LomsacIntegrationTestCase(unittest.TestCase):
         self.assertGreater(options.success_probability, 0)
 
     def test_ransac_statistics_fields(self):
-        options = homlib.LORansacOptions()
-        options.squared_inlier_threshold = 0.005
+        solver = homlib.Wadenback3DV2026OneSided()
+        lomsac = homlib.LOMSAC(solver, squared_inlier_threshold=0.005)
 
-        _, stats = homlib.lomsac_wadenback_3dv_2026_one_sided(self.x, self.y, options)
+        _, stats = lomsac.estimate(self.x, self.y)
 
         self.assertIsInstance(stats.inlier_indices, list)
         self.assertGreater(stats.num_iterations, 0)

@@ -45,7 +45,9 @@ std::vector<HomLib::PoseData> get_ori(
 
 class AffineSolverSingleSided : public AffinePoseEstimator<AffineSolverSingleSided> {
     public:
+        static constexpr int minimal_sample_size_value = 2;
         AffineSolverSingleSided() = default;
+        explicit AffineSolverSingleSided(bool extra_check) : extra_check(extra_check) {}
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Matrix2d> &A, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::ValtonenOrnhagICPR2026::get_affine(x, y, A, extra_check);
             for (size_t i = 0; i < output.size(); i++) {
@@ -73,6 +75,7 @@ class AffineSolverSingleSided : public AffinePoseEstimator<AffineSolverSingleSid
 
 class OrientationSolverSingleSided : public OrientationPoseEstimator<OrientationSolverSingleSided> {
     public:
+        static constexpr int minimal_sample_size_value = 4;
         OrientationSolverSingleSided() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Vector2d> &ori, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::ValtonenOrnhagICPR2026::get_ori(x, y, ori);

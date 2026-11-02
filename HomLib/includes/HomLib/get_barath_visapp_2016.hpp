@@ -38,6 +38,7 @@ std::vector<HomLib::PoseData> get_affine(
 
 class AffineSolver : public AffinePoseEstimator<AffineSolver> {
     public:
+        static constexpr int minimal_sample_size_value = 2;
         AffineSolver() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Matrix2d> &A, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::BarathVISAPP2016::get_affine(x, y, A);

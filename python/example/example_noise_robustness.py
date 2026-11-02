@@ -32,8 +32,8 @@ noise_pixels = [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]
 n_trials = 100
 
 solver_specs = {
-    "Wadenbäck (3DV 2026)": lambda x, y: homlib.estimate_wadenback_3dv_2026_two_sided(x, y, True),
-    "Kukelova (CVPR 2015)": lambda x, y: homlib.estimate_kukelova_cvpr_2015_two_sided(x, y, True),
+    "Wadenbäck (3DV 2026)": homlib.Wadenback3DV2026TwoSided(),
+    "Kukelova (CVPR 2015)": homlib.KukelovaCVPR2015TwoSided(),
 }
 colors = ["#4c72b0", "#dd8452"]
 
@@ -58,8 +58,8 @@ for noise_px in noise_pixels:
         x = np.array(instance.x1).T
         y = np.array(instance.x2).T
 
-        for name, fn in solver_specs.items():
-            poses = fn(x, y)
+        for name, solver in solver_specs.items():
+            poses = solver.estimate(x, y)
             best_err = float("nan")
             for p in poses:
                 err = instance.hom_error(p.homography)
