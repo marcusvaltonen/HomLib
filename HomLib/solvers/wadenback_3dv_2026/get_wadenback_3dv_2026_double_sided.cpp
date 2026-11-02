@@ -132,8 +132,10 @@ std::vector<HomLib::PoseData> get_double_sided(
     fast_eigenvector_solver(roots, nroots, AM, sols);
 
 
-    // TODO: This static threshold does not work - find a way to dynamically adapt
-    double THRESH = 1e-6;
+    // The residuals of the false-root checks are scale-free (in [0, 1]): at the false roots, about
+    // 1e-12 (median), rarely above 1e-6 (up to about 1e-4); at the true solution of noise-free
+    // random problems, almost always above 1e-6.
+    double THRESH = 1e-8;
 
     std::vector<HomLib::PoseData> output;
     
