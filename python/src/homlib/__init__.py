@@ -28,6 +28,7 @@ from ._core import (
 # Solver base class (Python-side, adds dispatch-based estimate())
 # ---------------------------------------------------------------------------
 
+
 class Solver(_CppSolver):
     """Base class for all HomLib solvers.
 

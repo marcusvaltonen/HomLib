@@ -82,6 +82,7 @@ endif()
 
 if(HOMLIB_USE_MAGSAC)
     find_package(gflags REQUIRED)
+    find_package(OpenMP REQUIRED)
     set(MAGSAC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/magsac/src/pymagsac/include)
 endif()
 

@@ -217,6 +217,10 @@ Reduction" (CVPR 2017)
 
 ## TODOs
 
+- Investigate GC-RANSAC convergence on synthetic data — the Wadenbäck one-sided
+  solver does not converge to the ground-truth homography in the synthetic test
+  (H error ≈ 0.264 with threshold=0.07, noise_std=1e-4). The equivalent LOMSAC
+  test passes. Test is skipped until resolved.
 - Integrate overdetermined Fitzgibbon/Nakano solvers as dedicated non-minimal
   solvers for LOMSAC and SupeRANSAC. These formulations can natively handle
   N > minimal sample size via a least-squares generalised eigenvalue problem,
