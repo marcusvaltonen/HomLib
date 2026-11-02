@@ -6,13 +6,14 @@
 namespace HomLib {
 namespace Wadenback3DV2026 {
 // The first set of (possibly) false roots coming from inv()->adj().
-// This computes the determinant.
+// This computes the determinant of [x{1} x{2} x{3}] (with w_i = 1 + k1*r_i^2), in absolute value.
 double compute_residual1(
     const std::vector<Eigen::Vector2d> &x,
     double k1
 );
 // The second set of (possibly) false roots coming from inv()->adj().
-// This computes the determinant.
+// This computes the determinant of diag(g), i.e. g1*g2*g3, where
+// g = adj([x{1} x{2} x{3}]) * x{4} (with w_i = 1 + k1*r_i^2).
 double compute_residual2(
     const std::vector<Eigen::Vector2d> &x,
     double k1

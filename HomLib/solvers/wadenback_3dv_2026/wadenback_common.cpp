@@ -39,12 +39,14 @@ double compute_residual2(
     double m22 = -kx00_2*x[2][0] + kx20_2*x[0][0] + kx21_2*x[0][0] - kx01_2*x[2][0] + x[0][0] - x[2][0];
     double m23 = -x[0][0]*x[2][1] + x[0][1]*x[2][0];
     double m31 = -kx00_2*x[1][1] - kx01_2*x[1][1] + k*x[0][1]*std::pow(x[1][0],2) + kx11_2*x[0][1] + x[0][1] - x[1][1];
-    double m32 = kx00_2*x[1][0] - kx11_2*x[0][0] - kx11_2*x[0][0] + kx01_2*x[1][0] - x[0][0] + x[1][0];
+    double m32 = kx00_2*x[1][0] - kx10_2*x[0][0] - kx11_2*x[0][0] + kx01_2*x[1][0] - x[0][0] + x[1][0];
     double m33 = x[0][0]*x[1][1] - x[0][1]*x[1][0];
 
-    double g1 = m13 + m11*x[3][0] + m12*x[3][1];
-    double g2 = m23 + m21*x[3][0] + m22*x[3][1];
-    double g3 = m33 + m31*x[3][0] + m32*x[3][1];
+    // g = adj([x{1} x{2} x{3}]) * x{4}, with x{4} distorted as well (w4 = 1 + k*r4^2)
+    double w4 = 1 + k * (std::pow(x[3][0], 2) + std::pow(x[3][1], 2));
+    double g1 = m13*w4 + m11*x[3][0] + m12*x[3][1];
+    double g2 = m23*w4 + m21*x[3][0] + m22*x[3][1];
+    double g3 = m33*w4 + m31*x[3][0] + m32*x[3][1];
 
     return g1 * g2 * g3;
 }
