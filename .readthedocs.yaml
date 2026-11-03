@@ -9,6 +9,7 @@ build:
     - build-essential
     - cmake
     - libboost-dev
+    - libboost-system-dev
     - libopencv-dev
     - libgflags-dev
     - libomp-dev

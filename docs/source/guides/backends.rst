@@ -321,7 +321,7 @@ automatically when the dependencies are installed:
 .. code-block:: bash
 
    # Linux (Debian/Ubuntu)
-   sudo apt-get install libboost-dev libopencv-dev libgflags-dev libomp-dev
+   sudo apt-get install libboost-dev libboost-system-dev libopencv-dev libgflags-dev libomp-dev
 
    # macOS
    brew install boost opencv gflags libomp
