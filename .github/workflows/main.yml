@@ -46,6 +46,27 @@ jobs:
           sudo apt-get install -y cmake build-essential libeigen3-dev \
             libboost-dev libboost-system-dev libopencv-dev libgflags-dev libomp-dev
 
+      - name: Stub Boost.System cmake config (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          # Boost.System is header-only since Boost 1.69. Ubuntu 26.04 ships
+          # Boost 1.90 without boost_systemConfig.cmake, which breaks cmake
+          # 4.x config-mode discovery used by the SupeRANSAC submodule.
+          boost_ver=$(dpkg -s libboost-dev | sed -n 's/^Version: \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p')
+          dir="/usr/lib/x86_64-linux-gnu/cmake/boost_system-${boost_ver}"
+          sudo mkdir -p "$dir"
+          printf '%s\n' \
+            'if(NOT TARGET Boost::system)' \
+            '  add_library(Boost::system INTERFACE IMPORTED)' \
+            '  if(TARGET Boost::headers)' \
+            '    set_target_properties(Boost::system PROPERTIES INTERFACE_LINK_LIBRARIES Boost::headers)' \
+            '  endif()' \
+            'endif()' \
+            'set(boost_system_FOUND TRUE)' \
+            | sudo tee "$dir/boost_systemConfig.cmake" > /dev/null
+          printf 'set(PACKAGE_VERSION "%s")\nset(PACKAGE_VERSION_COMPATIBLE TRUE)\nset(PACKAGE_VERSION_EXACT TRUE)\n' \
+            "$boost_ver" | sudo tee "$dir/boost_systemConfigVersion.cmake" > /dev/null
+
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -93,8 +114,6 @@ jobs:
                         -DHOMLIB_USE_SUPERANSAC=OFF -DHOMLIB_USE_GCRANSAC=OFF -DHOMLIB_USE_MAGSAC=OFF"
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
             cmake_args="$cmake_args -DOpenMP_ROOT=$(brew --prefix libomp)"
-          elif [[ "$RUNNER_OS" == "Linux" ]]; then
-            cmake_args="$cmake_args -DCMAKE_POLICY_DEFAULT_CMP0167=OLD -DBoost_NO_BOOST_CMAKE=ON"
           fi
           cmake $cmake_args
         shell: bash
@@ -168,6 +187,24 @@ jobs:
           sudo apt-get install -y cmake build-essential libeigen3-dev \
             libboost-dev libboost-system-dev libopencv-dev libgflags-dev libomp-dev
 
+      - name: Stub Boost.System cmake config (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          boost_ver=$(dpkg -s libboost-dev | sed -n 's/^Version: \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p')
+          dir="/usr/lib/x86_64-linux-gnu/cmake/boost_system-${boost_ver}"
+          sudo mkdir -p "$dir"
+          printf '%s\n' \
+            'if(NOT TARGET Boost::system)' \
+            '  add_library(Boost::system INTERFACE IMPORTED)' \
+            '  if(TARGET Boost::headers)' \
+            '    set_target_properties(Boost::system PROPERTIES INTERFACE_LINK_LIBRARIES Boost::headers)' \
+            '  endif()' \
+            'endif()' \
+            'set(boost_system_FOUND TRUE)' \
+            | sudo tee "$dir/boost_systemConfig.cmake" > /dev/null
+          printf 'set(PACKAGE_VERSION "%s")\nset(PACKAGE_VERSION_COMPATIBLE TRUE)\nset(PACKAGE_VERSION_EXACT TRUE)\n' \
+            "$boost_ver" | sudo tee "$dir/boost_systemConfigVersion.cmake" > /dev/null
+
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -209,7 +246,7 @@ jobs:
               --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install;-DOpenMP_ROOT=$(brew --prefix libomp)"
           else
             python -m build \
-              --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install;-DCMAKE_POLICY_DEFAULT_CMP0167=OLD;-DBoost_NO_BOOST_CMAKE=ON"
+              --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install"
           fi
         shell: bash
 
