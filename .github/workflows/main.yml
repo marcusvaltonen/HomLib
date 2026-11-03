@@ -70,7 +70,7 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install cmake eigen boost opencv gflags libomp
+          brew install cmake eigen
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
@@ -113,7 +113,9 @@ jobs:
             cmake_args="$cmake_args -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake \
                         -DHOMLIB_USE_SUPERANSAC=OFF -DHOMLIB_USE_GCRANSAC=OFF -DHOMLIB_USE_MAGSAC=OFF"
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            cmake_args="$cmake_args -DOpenMP_ROOT=$(brew --prefix libomp)"
+            cmake_args="$cmake_args -DHOMLIB_USE_SUPERANSAC=OFF -DHOMLIB_USE_GCRANSAC=OFF -DHOMLIB_USE_MAGSAC=OFF"
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            cmake_args="$cmake_args -DHOMLIB_USE_SUPERANSAC=ON -DHOMLIB_USE_GCRANSAC=ON -DHOMLIB_USE_MAGSAC=ON"
           fi
           cmake $cmake_args
         shell: bash
@@ -208,7 +210,7 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install cmake eigen boost opencv gflags libomp
+          brew install cmake eigen
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
@@ -243,7 +245,7 @@ jobs:
               --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}\\poselib-install;-DHOMLIB_USE_SUPERANSAC=OFF;-DHOMLIB_USE_GCRANSAC=OFF;-DHOMLIB_USE_MAGSAC=OFF"
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
             python -m build \
-              --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install;-DOpenMP_ROOT=$(brew --prefix libomp)"
+              --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install;-DHOMLIB_USE_SUPERANSAC=OFF;-DHOMLIB_USE_GCRANSAC=OFF;-DHOMLIB_USE_MAGSAC=OFF"
           else
             python -m build \
               --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install"
