@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <Eigen/Dense>
 #include <vector>
 namespace HomLib {
@@ -19,7 +20,18 @@ double compute_residual1(
         k * std::pow(x[2][1], 2) * b3 +
         b1 + b2 + b3
     );
-    return res1;
+
+    // Scale-free: divided by the product of the row norms (Hadamard's bound), so in [0, 1], and the
+    // same for the points scaled by s and k by 1/s^2 (which scales the first two rows by s)
+    double w[3];
+    for (int i = 0; i < 3; i++)
+        w[i] = 1 + k * (std::pow(x[i][0], 2) + std::pow(x[i][1], 2));
+    double norm_u = std::sqrt(std::pow(x[0][0], 2) + std::pow(x[1][0], 2) + std::pow(x[2][0], 2));
+    double norm_v = std::sqrt(std::pow(x[0][1], 2) + std::pow(x[1][1], 2) + std::pow(x[2][1], 2));
+    double norm_w = std::sqrt(w[0]*w[0] + w[1]*w[1] + w[2]*w[2]);
+    if (norm_u * norm_v * norm_w == 0)
+        return 0;
+    return res1 / (norm_u * norm_v * norm_w);
 }
 double compute_residual2(
     const std::vector<Eigen::Vector2d> &x,
@@ -39,14 +51,21 @@ double compute_residual2(
     double m22 = -kx00_2*x[2][0] + kx20_2*x[0][0] + kx21_2*x[0][0] - kx01_2*x[2][0] + x[0][0] - x[2][0];
     double m23 = -x[0][0]*x[2][1] + x[0][1]*x[2][0];
     double m31 = -kx00_2*x[1][1] - kx01_2*x[1][1] + k*x[0][1]*std::pow(x[1][0],2) + kx11_2*x[0][1] + x[0][1] - x[1][1];
-    double m32 = kx00_2*x[1][0] - kx11_2*x[0][0] - kx11_2*x[0][0] + kx01_2*x[1][0] - x[0][0] + x[1][0];
+    double m32 = kx00_2*x[1][0] - kx10_2*x[0][0] - kx11_2*x[0][0] + kx01_2*x[1][0] - x[0][0] + x[1][0];
     double m33 = x[0][0]*x[1][1] - x[0][1]*x[1][0];
 
-    double g1 = m13 + m11*x[3][0] + m12*x[3][1];
-    double g2 = m23 + m21*x[3][0] + m22*x[3][1];
-    double g3 = m33 + m31*x[3][0] + m32*x[3][1];
+    // g = adj([x{1} x{2} x{3}]) * x{4}, with x{4} distorted as well (w4 = 1 + k*r4^2)
+    double w4 = 1 + k * (std::pow(x[3][0], 2) + std::pow(x[3][1], 2));
+    double g1 = m13*w4 + m11*x[3][0] + m12*x[3][1];
+    double g2 = m23*w4 + m21*x[3][0] + m22*x[3][1];
+    double g3 = m33*w4 + m31*x[3][0] + m32*x[3][1];
 
-    return g1 * g2 * g3;
+    // Scale-free: the smallest |g_i| divided by |g|, so in [0, 1], and the same for the points scaled
+    // by s and k by 1/s^2 (which scales g by s^2)
+    double g_norm = std::sqrt(g1*g1 + g2*g2 + g3*g3);
+    if (g_norm == 0)
+        return 0;
+    return std::min(std::abs(g1), std::min(std::abs(g2), std::abs(g3))) / g_norm;
 }
 
 Eigen::Matrix<double, 12, 1> compute_coeffs(

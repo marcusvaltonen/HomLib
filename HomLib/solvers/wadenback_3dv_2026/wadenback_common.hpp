@@ -5,14 +5,16 @@
 
 namespace HomLib {
 namespace Wadenback3DV2026 {
-// The first set of (possibly) false roots coming from inv()->adj().
-// This computes the determinant.
+// The first set of (possibly) false roots coming from inv()->adj(), where det([x{1} x{2} x{3}])
+// vanishes (with w_i = 1 + k1*r_i^2). This computes |det([x{1} x{2} x{3}])| divided by the product
+// of the row norms: a scale-free value in [0, 1], 0 at these roots.
 double compute_residual1(
     const std::vector<Eigen::Vector2d> &x,
     double k1
 );
-// The second set of (possibly) false roots coming from inv()->adj().
-// This computes the determinant.
+// The second set of (possibly) false roots coming from inv()->adj(), where the determinant of
+// diag(g) vanishes, i.e. a component of g = adj([x{1} x{2} x{3}]) * x{4} (with w_i = 1 + k1*r_i^2).
+// This computes min_i |g_i| / |g|: a scale-free value in [0, 1], 0 at these roots.
 double compute_residual2(
     const std::vector<Eigen::Vector2d> &x,
     double k1
