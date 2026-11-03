@@ -276,6 +276,72 @@ All coordinates must be centred and normalised before calling ``estimate()``.
 See :ref:`solver_guide` for details on coordinate conventions.
 
 
+.. _backend_availability:
+
+Platform availability
+---------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 20 20 20 20
+
+   * - Backend
+     - Linux
+     - macOS
+     - Windows
+     - PyPI wheels
+   * - LOMSAC
+     - Yes
+     - Yes
+     - Yes
+     - All platforms
+   * - GC-RANSAC
+     - Yes
+     - Yes
+     - No
+     - —
+   * - MAGSAC++
+     - Yes
+     - Yes
+     - No
+     - —
+   * - SupeRANSAC
+     - Yes
+     - Yes
+     - No
+     - —
+
+**Pre-built wheels** (``pip install homlib``) include **LOMSAC only** on all
+platforms. The optional backends depend on Boost, OpenCV, gflags, and OpenMP,
+which cannot be reliably bundled into portable wheels.
+
+**Building from source** on Linux or macOS enables all four backends
+automatically when the dependencies are installed:
+
+.. code-block:: bash
+
+   # Linux (Debian/Ubuntu)
+   sudo apt-get install libboost-dev libopencv-dev libgflags-dev libomp-dev
+
+   # macOS
+   brew install boost opencv gflags libomp
+
+   # Build with all backends
+   pip install . --no-build-isolation
+
+To check which backends are available at runtime:
+
+.. code-block:: python
+
+   import homlib
+   print("SupeRANSAC:", homlib._HAS_SUPERANSAC)
+   print("GC-RANSAC: ", homlib._HAS_GCRANSAC)
+   print("MAGSAC++:  ", homlib._HAS_MAGSAC)
+
+Windows support for the optional backends is not currently tested in CI.
+Contributions are welcome.
+
+
 Choosing a backend
 ------------------
 
