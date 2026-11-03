@@ -227,7 +227,10 @@ Choosing a solver
    numerically stable.  They enable ``extra_check`` by default, which filters
    spurious solutions.
 
+Many of the solvers were generated using the automatic generator by
+[Larsson2017]_.
+
 .. seealso::
 
    :ref:`api` for the full API reference, :ref:`references` for the original
-   papers, and the :ref:`sphx_glr_gallery` for worked examples.
+   papers, and the :ref:`examples` for worked examples.

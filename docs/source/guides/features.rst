@@ -192,4 +192,4 @@ and :class:`~homlib.SupeRANSAC`.
 .. seealso::
 
    :ref:`solver_guide` for the full solver catalog, :ref:`backend_guide` for
-   backend configuration, and the :ref:`sphx_glr_gallery` for worked examples.
+   backend configuration, and the :ref:`examples` for worked examples.

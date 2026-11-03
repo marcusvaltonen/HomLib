@@ -170,7 +170,7 @@ natural images with clustered outlier distributions.
 MAGSAC++
 --------
 
-**MAGSAC++** [Barath2020]_ — threshold-free scoring via sigma consensus.
+**MAGSAC++** [Barath2019]_ [Barath2020]_ — threshold-free scoring via sigma consensus.
 Instead of a hard inlier/outlier boundary, MAGSAC++ marginalises over
 a range of possible noise levels, making it less sensitive to the choice
 of threshold.
@@ -291,4 +291,4 @@ Choosing a backend
 .. seealso::
 
    :ref:`api` for the full API reference, :ref:`references` for the original
-   papers, and the :ref:`sphx_glr_gallery` for worked examples.
+   papers, and the :ref:`examples` for worked examples.
