@@ -1,3 +1,5 @@
+#define _USE_MATH_DEFINES
+
 // Copyright (c) 2020 Marcus Valtonen Örnhag
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
