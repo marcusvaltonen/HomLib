@@ -35,7 +35,7 @@ Overview
    * - :attr:`~homlib.FeatureType.Orientation`
      - ``x``, ``y`` (2×N) + ``ori`` (2×N)
      - SIFT, ORB (with angle)
-     - 4
+     - 3
      - 1 solver
 
 A lower minimal sample size means RANSAC needs exponentially fewer iterations
@@ -131,7 +131,7 @@ Orientation-covariant features
 
 Many keypoint detectors (SIFT, ORB, etc.) assign a dominant orientation
 angle to each keypoint.  Orientation-covariant solvers exploit this
-additional information, needing **4 correspondences** instead of 5.
+additional information, needing **3 correspondences** instead of 5.
 
 **Data format:**
 
@@ -160,7 +160,7 @@ additional information, needing **4 correspondences** instead of 5.
 
 **Available solvers:**
 
-- :class:`~homlib.ValtonenOrnhagICPR2026OrientationSingleSided` — 4-point,
+- :class:`~homlib.ValtonenOrnhagICPR2026OrientationSingleSided` — 3-point,
   one-sided distortion.
 
 

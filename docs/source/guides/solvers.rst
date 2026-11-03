@@ -22,16 +22,25 @@ where :math:`\tilde{\mathbf{x}}` and :math:`\tilde{\mathbf{y}}` are homogeneous
 coordinates.
 
 **Radial distortion** bends straight lines in the image.  HomLib models this
-with the one-parameter division model:
+with the one-parameter **division model** [Fitzgibbon2001]_:
 
 .. math::
 
-   \mathbf{x}_d = \mathbf{x}_u \bigl(1 + k \|\mathbf{x}_u\|^2\bigr)
+   \begin{pmatrix} \mathbf{x}_d \\ 1 + k\|\mathbf{x}_d\|^2 \end{pmatrix}
+   \sim
+   \begin{pmatrix} \mathbf{x}_u \\ 1 \end{pmatrix}
 
-where :math:`\mathbf{x}_u` are *undistorted* (ideal) coordinates,
-:math:`\mathbf{x}_d` are the *distorted* (observed) coordinates, and :math:`k`
-is the distortion parameter.  Negative :math:`k` produces barrel distortion;
-positive :math:`k` produces pincushion distortion.
+Equivalently, the undistorted coordinates are obtained by dividing the observed
+(distorted) coordinates by :math:`1 + k\|\mathbf{x}_d\|^2`:
+
+.. math::
+
+   \mathbf{x}_u = \frac{\mathbf{x}_d}{1 + k\|\mathbf{x}_d\|^2}
+
+Here :math:`\mathbf{x}_d` are the *distorted* (observed) coordinates,
+:math:`\mathbf{x}_u` are the *undistorted* (ideal) coordinates, and
+:math:`k` is the distortion parameter.  Negative :math:`k` produces
+barrel distortion; positive :math:`k` produces pincushion distortion.
 
 HomLib solvers **simultaneously** estimate :math:`\mathbf{H}` and :math:`k`
 from point correspondences, without requiring prior lens calibration.
@@ -40,16 +49,20 @@ from point correspondences, without requiring prior lens calibration.
 Coordinate conventions
 ^^^^^^^^^^^^^^^^^^^^^^
 
-All coordinates must be **centered and normalized** before use::
+Solvers that estimate radial distortion require **centered** coordinates::
 
-   x_centered = (x_pixel - cx) / f
-   y_centered = (y_pixel - cy) / f
+   x_centered = (x_pixel - cx) / s
+   y_centered = (y_pixel - cy) / s
 
 where ``(cx, cy)`` is the principal point (typically the image centre) and
-``f`` is the focal length in pixels.  This normalization matters because:
+``s`` is an arbitrary normalization scalar (e.g. the image width, the focal
+length, or any convenient value).  Camera calibration is **not** required —
+any scalar that brings coordinates to a reasonable range works.  Centering
+matters because the division model assumes the distortion centre is at the
+origin; inlier thresholds are expressed in these normalised units.
 
-- The distortion model assumes the distortion centre is at the origin.
-- Inlier thresholds are expressed in these normalised units.
+Pure homography solvers (no distortion) do not require centering, but
+consistent normalization still improves numerical conditioning.
 
 The output :class:`~homlib.PoseData` contains:
 
@@ -96,7 +109,7 @@ HomLib solvers accept three kinds of features, distinguished by the
 - :attr:`~homlib.FeatureType.Affine` — affine-covariant features including
   a local 2×2 transformation ``A``.  Requires only **2** correspondences.
 - :attr:`~homlib.FeatureType.Orientation` — orientation-covariant features
-  with a keypoint angle.  Requires **4** correspondences.
+  with a keypoint angle.  Requires **3** correspondences.
 
 Richer features need fewer correspondences, which helps RANSAC converge
 faster (exponentially fewer iterations for the same inlier ratio).
@@ -194,7 +207,7 @@ Orientation-covariant solvers
      - Distortion
      - Reference
    * - :class:`~homlib.ValtonenOrnhagICPR2026OrientationSingleSided`
-     - 4
+     - 3
      - One-sided
      - [ValtonenOrnhagAdalbjornsson2026]_
 

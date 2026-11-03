@@ -86,3 +86,13 @@ if homlib._HAS_MAGSAC:
     H_est = est.homography / est.homography[2, 2]
     print(f"MAGSAC++   — H error: {np.linalg.norm(H_est - H_gt_norm):.2e}, "
           f"inliers: {len(stats.inliers)}")
+
+###############################################################################
+# .. note::
+#
+#    On clean synthetic data the backends perform similarly, since outliers
+#    are easy to separate.  The more sophisticated backends — GC-RANSAC,
+#    MAGSAC++, and SupeRANSAC — show their real advantage on real-world
+#    images where noise is spatially correlated and the inlier/outlier
+#    boundary is less clear-cut.  See the ``example_real_data.py`` gallery
+#    example for a comparison on real images.

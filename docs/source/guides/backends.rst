@@ -298,25 +298,23 @@ Platform availability
    * - GC-RANSAC
      - Yes
      - Yes
-     - No
+     - Yes
      - —
    * - MAGSAC++
      - Yes
      - Yes
-     - No
+     - Yes
      - —
    * - SupeRANSAC
      - Yes
      - Yes
-     - No
+     - Yes
      - —
 
-**Pre-built wheels** (``pip install homlib``) include **LOMSAC only** on all
-platforms. The optional backends depend on Boost, OpenCV, gflags, and OpenMP,
-which cannot be reliably bundled into portable wheels.
+**Pre-built wheels** (``pip install homlib``) include **LOMSAC only**.
 
-**Building from source** on Linux or macOS enables all four backends
-automatically when the dependencies are installed:
+**Building from source** enables all four backends when the dependencies are
+installed:
 
 .. code-block:: bash
 
@@ -326,8 +324,11 @@ automatically when the dependencies are installed:
    # macOS
    brew install boost opencv gflags libomp
 
+   # Windows (vcpkg)
+   vcpkg install boost opencv gflags openmp --triplet x64-windows
+
    # Build with all backends
-   pip install . --no-build-isolation
+   pip install .
 
 To check which backends are available at runtime:
 
@@ -337,9 +338,6 @@ To check which backends are available at runtime:
    print("SupeRANSAC:", homlib._HAS_SUPERANSAC)
    print("GC-RANSAC: ", homlib._HAS_GCRANSAC)
    print("MAGSAC++:  ", homlib._HAS_MAGSAC)
-
-Windows support for the optional backends is not currently tested in CI.
-Contributions are welcome.
 
 
 Choosing a backend
