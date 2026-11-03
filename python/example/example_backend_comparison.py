@@ -22,9 +22,11 @@ np.random.seed(42)
 solver = homlib.Wadenback3DV2026OneSided()
 
 N = 500
-H_gt = np.array([[1.2, 0.1, 0.05],
-                  [0.05, 0.9, -0.02],
-                  [0.001, -0.001, 1.0]])
+H_gt = np.array([
+    [1.2, 0.1, 0.05],
+    [0.05, 0.9, -0.02],
+    [0.001, -0.001, 1.0],
+])
 
 x = np.random.randn(2, N) * 0.3
 y_hom = H_gt @ np.vstack((x, np.ones((1, N))))
