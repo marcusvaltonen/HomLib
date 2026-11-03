@@ -309,6 +309,7 @@ int main(int argc, char *argv[]) {
     std::cout << "\n\n==== Testing JACOBIANS ====" << std::endl;
     std::cout << "\n\nTesting nonlinear refinement - one sided left" << std::endl;
     config.number_points = 12;
+    config.distortion = HomLib::DistortionCase::ONE_SIDED_LEFT;
     HomLib::ProblemInstance inst = HomLib::generate_problem_instance(config);
     
     std::cout << "Number of points: " << inst.x1.size() << std::endl;
