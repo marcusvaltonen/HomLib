@@ -42,6 +42,7 @@ std::vector<HomLib::PoseData> get_6pt(
 );
 class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
     public:
+        static constexpr int minimal_sample_size_value = 5;
         SolverTwoSidedEqual() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::KukelovaCVPR2015::get(x, y, dist_equal);
@@ -61,6 +62,7 @@ class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
     };
 class SolverTwoSidedEqual6Pt : public PoseEstimator<SolverTwoSidedEqual6Pt> {
     public:
+        static constexpr int minimal_sample_size_value = 6;
         SolverTwoSidedEqual6Pt() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::KukelovaCVPR2015::get_6pt(x, y, dist_equal);
@@ -80,6 +82,7 @@ class SolverTwoSidedEqual6Pt : public PoseEstimator<SolverTwoSidedEqual6Pt> {
     };
 class SolverTwoSided : public PoseEstimator<SolverTwoSided> {
     public:
+        static constexpr int minimal_sample_size_value = 5;
         SolverTwoSided() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::KukelovaCVPR2015::get(x, y, dist_equal);
@@ -99,6 +102,7 @@ class SolverTwoSided : public PoseEstimator<SolverTwoSided> {
     };
 class SolverTwoSided6Pt : public PoseEstimator<SolverTwoSided6Pt> {
     public:
+        static constexpr int minimal_sample_size_value = 6;
         SolverTwoSided6Pt() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::KukelovaCVPR2015::get_6pt(x, y, dist_equal);

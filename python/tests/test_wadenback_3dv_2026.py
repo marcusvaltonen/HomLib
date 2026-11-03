@@ -16,12 +16,14 @@ class Wadenback3DV2026OneSidedTestCase(unittest.TestCase):
             [-0.0769625591786919, -0.0311462459576149, -0.252034297773712, -0.0440402280844913,  0.0211895908990797]
         ])
 
+        self.solver = homlib.Wadenback3DV2026OneSided(extra_check=False)
+
     def test_one_sided_length(self):
-        sols = homlib.estimate_wadenback_3dv_2026_one_sided(self.p1, self.p2, False)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 3)
 
     def test_one_sided_distortion(self):
-        sols = homlib.estimate_wadenback_3dv_2026_one_sided(self.p1, self.p2, False)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertAlmostEqual(sols[0].distortion_parameter, 0.0, 12)
         self.assertAlmostEqual(sols[0].distortion_parameter2, 5.11091, 4)
         self.assertAlmostEqual(sols[1].distortion_parameter, 0.0, 12)
@@ -30,7 +32,7 @@ class Wadenback3DV2026OneSidedTestCase(unittest.TestCase):
         self.assertAlmostEqual(sols[2].distortion_parameter2, -0.3, 12)
 
     def test_one_sided_homography(self):
-        sols = homlib.estimate_wadenback_3dv_2026_one_sided(self.p1, self.p2, False)
+        sols = self.solver.estimate(self.p1, self.p2)
         expected_2 = np.array([
             [0.000227753625098076, -7.00643123791218e-05, -0.000525931983848800],
             [0.000429490139445578,  3.06112333501461e-05, -0.000156454396552730],
@@ -42,13 +44,13 @@ class Wadenback3DV2026OneSidedTestCase(unittest.TestCase):
         p1 = np.random.randn(2, 5)
         p2 = np.random.randn(3, 5)
         with self.assertRaises(TypeError):
-            homlib.estimate_wadenback_3dv_2026_one_sided(p1, p2, False)
+            self.solver.estimate(p1, p2)
 
     def test_one_sided_dimensions_cols(self):
         p1 = np.random.randn(2, 5)
         p2 = np.random.randn(2, 6)
         with self.assertRaises(ValueError):
-            homlib.estimate_wadenback_3dv_2026_one_sided(p1, p2, False)
+            self.solver.estimate(p1, p2)
 
 
 class Wadenback3DV2026TwoSidedEqualTestCase(unittest.TestCase):
@@ -63,17 +65,19 @@ class Wadenback3DV2026TwoSidedEqualTestCase(unittest.TestCase):
             [0.504312576320796,   0.525321116499528,  0.182133325842435, 0.313117448200805, 0.0746306773026531]
         ])
 
+        self.solver = homlib.Wadenback3DV2026TwoSidedEqual(extra_check=True)
+
     def test_two_sided_equal_length(self):
-        sols = homlib.estimate_wadenback_3dv_2026_two_sided_equal(self.p1, self.p2, True)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 1)
 
     def test_two_sided_equal_distortion(self):
-        sols = homlib.estimate_wadenback_3dv_2026_two_sided_equal(self.p1, self.p2, True)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertAlmostEqual(sols[0].distortion_parameter, -0.3, 12)
         self.assertAlmostEqual(sols[0].distortion_parameter2, -0.3, 12)
 
     def test_two_sided_equal_homography(self):
-        sols = homlib.estimate_wadenback_3dv_2026_two_sided_equal(self.p1, self.p2, True)
+        sols = self.solver.estimate(self.p1, self.p2)
         expected = np.array([
             [-5.37070541971519e-06,  5.58776046545164e-06, -8.62056987828971e-07],
             [-5.32137209241095e-06, -4.87624482275744e-06,  3.51720726336518e-06],
@@ -94,17 +98,19 @@ class Wadenback3DV2026TwoSidedTestCase(unittest.TestCase):
             [0.504312576320796,   0.525321116499528,  0.182133325842435, 0.313117448200805, 0.0746306773026531]
         ])
 
+        self.solver = homlib.Wadenback3DV2026TwoSided(extra_check=True)
+
     def test_two_sided_length(self):
-        sols = homlib.estimate_wadenback_3dv_2026_two_sided(self.p1, self.p2, True)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 1)
 
     def test_two_sided_distortion(self):
-        sols = homlib.estimate_wadenback_3dv_2026_two_sided(self.p1, self.p2, True)
+        sols = self.solver.estimate(self.p1, self.p2)
         self.assertAlmostEqual(sols[0].distortion_parameter, -0.3, 12)
         self.assertAlmostEqual(sols[0].distortion_parameter2, -0.3, 12)
 
     def test_two_sided_homography(self):
-        sols = homlib.estimate_wadenback_3dv_2026_two_sided(self.p1, self.p2, True)
+        sols = self.solver.estimate(self.p1, self.p2)
         expected = np.array([
             [-5.37070541971519e-06,  5.58776046545164e-06, -8.62056987828971e-07],
             [-5.32137209241095e-06, -4.87624482275744e-06,  3.51720726336518e-06],

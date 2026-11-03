@@ -40,6 +40,7 @@ std::vector<HomLib::PoseData> get_single(
 );
 class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
     public:
+        static constexpr int minimal_sample_size_value = 5;
         SolverSingleSided() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::FitzgibbonCVPR2001::get_single(x, y);
@@ -57,6 +58,7 @@ class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
     };
 class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
     public:
+        static constexpr int minimal_sample_size_value = 5;
         SolverTwoSidedEqual() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::FitzgibbonCVPR2001::get(x, y);

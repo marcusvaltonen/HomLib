@@ -32,8 +32,6 @@ References
 
 """
 
-import random
-import ctypes
 from time import time
 
 import cv2
@@ -55,17 +53,15 @@ DIST_COEFF_GT = -0.000003         # Ground-truth radial distortion coefficient
 SNN_THRESHOLD = 0.8               # Lowe's ratio‑test threshold
 INLIER_THRESHOLD = 3.0            # Pixel reprojection error for RANSAC
 
-# Create a reproducible but random seed
-RANDOM_SEED = random.randint(0, ctypes.c_uint32(-1).value)
-
-# homlib RANSAC options
-RANSAC_OPTIONS = homlib.LORansacOptions()
-RANSAC_OPTIONS.squared_inlier_threshold = INLIER_THRESHOLD ** 2
-RANSAC_OPTIONS.final_least_squares = True
-RANSAC_OPTIONS.random_seed = RANDOM_SEED
-RANSAC_OPTIONS.lo_starting_iterations = 8
-RANSAC_OPTIONS.min_num_iterations = 70
-RANSAC_OPTIONS.max_num_iterations = 500
+# homlib RANSAC options (keyword arguments forwarded to LORansacOptions)
+LOMSAC_KWARGS = dict(
+    inlier_threshold=INLIER_THRESHOLD,
+    final_least_squares=True,
+    random_seed=2026,
+    lo_starting_iterations=8,
+    min_num_iterations=70,
+    max_num_iterations=500,
+)
 
 
 ###############################################################################
@@ -284,7 +280,7 @@ draw_matches(kps1, kps2, tentatives, img1, img2, cv2_H, H_gt, cv2_mask,
 
 def verify_homlib_point(kps1, kps2, tentatives, H_gt,
                         width1, height1, width2, height2,
-                        options=RANSAC_OPTIONS):
+                        lomsac_kwargs=LOMSAC_KWARGS):
     """Estimate homography with homlib using point correspondences (one-sided radial distortion)."""
     src_pts = np.float32([kps1[m.queryIdx].pt for m in tentatives]).reshape(-1, 2).T
     dst_pts = np.float32([kps2[m.trainIdx].pt for m in tentatives]).reshape(-1, 2).T
@@ -294,9 +290,9 @@ def verify_homlib_point(kps1, kps2, tentatives, H_gt,
     dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts, width2, height2)
 
     # This routine assumes the left image is distorted, hence switch places with src and dst
-    estimate, stats = homlib.lomsac_wadenback_3dv_2026_one_sided(
-        dst_centered, src_centered, options
-    )
+    solver = homlib.Wadenback3DV2026OneSided()
+    lomsac = homlib.LOMSAC(solver, **lomsac_kwargs)
+    estimate, stats = lomsac.estimate(dst_centered, src_centered)
 
     # Since we swapped dst and src, we seek the inverse
     H = denormalize_homography(np.linalg.inv(estimate.homography), T1, T2_inv)
@@ -309,7 +305,7 @@ def verify_homlib_point(kps1, kps2, tentatives, H_gt,
 
 def verify_homlib_ori(kps1, kps2, tentatives, H_gt,
                       width1, height1, width2, height2,
-                      options=RANSAC_OPTIONS):
+                      lomsac_kwargs=LOMSAC_KWARGS):
     """Estimate homography with homlib using point correspondences + keypoint orientations."""
     src_pts = np.float32([kps1[m.queryIdx].pt for m in tentatives]).reshape(-1, 2).T
     dst_pts = np.float32([kps2[m.trainIdx].pt for m in tentatives]).reshape(-1, 2).T
@@ -322,9 +318,9 @@ def verify_homlib_ori(kps1, kps2, tentatives, H_gt,
     src_centered, T1, _ = center_points_and_get_transforms(src_pts, width1, height1)
     dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts, width2, height2)
 
-    estimate, stats = homlib.lomsac_valtonenornhag_icpr_2026_one_sided_ori(
-        src_centered, dst_centered, ori, options
-    )
+    solver = homlib.ValtonenOrnhagICPR2026OrientationSingleSided()
+    lomsac = homlib.LOMSAC(solver, **lomsac_kwargs)
+    estimate, stats = lomsac.estimate(src_centered, dst_centered, ori=ori)
 
     H = denormalize_homography(estimate.homography, T1, T2_inv)
 
@@ -360,15 +356,15 @@ draw_matches(kps1, kps2, tentatives, img1, img2, homlib_H_ori, H_gt, homlib_mask
 
 def verify_homlib_affine(src_pts, dst_pts, A, tentatives, H_gt,
                          width1, height1, width2, height2,
-                         options=RANSAC_OPTIONS):
+                         lomsac_kwargs=LOMSAC_KWARGS):
     """Estimate homography using affine correspondences (ACs)."""
     # src_pts and dst_pts are 2xN arrays
     src_centered, T1, _ = center_points_and_get_transforms(src_pts.T, width1, height1)
     dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts.T, width2, height2)
 
-    estimate, stats = homlib.lomsac_valtonenornhag_icpr_2026_one_sided_affine(
-        src_centered, dst_centered, A.T, options
-    )
+    solver = homlib.ValtonenOrnhagICPR2026AffineSingleSided()
+    lomsac = homlib.LOMSAC(solver, **lomsac_kwargs)
+    estimate, stats = lomsac.estimate(src_centered, dst_centered, A=A.T)
 
     H = denormalize_homography(estimate.homography, T1, T2_inv)
 

@@ -4,3 +4,9 @@
 [submodule "thirdparty/superansac"]
 	path = thirdparty/superansac
 	url = https://github.com/danini/superansac
+[submodule "thirdparty/graph-cut-ransac"]
+	path = thirdparty/graph-cut-ransac
+	url = https://github.com/danini/graph-cut-ransac
+[submodule "thirdparty/magsac"]
+	path = thirdparty/magsac
+	url = https://github.com/danini/magsac

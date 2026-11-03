@@ -37,3 +37,36 @@ target_include_directories(HomLibTests PRIVATE ${HOMLIB_INCLUDE_DIRS})
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)
 catch_discover_tests(HomLibTests)
+
+# Backend integration tests — separate executable with optional backend dependencies
+add_executable(HomLibBackendTests test_backends.cpp)
+target_link_libraries(HomLibBackendTests PRIVATE
+    HomLib Catch2::Catch2WithMain Eigen3::Eigen PoseLib::PoseLib)
+target_include_directories(HomLibBackendTests PRIVATE
+    ${HOMLIB_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/thirdparty/RansacLib)
+
+if(HOMLIB_USE_GCRANSAC)
+    target_compile_definitions(HomLibBackendTests PRIVATE HOMLIB_HAS_GCRANSAC)
+    target_include_directories(HomLibBackendTests PRIVATE ${GCRANSAC_INCLUDE_DIR})
+    target_link_libraries(HomLibBackendTests PRIVATE GCoptimization ${OpenCV_LIBS})
+endif()
+
+if(HOMLIB_USE_MAGSAC)
+    target_compile_definitions(HomLibBackendTests PRIVATE HOMLIB_HAS_MAGSAC)
+    target_include_directories(HomLibBackendTests PRIVATE ${GCRANSAC_INCLUDE_DIR} ${MAGSAC_INCLUDE_DIR})
+    target_link_libraries(HomLibBackendTests PRIVATE gflags OpenMP::OpenMP_CXX)
+    if(NOT HOMLIB_USE_GCRANSAC)
+        target_compile_definitions(HomLibBackendTests PRIVATE HOMLIB_HAS_GCRANSAC)
+        target_include_directories(HomLibBackendTests PRIVATE ${GCRANSAC_INCLUDE_DIR})
+        target_link_libraries(HomLibBackendTests PRIVATE GCoptimization ${OpenCV_LIBS})
+    endif()
+endif()
+
+if(HOMLIB_USE_SUPERANSAC)
+    target_compile_definitions(HomLibBackendTests PRIVATE HOMLIB_HAS_SUPERANSAC)
+    target_include_directories(HomLibBackendTests PRIVATE ${SUPERANSAC_INCLUDE_DIR})
+    target_link_libraries(HomLibBackendTests PRIVATE SupeRANSAC)
+endif()
+
+catch_discover_tests(HomLibBackendTests)

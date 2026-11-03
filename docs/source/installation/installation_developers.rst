@@ -39,20 +39,86 @@ Or manually:
    cmake -DCMAKE_BUILD_TYPE=Release ..
    cmake --build . --config Release -- -j $(nproc)
 
+Building with SupeRANSAC (optional)
+------------------------------------
+
+To enable the `SupeRANSAC <https://github.com/danini/SuperRANSAC>`__ robust
+estimation backend, you additionally need Boost and OpenCV 4.x:
+
+.. code-block:: bash
+
+   apt install libboost-all-dev libopencv-dev
+
+Pull the SupeRANSAC submodule:
+
+.. code-block:: bash
+
+   git submodule update --init thirdparty/superansac
+
+Then build with ``-DHOMLIB_USE_SUPERANSAC=ON``:
+
+.. code-block:: bash
+
+   mkdir -p build && cd build
+   cmake -DCMAKE_BUILD_TYPE=Release -DHOMLIB_USE_SUPERANSAC=ON ..
+   cmake --build . --config Release -- -j $(nproc)
+
+Building with GC-RANSAC and MAGSAC++ (optional)
+-------------------------------------------------
+
+To enable the GC-RANSAC [Barath2018]_ or MAGSAC++ [Barath2020]_ backends you
+need OpenCV 4.x:
+
+.. code-block:: bash
+
+   apt install libopencv-dev
+
+Pull the graph-cut-ransac submodule:
+
+.. code-block:: bash
+
+   git submodule update --init thirdparty/graph-cut-ransac
+
+Then build with ``-DHOMLIB_USE_GCRANSAC=ON`` and/or ``-DHOMLIB_USE_MAGSAC=ON``:
+
+.. code-block:: bash
+
+   mkdir -p build && cd build
+   cmake -DCMAKE_BUILD_TYPE=Release \
+         -DHOMLIB_USE_GCRANSAC=ON \
+         -DHOMLIB_USE_MAGSAC=ON ..
+   cmake --build . --config Release -- -j $(nproc)
+
+All optional backends can be combined in a single build:
+
+.. code-block:: bash
+
+   cmake -DCMAKE_BUILD_TYPE=Release \
+         -DHOMLIB_USE_SUPERANSAC=ON \
+         -DHOMLIB_USE_GCRANSAC=ON \
+         -DHOMLIB_USE_MAGSAC=ON ..
+
 Python package from source
 --------------------------
 
-After building the C++ library, install the Python package in your virtual environment:
+Install the Python package in your virtual environment:
 
 .. code-block:: bash
 
    pip install .
 
-For an editable development install (changes to Python code take effect immediately):
+With optional backends:
 
 .. code-block:: bash
 
-   pip install -e .
+   # SupeRANSAC
+   CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=ON" pip install .
+
+   # GC-RANSAC and MAGSAC++
+   CMAKE_ARGS="-DHOMLIB_USE_GCRANSAC=ON -DHOMLIB_USE_MAGSAC=ON" pip install .
+
+   # All backends
+   CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=ON -DHOMLIB_USE_GCRANSAC=ON -DHOMLIB_USE_MAGSAC=ON" pip install .
 
 Running tests
 -------------
