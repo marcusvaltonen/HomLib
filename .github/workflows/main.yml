@@ -93,6 +93,8 @@ jobs:
                         -DHOMLIB_USE_SUPERANSAC=OFF -DHOMLIB_USE_GCRANSAC=OFF -DHOMLIB_USE_MAGSAC=OFF"
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
             cmake_args="$cmake_args -DOpenMP_ROOT=$(brew --prefix libomp)"
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            cmake_args="$cmake_args -DCMAKE_POLICY_DEFAULT_CMP0167=OLD"
           fi
           cmake $cmake_args
         shell: bash
@@ -207,7 +209,7 @@ jobs:
               --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install;-DOpenMP_ROOT=$(brew --prefix libomp)"
           else
             python -m build \
-              --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install"
+              --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install;-DCMAKE_POLICY_DEFAULT_CMP0167=OLD"
           fi
         shell: bash
 
