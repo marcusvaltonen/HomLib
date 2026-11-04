@@ -279,7 +279,7 @@ void refinement_onesided_right(
             J(2 * i + 0, 3) = x1_1 * inv_Hx1_2;
             // J(2 * i + 0, 4) = 0.0;
             J(2 * i + 0, 5) = -x1_1 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 6) = 1.0 * inv_Hx1_2;
+            J(2 * i + 0, 6) = inv_dist_factor1 * inv_Hx1_2;
             // J(2 * i + 0, 7) = 0.0;
             J(2 * i + 0, 8) = H0_2 * r12 * inv_Hx1_2 - z0 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff. k
             
@@ -291,7 +291,7 @@ void refinement_onesided_right(
             J(2 * i + 1, 4) = x1_1 * inv_Hx1_2;
             J(2 * i + 1, 5) = -x1_1 * z1 * inv_Hx1_2;
             // J(2 * i + 1, 6) = 0.0;
-            J(2 * i + 1, 7) = 1.0 * inv_Hx1_2;
+            J(2 * i + 1, 7) = inv_dist_factor1 * inv_Hx1_2;
             J(2 * i + 1, 8) = H1_2 * r12 * inv_Hx1_2 - z1 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff. k
         }
         
@@ -387,7 +387,7 @@ void refinement_twosided_equal(
             J(2 * i + 0, 3) = x1_1 * inv_Hx1_2;
             // J(2 * i + 0, 4) = 0.0;
             J(2 * i + 0, 5) = -x1_1 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 6) = 1.0 * inv_Hx1_2;
+            J(2 * i + 0, 6) = inv_dist_factor1 * inv_Hx1_2;
             // J(2 * i + 0, 7) = 0.0;
             J(2 * i + 0, 8) = x2_0 * r22 * dist_factor2 * dist_factor2 + H0_2 * r12 * inv_Hx1_2 - z0 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff.
             
@@ -399,7 +399,7 @@ void refinement_twosided_equal(
             J(2 * i + 1, 4) = x1_1 * inv_Hx1_2;
             J(2 * i + 1, 5) = -x1_1 * z1 * inv_Hx1_2;
             // J(2 * i + 1, 6) = 0.0;
-            J(2 * i + 1, 7) = 1.0 * inv_Hx1_2;
+            J(2 * i + 1, 7) = inv_dist_factor1 * inv_Hx1_2;
             J(2 * i + 1, 8) = x2_1 * r22 * dist_factor2 * dist_factor2 + H1_2 * r12 * inv_Hx1_2 - z1 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff.
         }
         
@@ -497,7 +497,7 @@ void refinement_twosided(
             J(2 * i + 0, 3) = x1_1 * inv_Hx1_2;
             // J(2 * i + 0, 4) = 0.0;
             J(2 * i + 0, 5) = -x1_1 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 6) = 1.0 * inv_Hx1_2;
+            J(2 * i + 0, 6) = inv_dist_factor1 * inv_Hx1_2;
             // J(2 * i + 0, 7) = 0.0;
             J(2 * i + 0, 8) = H0_2 * r12 * inv_Hx1_2 - z0 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff. k1
             J(2 * i + 0, 9) = x2_0 * r22 * dist_factor2 * dist_factor2;  // Dist coeff. k2
@@ -510,7 +510,7 @@ void refinement_twosided(
             J(2 * i + 1, 4) = x1_1 * inv_Hx1_2;
             J(2 * i + 1, 5) = -x1_1 * z1 * inv_Hx1_2;
             // J(2 * i + 1, 6) = 0.0;
-            J(2 * i + 1, 7) = 1.0 * inv_Hx1_2;
+            J(2 * i + 1, 7) = inv_dist_factor1 * inv_Hx1_2;
             J(2 * i + 1, 8) = H1_2 * r12 * inv_Hx1_2 - z1 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff. k1
             J(2 * i + 1, 9) = x2_1 * r22 * dist_factor2 * dist_factor2;  // Dist coeff. k2
         }
