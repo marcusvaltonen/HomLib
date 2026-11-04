@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include "posedata.hpp"
+#include "distortion_range.h"
 
 namespace HomLib {
 
@@ -19,6 +20,21 @@ namespace HomLib {
 
 		// Options
 		bool normalize_image_coord = true;
+
+		// Optional range check on the distortion parameters of the solutions (off by default):
+		// keeps those with both parameters in [k_min, k_max] (a parameter equal to 0, not estimated
+		// by one-sided solvers, passes). It isn't part of the solvers' methods, but it removes
+		// implausible solutions, so RANSAC has fewer hypotheses to score. The range applies in the
+		// normalized coordinates (each sample is divided by mean(|x|)/sqrt(2), with
+		// normalize_image_coord), or with k_range_in_input_units, in the units of the points given to
+		// estimate(). It only selects the hypotheses: refinement isn't constrained. The range is
+		// passed to the solver's solve(), which may apply it to each root before computing its
+		// homography (and, if it keeps one root of several, before choosing it); the solutions of
+		// all the solvers are then filtered.
+		bool use_k_range = false;
+		double k_min = -1.0;
+		double k_max = 0.1;
+		bool k_range_in_input_units = false;
 
 	protected:
 		OrientationPoseEstimator() = default;
@@ -50,7 +66,17 @@ int HomLib::OrientationPoseEstimator<Solver>::estimate(const std::vector<Eigen::
 
     // Call solver implementation
     poses->clear();
-    int n_sols = static_cast<const Solver*>(this)->solve(x, y, ori, poses);
+    // The range in the solver's (normalized) coordinates
+    HomLib::DistortionRange range;
+    if (use_k_range) {
+        const double s = (k_range_in_input_units && normalize_image_coord) ? f0 * f0 : 1.0;
+        range = HomLib::DistortionRange(k_min * s, k_max * s);
+    }
+    int n_sols = static_cast<const Solver*>(this)->solve(x, y, ori, poses, range);
+    if (use_k_range && !k_range_in_input_units) {
+        HomLib::filter_distortion_range(poses, HomLib::DistortionRange(k_min, k_max));
+        n_sols = poses->size();
+    }
 
     // Revert image coordinate scaling
     if (normalize_image_coord) {
@@ -66,6 +92,11 @@ int HomLib::OrientationPoseEstimator<Solver>::estimate(const std::vector<Eigen::
             (*poses)[i].distortion_parameter /= f02;
             (*poses)[i].distortion_parameter2 /= f02;
         }
+    }
+
+    if (use_k_range && k_range_in_input_units) {
+        HomLib::filter_distortion_range(poses, HomLib::DistortionRange(k_min, k_max));
+        n_sols = poses->size();
     }
 
     return n_sols;

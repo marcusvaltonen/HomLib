@@ -37,7 +37,8 @@ namespace KukelovaCVPR2015 {
     std::vector<HomLib::PoseData> get(
         const std::vector<Eigen::Vector2d> &x,
         const std::vector<Eigen::Vector2d> &y,
-        bool dist_equal
+        bool dist_equal,
+        const HomLib::DistortionRange &range
     ) {
         // This is a five point method
         const int nbr_pts = 5;
@@ -137,6 +138,10 @@ namespace KukelovaCVPR2015 {
             }
             // Get parameters.
             xx = sols.col(i).real();
+            const double s2 = std::pow(scale, 2);
+            if (dist_equal ? !range.contains(0.5 * (xx(0) + xx(1)) * s2) : !range.contains(xx(0) * s2, xx(1) * s2)) {
+                continue;
+            }
 
             //if (dist_equal && (std::abs(xx(0) - xx(1)) > 0.01 * std::sqrt(xx(0) * xx(1)))) {
             //    continue;

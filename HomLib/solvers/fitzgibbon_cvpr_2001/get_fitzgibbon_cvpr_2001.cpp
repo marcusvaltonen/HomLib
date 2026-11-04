@@ -33,7 +33,8 @@ namespace FitzgibbonCVPR2001 {
 
     std::vector<HomLib::PoseData> get(
         const std::vector<Eigen::Vector2d> &x,
-        const std::vector<Eigen::Vector2d> &y
+        const std::vector<Eigen::Vector2d> &y,
+        const HomLib::DistortionRange &range
     ) {
         // This is a five point method
         const int n_points = 5;
@@ -130,6 +131,9 @@ namespace FitzgibbonCVPR2001 {
         for (int k = 0; k < 18; k++) {
             if (is_ok(k)) {
                 ltmp = l(k).real();
+                if (!range.contains(ltmp)) {
+                    continue;
+                }
                 Htmp = Eigen::Map<Eigen::Matrix3d>(X.col(k).data(), 3, 3);
                 // Reproject points
                 std::vector<Eigen::Vector2d> xu = radialundistort(x, ltmp);

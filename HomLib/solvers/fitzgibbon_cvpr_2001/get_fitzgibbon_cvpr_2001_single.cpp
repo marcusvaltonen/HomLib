@@ -31,7 +31,8 @@ namespace HomLib {
 namespace FitzgibbonCVPR2001 {
     std::vector<HomLib::PoseData> get_single(
         const std::vector<Eigen::Vector2d> &x,
-        const std::vector<Eigen::Vector2d> &y
+        const std::vector<Eigen::Vector2d> &y,
+        const HomLib::DistortionRange &range
     ) {
         // This is a five point method
         const int n_points = 5;
@@ -77,6 +78,9 @@ namespace FitzgibbonCVPR2001 {
         for (int i = 0; i < 9; i++) {
             if (std::abs(ks(i).imag()) < 1e-14) {
                 double k = ks(i).real();
+                if (!range.contains(k)) {
+                    continue;
+                }
                 Eigen::Matrix3d H = Eigen::Map<Eigen::Matrix3d>(X.col(i).data(), 3, 3).transpose();
                 // Measure reprojection error in undistorted space
                 Eigen::Vector2d y4u_est1 = HomLib::radialundistort(y[4], k);

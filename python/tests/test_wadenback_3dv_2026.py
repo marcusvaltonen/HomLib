@@ -109,6 +109,21 @@ class Wadenback3DV2026TwoSidedTestCase(unittest.TestCase):
         self.assertAlmostEqual(sols[0].distortion_parameter, -0.3, 12)
         self.assertAlmostEqual(sols[0].distortion_parameter2, -0.3, 12)
 
+    def test_two_sided_k_range(self):
+        # The solver's default range, [-1, 0.1], keeps only the true solution; without a range,
+        # estimate() returns the solver's other real roots too
+        self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 1)
+        self.solver.set_k_range()
+        self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 3)
+        self.solver.set_k_range(-0.5, -0.2)
+        sols = self.solver.estimate(self.p1, self.p2)
+        self.assertEqual(len(sols), 1)
+        self.assertAlmostEqual(sols[0].distortion_parameter, -0.3, 12)
+        self.solver.set_k_range(k_min=0.0)
+        self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 0)
+        self.solver.reset_k_range()
+        self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 1)
+
     def test_two_sided_homography(self):
         sols = self.solver.estimate(self.p1, self.p2)
         expected = np.array([

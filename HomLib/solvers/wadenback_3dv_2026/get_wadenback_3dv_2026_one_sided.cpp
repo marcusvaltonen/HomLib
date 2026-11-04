@@ -6,6 +6,7 @@
 
 #include "posedata.hpp"
 #include "wadenback_common.hpp"
+#include "get_wadenback_3dv_2026.hpp"
 
 
 namespace HomLib {
@@ -21,7 +22,8 @@ static inline Eigen::Vector3d get_rhs(
 std::vector<HomLib::PoseData> get_one_sided(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y,
-    bool extra_check
+    bool extra_check,
+    const HomLib::DistortionRange &range
 )
 {
     Eigen::Matrix<double, 12, 1> data = HomLib::Wadenback3DV2026::compute_coeffs(y);
@@ -55,6 +57,9 @@ std::vector<HomLib::PoseData> get_one_sided(
         if (nroots > 1) {
             for (int i = 0; i < nroots; i++) {
                 double k = roots[i];
+                if (!range.contains(k)) {
+                    continue;
+                }
                 res = unused_equation_residual(d, rhs, k);
                 if (res < min_res) {
                     min_res = res;
@@ -63,6 +68,9 @@ std::vector<HomLib::PoseData> get_one_sided(
             }
         }
         double k = roots[best_id];
+        if (!range.contains(k)) {   // no root in the range
+            return output;
+        }
         std::vector<Eigen::Vector2d> y_undist;
         for (int i = 0; i < 4; i++) {
             Eigen::Vector2d tmp = y[i] / (1 + k * y[i].squaredNorm());
@@ -81,6 +89,9 @@ std::vector<HomLib::PoseData> get_one_sided(
             HomLib::PoseData pd;
             Eigen::Matrix3d H;
             double k = roots[j];
+            if (!range.contains(k)) {
+                continue;
+            }
 
             std::vector<Eigen::Vector2d> y_undist;
             for (int i = 0; i < 4; i++) {

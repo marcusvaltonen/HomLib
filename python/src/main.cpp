@@ -30,9 +30,10 @@ std::vector<HomLib::PoseData> dispatch_estimate_point(
 
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
-        s.solve(x, y, &poses);
+        s.solve(x, y, &poses, direct_range(s));
+        HomLib::filter_distortion_range(&poses, direct_range(s));   // for the solvers that don't check it
         return poses;
     });
 }
@@ -49,9 +50,10 @@ std::vector<HomLib::PoseData> dispatch_estimate_affine(
 
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
-        s.solve(x, y, A, &poses);
+        s.solve(x, y, A, &poses, direct_range(s));
+        HomLib::filter_distortion_range(&poses, direct_range(s));   // for the solvers that don't check it
         return poses;
     });
 }
@@ -67,9 +69,10 @@ std::vector<HomLib::PoseData> dispatch_estimate_orientation(
 
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
-        s.solve(x, y, ori, &poses);
+        s.solve(x, y, ori, &poses, direct_range(s));
+        HomLib::filter_distortion_range(&poses, direct_range(s));   // for the solvers that don't check it
         return poses;
     });
 }
@@ -87,7 +90,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_point(
 
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_lomsac_point(s, x, y, options);
     });
 }
@@ -105,7 +108,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_affine
 
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_lomsac_affine(s, x, y, A, options);
     });
 }
@@ -122,7 +125,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_orient
 
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_lomsac_orientation(s, x, y, ori, options);
     });
 }
@@ -192,11 +195,59 @@ PYBIND11_MODULE(_core, m) {
         .def_readonly("id", &PySolver::id, "Solver identifier (:class:`SolverId`).")
         .def_readonly("feature_type", &PySolver::feature_type, "Feature type (:class:`FeatureType`).")
         .def_readonly("extra_check", &PySolver::extra_check, "Whether extra validation checks are enabled.")
+        .def("set_k_range", [](PySolver& s, std::optional<double> k_min, std::optional<double> k_max) {
+                const double lo = k_min ? *k_min : -std::numeric_limits<double>::infinity();
+                const double hi = k_max ? *k_max : std::numeric_limits<double>::infinity();
+                if (!(lo <= hi)) {
+                    throw std::invalid_argument("k_min should be at most k_max (and neither NaN).");
+                }
+                s.has_k_range = true;
+                s.k_min = lo;
+                s.k_max = hi;
+            },
+            R"pbdoc(
+                Keep only the minimal solutions with distortion parameters in [k_min, k_max].
+
+                The bounds are in the units of the points given to ``estimate()`` (a parameter
+                equal to 0, the one that a one-sided solver doesn't estimate, passes). The check
+                selects the hypotheses of the minimal solver, in :meth:`estimate` and in the robust
+                estimators (LO-MSAC and the other backends); it doesn't constrain the refinement.
+                It replaces the solver's default range (see :meth:`reset_k_range`).
+
+                Parameters
+                ----------
+                k_min : float or None
+                    Lower bound (None: no lower bound).
+                k_max : float or None
+                    Upper bound (None: no upper bound). ``set_k_range()`` with no bounds disables
+                    the check.
+            )pbdoc",
+            "k_min"_a = std::nullopt, "k_max"_a = std::nullopt)
+        .def("reset_k_range", [](PySolver& s) {
+                s.has_k_range = false;
+                s.k_min = -std::numeric_limits<double>::infinity();
+                s.k_max = std::numeric_limits<double>::infinity();
+            },
+            R"pbdoc(
+                Back to the solver's default range on the distortion parameters: [-1, 0.1] in
+                normalized coordinates for the two-sided Wadenbäck solver, none for the others.
+            )pbdoc")
+        .def_property_readonly("k_range", [](const PySolver& s) -> py::object {
+                if (!s.has_k_range) {
+                    return py::none();
+                }
+                return py::make_tuple(s.k_min, s.k_max);
+            },
+            "The range set by :meth:`set_k_range`, as (k_min, k_max), or None (the solver's default).")
         .def("__repr__", [](const PySolver& s) {
             auto py_id = py::cast(s.id);
             std::string name = py_id.attr("name").cast<std::string>();
-            return "Solver(SolverId." + name +
-                   ", extra_check=" + std::string(s.extra_check ? "True" : "False") + ")";
+            std::string r = "Solver(SolverId." + name +
+                            ", extra_check=" + std::string(s.extra_check ? "True" : "False");
+            if (s.has_k_range) {
+                r += ", k_range=" + py::repr(py::make_tuple(s.k_min, s.k_max)).cast<std::string>();
+            }
+            return r + ")";
         });
 
     // --- PoseData ---

@@ -30,22 +30,29 @@
 
 namespace HomLib {
 namespace KukelovaCVPR2015 {
+// With a range: keeping only the solutions with distortion parameters in the range (checked
+// before computing their homography)
 std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y,
-    bool dist_equal
+    bool dist_equal,
+    const HomLib::DistortionRange &range = HomLib::DistortionRange()
 );
+// With a range: keeping only the solutions with distortion parameters in the range (checked
+// before computing their homography)
 std::vector<HomLib::PoseData> get_6pt(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y,
-    bool dist_equal
+    bool dist_equal,
+    const HomLib::DistortionRange &range = HomLib::DistortionRange()
 );
 class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
     public:
         static constexpr int minimal_sample_size_value = 5;
         SolverTwoSidedEqual() = default;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::KukelovaCVPR2015::get(x, y, dist_equal);
+        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
+                  const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
+            std::vector<HomLib::PoseData> output = HomLib::KukelovaCVPR2015::get(x, y, dist_equal, range);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
@@ -64,8 +71,9 @@ class SolverTwoSidedEqual6Pt : public PoseEstimator<SolverTwoSidedEqual6Pt> {
     public:
         static constexpr int minimal_sample_size_value = 6;
         SolverTwoSidedEqual6Pt() = default;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::KukelovaCVPR2015::get_6pt(x, y, dist_equal);
+        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
+                  const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
+            std::vector<HomLib::PoseData> output = HomLib::KukelovaCVPR2015::get_6pt(x, y, dist_equal, range);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
@@ -84,8 +92,9 @@ class SolverTwoSided : public PoseEstimator<SolverTwoSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
         SolverTwoSided() = default;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::KukelovaCVPR2015::get(x, y, dist_equal);
+        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
+                  const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
+            std::vector<HomLib::PoseData> output = HomLib::KukelovaCVPR2015::get(x, y, dist_equal, range);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
@@ -104,8 +113,9 @@ class SolverTwoSided6Pt : public PoseEstimator<SolverTwoSided6Pt> {
     public:
         static constexpr int minimal_sample_size_value = 6;
         SolverTwoSided6Pt() = default;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::KukelovaCVPR2015::get_6pt(x, y, dist_equal);
+        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
+                  const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
+            std::vector<HomLib::PoseData> output = HomLib::KukelovaCVPR2015::get_6pt(x, y, dist_equal, range);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }

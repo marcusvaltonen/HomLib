@@ -25,6 +25,7 @@
 #include <limits>
 #include <iostream>
 #include "posedata.hpp"
+#include "get_kukelova_cvpr_2015.hpp"
 
 namespace HomLib {
 namespace KukelovaCVPR2015 {
@@ -38,7 +39,8 @@ using Matrix65d = Eigen::Matrix<double, 6, 5>;
 std::vector<HomLib::PoseData> get_6pt(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
-    bool dist_equal
+    bool dist_equal,
+    const HomLib::DistortionRange& range
 ) {
     Matrix62d X;
     Matrix62d U;
@@ -96,6 +98,9 @@ std::vector<HomLib::PoseData> get_6pt(
     for (int i = 0; i < nsols; i++) {
         n = rs(i) * V1.col(6) + V1.col(7);
         const double l2 = n(6) / n(2);
+        if (!dist_equal && !range.contains(l2)) {   // l2 is k1: before the SVD of l1
+            continue;
+        }
 
         u3 = u3.Ones() + l2 * u2;
         r = n(0) * U.col(0) + n(1) * U.col(1) + n(2) * u3;
@@ -109,6 +114,9 @@ std::vector<HomLib::PoseData> get_6pt(
 
         v2.head(4) /= v2(4);
         const double l1 = v2(3);
+        if (dist_equal ? !range.contains(0.5 * (l1 + l2)) : !range.contains(l2, l1)) {
+            continue;
+        }
 
         //if (dist_equal && (std::abs(l1 - l2) > 0.05 * std::sqrt(l1 * l2))) {
         //    continue;
