@@ -5,46 +5,56 @@
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include "posedata.hpp"
+#include "problem_instance.hpp"
 #include "refinement.hpp"
 
 namespace {
 
-// Point of the division model with parameter k whose undistorted point is u
 Eigen::Vector2d Distort(const Eigen::Vector2d &u, double k)
 {
     return u * (2.0 / (1.0 + std::sqrt(1.0 - 4.0 * k * u.squaredNorm())));
 }
 
-enum Model { ONE_SIDED_RIGHT, TWO_SIDED_EQUAL, TWO_SIDED };
+// The distortion cases of the refinements (HomLib::DistortionCase): NO_DISTORTION
+// (refinement_no_dist), ONE_SIDED_LEFT, x2 only (refinement_onesided, k = distortion_parameter2),
+// ONE_SIDED_RIGHT, x1 only (refinement_onesided_right, k = distortion_parameter), TWO_SIDED_EQUAL
+// (refinement_twosided_equal) and TWO_SIDED (refinement_twosided)
+using HomLib::DistortionCase;
 
-// Sum of the squared residuals of the refinement functions: z = pi(H (x1, 1 + k1 |x1|^2))
-// against x2 (one-sided right) or x2 / (1 + k2 |x2|^2) (two-sided; k2 = k1 if equal), for the
-// parameters q = (H in column-major order without H(2, 2) = 1, k1[, k2])
-double Cost(Model model, const std::vector<Eigen::Vector2d> &x1, const std::vector<Eigen::Vector2d> &x2,
+// The cost minimized by the refinements, sum |pi(H (x1, 1 + k1 |x1|^2)) - x2 / (1 + k2 |x2|^2)|^2
+// (k1 = 0 or k2 = 0 where the model has no distortion), at q = (H entries in column-major order,
+// h22 = 1; k1; k2)
+double Cost(DistortionCase model, const std::vector<Eigen::Vector2d> &x1, const std::vector<Eigen::Vector2d> &x2,
             const double *q)
 {
     Eigen::Matrix3d H;
     H << q[0], q[3], q[6], q[1], q[4], q[7], q[2], q[5], 1.0;
-    const double k1 = q[8], k2 = model == TWO_SIDED ? q[9] : q[8];
+    const bool d1 = model == DistortionCase::ONE_SIDED_RIGHT || model == DistortionCase::TWO_SIDED_EQUAL || model == DistortionCase::TWO_SIDED;
+    const bool d2 = model == DistortionCase::ONE_SIDED_LEFT || model == DistortionCase::TWO_SIDED_EQUAL || model == DistortionCase::TWO_SIDED;
+    const double k1 = d1 ? q[8] : 0.0, k2 = model == DistortionCase::TWO_SIDED_EQUAL ? q[8] : d2 ? q[9] : 0.0;
     double c = 0;
     for (size_t i = 0; i < x1.size(); i++) {
         const Eigen::Vector2d z = (H * Eigen::Vector3d(x1[i](0), x1[i](1), 1.0 + k1 * x1[i].squaredNorm())).hnormalized();
-        const Eigen::Vector2d y = model == ONE_SIDED_RIGHT ? x2[i] : Eigen::Vector2d(x2[i] / (1.0 + k2 * x2[i].squaredNorm()));
+        const Eigen::Vector2d y = x2[i] / (1.0 + k2 * x2[i].squaredNorm());
         c += (z - y).squaredNorm();
     }
     return c;
 }
 
-// The largest component of the cost's gradient (central differences), relative to the cost
-double RelativeGradient(Model model, const std::vector<Eigen::Vector2d> &x1, const std::vector<Eigen::Vector2d> &x2,
+// The largest partial derivative of the cost, by central differences, relative to the cost
+double RelativeGradient(DistortionCase model, const std::vector<Eigen::Vector2d> &x1, const std::vector<Eigen::Vector2d> &x2,
                         const HomLib::PoseData &p)
 {
     const Eigen::Matrix3d H = p.homography / p.homography(2, 2);
     double q[10] = {H(0, 0), H(1, 0), H(2, 0), H(0, 1), H(1, 1), H(2, 1), H(0, 2), H(1, 2), p.distortion_parameter,
                     p.distortion_parameter2};
-    const int n = model == TWO_SIDED ? 10 : 9;
+    std::vector<int> params = {0, 1, 2, 3, 4, 5, 6, 7};
+    if (model == DistortionCase::ONE_SIDED_RIGHT || model == DistortionCase::TWO_SIDED_EQUAL || model == DistortionCase::TWO_SIDED)
+        params.push_back(8);
+    if (model == DistortionCase::ONE_SIDED_LEFT || model == DistortionCase::TWO_SIDED)
+        params.push_back(9);
     double worst = 0;
-    for (int j = 0; j < n; j++) {
+    for (int j : params) {
         const double h = 1e-7, qj = q[j];
         q[j] = qj + h;
         const double cp = Cost(model, x1, x2, q);
@@ -58,17 +68,20 @@ double RelativeGradient(Model model, const std::vector<Eigen::Vector2d> &x1, con
 
 }  // namespace
 
-// At the result of the refinement, the gradient of its cost vanishes (a least-squares
-// optimum): with the Jacobian of the residuals right, including the derivatives with respect
-// to H(0, 2) and H(1, 2), which multiply 1 + k1 |x1|^2
-TEST_CASE("Refinement with the distortion of x1: the gradient of the cost vanishes at the result") {
+TEST_CASE("Refinements: the gradient of the cost vanishes at the result, for every distortion case") {
     std::mt19937 rng(1);
     std::uniform_real_distribution<double> u(-1.0, 1.0);
     std::normal_distribution<double> g(0.0, 1e-3);
-    for (Model model : {ONE_SIDED_RIGHT, TWO_SIDED_EQUAL, TWO_SIDED}) {
+    for (DistortionCase model : {DistortionCase::NO_DISTORTION, DistortionCase::ONE_SIDED_LEFT, DistortionCase::ONE_SIDED_RIGHT, DistortionCase::TWO_SIDED_EQUAL, DistortionCase::TWO_SIDED}) {
+        const bool d1 = model == DistortionCase::ONE_SIDED_RIGHT || model == DistortionCase::TWO_SIDED_EQUAL || model == DistortionCase::TWO_SIDED;
+        const bool d2 = model == DistortionCase::ONE_SIDED_LEFT || model == DistortionCase::TWO_SIDED_EQUAL || model == DistortionCase::TWO_SIDED;
         double worst = 0;
         for (int t = 0; t < 20; t++) {
-            const double k1 = -0.2 + 0.05 * u(rng), k2 = model == TWO_SIDED ? -0.1 + 0.05 * u(rng) : k1;
+            double k1 = -0.2 + 0.05 * u(rng), k2 = model == DistortionCase::TWO_SIDED ? -0.1 + 0.05 * u(rng) : k1;
+            if (!d1)
+                k1 = 0.0;
+            if (!d2)
+                k2 = 0.0;
             Eigen::Matrix3d H = Eigen::Matrix3d::Identity();
             for (int i = 0; i < 3; i++)
                 for (int j = 0; j < 3; j++)
@@ -78,21 +91,25 @@ TEST_CASE("Refinement with the distortion of x1: the gradient of the cost vanish
                 const Eigen::Vector2d a(u(rng), u(rng));
                 const Eigen::Vector2d z = (H * Eigen::Vector3d(a(0), a(1), 1.0 + k1 * a.squaredNorm())).hnormalized();
                 x1.push_back(a);
-                x2.push_back((model == ONE_SIDED_RIGHT ? z : Distort(z, k2)) + Eigen::Vector2d(g(rng), g(rng)));
+                x2.push_back((d2 ? Distort(z, k2) : z) + Eigen::Vector2d(g(rng), g(rng)));
             }
             HomLib::PoseData p;
             p.homography = H / H(2, 2);
             p.distortion_parameter = k1;
-            p.distortion_parameter2 = model == TWO_SIDED ? k2 : 0.0;
-            if (model == ONE_SIDED_RIGHT)
+            p.distortion_parameter2 = k2;
+            if (model == DistortionCase::NO_DISTORTION)
+                HomLib::refinement_no_dist(x1, x2, p);
+            else if (model == DistortionCase::ONE_SIDED_LEFT)
+                HomLib::refinement_onesided(x1, x2, p);
+            else if (model == DistortionCase::ONE_SIDED_RIGHT)
                 HomLib::refinement_onesided_right(x1, x2, p);
-            else if (model == TWO_SIDED_EQUAL)
+            else if (model == DistortionCase::TWO_SIDED_EQUAL)
                 HomLib::refinement_twosided_equal(x1, x2, p);
             else
                 HomLib::refinement_twosided(x1, x2, p);
             worst = std::max(worst, RelativeGradient(model, x1, x2, p));
         }
         CAPTURE(model, worst);
-        REQUIRE(worst < 1e-4);
+        CHECK(worst < 1e-4);
     }
 }
