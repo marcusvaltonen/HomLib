@@ -49,7 +49,7 @@ lomsac = homlib.LOMSAC(solver, inlier_threshold=0.07)
 est, stats = lomsac.estimate(x, y)
 H_est = est.homography / est.homography[2, 2]
 print(f"LOMSAC    — H error: {np.linalg.norm(H_est - H_gt_norm):.2e}, "
-      f"inliers: {len(stats.inlier_indices)}")
+      f"inliers: {stats.inliers}")
 
 ###############################################################################
 # SupeRANSAC (optional)
