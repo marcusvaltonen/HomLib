@@ -268,7 +268,6 @@ jobs:
 
   lint:
     name: Lint Python
-    needs: [build_python]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -286,7 +285,7 @@ jobs:
 
   build_wheels:
     name: Build wheels for ${{ matrix.config.name }}
-    needs: [build, build_python]
+    needs: [build]
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
@@ -354,7 +353,6 @@ jobs:
 
   build_sdist:
     name: Build source distribution
-    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
