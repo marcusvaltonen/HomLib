@@ -337,6 +337,7 @@ jobs:
             CMAKE_PREFIX_PATH="D:\\poselib"
             CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
             CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=OFF -DHOMLIB_USE_GCRANSAC=OFF -DHOMLIB_USE_MAGSAC=OFF"
+            MSBUILDDISABLENODEREUSE="1"
           CIBW_ARCHS_WINDOWS: "native"
           CIBW_BEFORE_ALL_MACOS: brew install eigen
           CIBW_ENVIRONMENT_MACOS: >-
