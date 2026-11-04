@@ -36,7 +36,7 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
 
     // Find real roots
     double roots[6];
-    int nroots = poselib::sturm::bisect_sturm<6>(p, roots);
+    int nroots = bisect_sturm_scaled<6>(p, roots);
 
     // Only check residual if nroots > 1
     double min_res = std::numeric_limits<double>::max();

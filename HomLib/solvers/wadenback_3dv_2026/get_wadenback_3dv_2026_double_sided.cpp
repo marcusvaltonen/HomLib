@@ -128,7 +128,7 @@ std::vector<HomLib::PoseData> get_double_sided(
     // Find real eigenvalues (roots)
     poselib::sturm::charpoly_danilevsky_piv(AMp, p);
     double roots[9];
-    int nroots = poselib::sturm::bisect_sturm<9>(p, roots);
+    int nroots = bisect_sturm_scaled<9>(p, roots);
     fast_eigenvector_solver(roots, nroots, AM, sols);
 
 

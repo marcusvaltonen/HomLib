@@ -19,6 +19,8 @@
 // SOFTWARE.
 
 #include <Eigen/Dense>
+#include <algorithm>
+#include <cmath>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -251,3 +253,78 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided keeps true solutions with small residu
     REQUIRE(found);
 }
 
+
+TEST_CASE("Wadenback 3DV 2026 - two-sided finds the true solution when the polynomial has large spurious roots") {
+    // A noise-free problem (from generate_problem_instance) whose polynomial has large spurious
+    // roots: bisect_sturm on the unscaled polynomial returned no solution
+    std::vector<Eigen::Vector2d> p1 = {
+        Eigen::Vector2d(-0.22228857437217203, 0.31430661939176502),
+        Eigen::Vector2d(-0.03837544385109707, 0.10042236874822685),
+        Eigen::Vector2d(-0.11636355791184126, -0.13965098240691243),
+        Eigen::Vector2d(-0.5865491539372335, 0.36438603065051883),
+        Eigen::Vector2d(-0.05486981595789691, 0.007273160660069204)
+    };
+    std::vector<Eigen::Vector2d> p2 = {
+        Eigen::Vector2d(-0.20568881397920583, -0.070662689073286891),
+        Eigen::Vector2d(-0.44603065366376693, 0.06058114360166704),
+        Eigen::Vector2d(-0.45001971432866672, 0.34917146625635209),
+        Eigen::Vector2d(0.073214048526512879, 0.015759890612219555),
+        Eigen::Vector2d(-0.46333767603136894, 0.16592217039762755)
+    };
+    const double k1 = -0.05327440628985463, k2 = -0.14799715908936334;
+    std::vector<HomLib::PoseData> sols = HomLib::Wadenback3DV2026::get_double_sided(p1, p2, true);
+    bool found = false;
+    for (const HomLib::PoseData &s : sols)
+        found = found || (std::abs(s.distortion_parameter - k1) < 1e-8 && std::abs(s.distortion_parameter2 - k2) < 1e-8);
+    REQUIRE(found);
+}
+
+TEST_CASE("Wadenback 3DV 2026 - two-sided finds the true solution of a noise-free problem without distortion") {
+    // k1 = k2 = 0, so the polynomial has a root at 0 (up to rounding), the first bisection point of
+    // bisect_sturm. Without the shift, this problem had no solution.
+    std::vector<Eigen::Vector2d> p1 = {
+        Eigen::Vector2d(-0.16448817833007917, -0.46635181069809178),
+        Eigen::Vector2d(0.024637866324819842, -0.48132714581808334),
+        Eigen::Vector2d(-0.03602202346529898, -0.0023432739599042775),
+        Eigen::Vector2d(-0.098525774028301261, -0.32116693673464658),
+        Eigen::Vector2d(-0.27360658561455992, -0.50323232824640396)
+    };
+    std::vector<Eigen::Vector2d> p2 = {
+        Eigen::Vector2d(-0.56902024394117134, 0.025271059099945693),
+        Eigen::Vector2d(-0.61449799601353605, 0.10083937269758972),
+        Eigen::Vector2d(-0.63161211819172258, -0.19415140125492883),
+        Eigen::Vector2d(-0.58926396264666059, -0.0096652347137476877),
+        Eigen::Vector2d(-0.5434579786831869, 2.9793534084044206e-05)
+    };
+    std::vector<HomLib::PoseData> sols = HomLib::Wadenback3DV2026::get_double_sided(p1, p2, true);
+    bool found = false;
+    for (const HomLib::PoseData &s : sols)
+        found = found || (std::abs(s.distortion_parameter) < 1e-8 && std::abs(s.distortion_parameter2) < 1e-8);
+    REQUIRE(found);
+}
+
+TEST_CASE("Wadenback 3DV 2026 - bisect_sturm_scaled finds small real roots") {
+    // (x^2 - 2x + 2), whose roots 1 +/- i aren't real, times (x - r) for each of these small real
+    // roots, 0 included, gives degree 9. bisect_sturm on this polynomial finds them with errors up
+    // to about 4e-4.
+    const std::vector<double> real = {-0.05, -0.003, 0.0, 1e-4, 0.002, 0.01, 0.04};
+    std::vector<double> p = {2.0, -2.0, 1.0};   // ascending coefficients
+    for (double r : real) {
+        std::vector<double> q(p.size() + 1, 0.0);
+        for (size_t i = 0; i < p.size(); i++) {
+            q[i + 1] += p[i];
+            q[i] -= r * p[i];
+        }
+        p = q;
+    }
+    REQUIRE(p.size() == 10);
+    double roots[9];
+    const int n = HomLib::Wadenback3DV2026::bisect_sturm_scaled<9>(p.data(), roots);
+    REQUIRE(n == (int)real.size());
+    std::vector<double> found(roots, roots + n);
+    std::sort(found.begin(), found.end());
+    for (int i = 0; i < n; i++) {
+        CAPTURE(i, real[i], found[i]);
+        REQUIRE(std::abs(found[i] - real[i]) <= 1e-9 * (1.0 + std::abs(real[i])));
+    }
+}
