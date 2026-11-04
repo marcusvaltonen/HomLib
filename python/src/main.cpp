@@ -489,6 +489,11 @@ PYBIND11_MODULE(_core, m) {
             "Ratio of inliers to total correspondences.")
         .def_readwrite("inlier_indices", &ransac_lib::RansacStatistics::inlier_indices,
             "Indices of inlier correspondences.")
+        .def_property_readonly("inliers",
+            [](const ransac_lib::RansacStatistics &s) {
+                return static_cast<int>(s.inlier_indices.size());
+            },
+            "Number of inliers (convenience for len(inlier_indices)).")
         .def_readwrite("number_lo_iterations", &ransac_lib::RansacStatistics::number_lo_iterations,
             "Number of local optimisation iterations.")
         .def("__repr__",
