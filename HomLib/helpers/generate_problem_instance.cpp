@@ -63,8 +63,11 @@ namespace HomLib {
 		double fov_scale = std::tan(config.camera_fov_ / 2.0 * kPI / 180.0);
 
 		// Random generators
-		std::default_random_engine random_engine;
-		random_engine.seed(std::chrono::system_clock::now().time_since_epoch().count());
+		std::mt19937 random_engine;
+		if (config.seed.has_value())
+		    random_engine.seed(config.seed.value());
+		else
+		    random_engine.seed(std::chrono::system_clock::now().time_since_epoch().count());
 		std::uniform_real_distribution<double> depth_gen(config.min_depth_, config.max_depth_);
 		std::uniform_real_distribution<double> coord_gen(-fov_scale, fov_scale);
 		std::uniform_real_distribution<double> focal_gen(config.min_focal_, config.max_focal_);
@@ -74,10 +77,16 @@ namespace HomLib {
 		bool instance_generated = false;
 
 		while (!instance_generated) {
-		    Eigen::Vector3d t;
-		    t.setRandom();
+		    Eigen::Vector3d t(direction_gen(random_engine),
+		                     direction_gen(random_engine),
+		                     direction_gen(random_engine));
 		    t.normalize();
-		    Eigen::Matrix3d R = Eigen::Quaternion<double>::UnitRandom().toRotationMatrix();
+		    Eigen::Quaterniond q(direction_gen(random_engine),
+		                        direction_gen(random_engine),
+		                        direction_gen(random_engine),
+		                        direction_gen(random_engine));
+		    q.normalize();
+		    Eigen::Matrix3d R = q.toRotationMatrix();
 
 		    double focal_gt = focal_gen(random_engine);
 		    	

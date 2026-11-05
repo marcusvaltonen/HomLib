@@ -23,6 +23,7 @@
 
 #include <Eigen/Dense>
 #include <cmath>
+#include <optional>
 #include <vector>
 #include "posedata.hpp"
 
@@ -71,6 +72,7 @@ struct ProblemConfig {
     double min_dist_ = -0.2;
     double max_dist_ = -0.01;
     bool no_distortion = false;
+    std::optional<unsigned int> seed = std::nullopt;
 };
 }
 

@@ -1,6 +1,6 @@
 import unittest
 from approvaltests import verify
-import pytest
+
 
 import numpy as np
 import homlib
@@ -23,12 +23,10 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
         self.tol = 10
         self.solver = homlib.KukelovaCVPR2015TwoSided()
 
-    @pytest.mark.skip(reason="Something strange with the Kukelova solver")
     def test_estimate_kukelova_cvpr_2015_two_sided_length(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
 
-    @pytest.mark.skip(reason="Something strange with the Kukelova solver")
     def test_estimate_kukelova_cvpr_2015_two_sided_sol0(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
@@ -36,7 +34,6 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
         self.assertAlmostEqual(sols[0].distortion_parameter2, -1.9785613160596929, self.tol)
         verify(verify_numpy_array(sols[0].homography))
 
-    @pytest.mark.skip(reason="Something strange with the Kukelova solver")
     def test_estimate_kukelova_cvpr_2015_two_sided_sol1(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
@@ -44,7 +41,6 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
         self.assertAlmostEqual(sols[1].distortion_parameter2, -1.8809663034629707, self.tol)
         verify(verify_numpy_array(sols[1].homography))
 
-    @pytest.mark.skip(reason="Something strange with the Kukelova solver")
     def test_estimate_kukelova_cvpr_2015_two_sided_sol2(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
@@ -52,7 +48,6 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
         self.assertAlmostEqual(sols[2].distortion_parameter2, -2.079301697963529, self.tol)
         verify(verify_numpy_array(sols[2].homography))
 
-    @pytest.mark.skip(reason="Something strange with the Kukelova solver")
     def test_estimate_kukelova_cvpr_2015_two_sided_sol3(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
@@ -60,7 +55,6 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
         self.assertAlmostEqual(sols[3].distortion_parameter2, 0.6928831549898077, self.tol)
         verify(verify_numpy_array(sols[3].homography))
 
-    @pytest.mark.skip(reason="Something strange with the Kukelova solver")
     def test_estimate_kukelova_cvpr_2015_two_sided_sol4(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
