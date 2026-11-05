@@ -22,6 +22,7 @@ classifiers = [
 ]
 
 [tool.scikit-build]
+build-dir = "build/{wheel_tag}"
 wheel.packages = ["python/src/homlib"]
 wheel.expand-macos-universal-tags = true
 minimum-version = "build-system.requires"
