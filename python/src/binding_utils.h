@@ -96,10 +96,11 @@ struct PySolver {
     HomLib::SolverId id;
     HomLib::FeatureType feature_type;
     bool extra_check;
-    // Optional range on the distortion parameters of the solutions (Solver.set_k_range), in the
-    // units of the points given to estimate(); without it, the solver's default range applies
-    // (PoseEstimator::use_k_range: on for the two-sided Wadenbäck solver, off otherwise)
+    // The range on the distortion parameters set by Solver.set_k_range, in HomLib's normalized
+    // coordinates (see DistortionRange); without it, the estimators' default, [-1, 0.1]
     bool has_k_range = false;
+    // Whether the estimators normalize each sample (EstimatorBase::normalize_image_coord)
+    bool normalize_image_coord = true;
     double k_min = -std::numeric_limits<double>::infinity();
     double k_max = std::numeric_limits<double>::infinity();
 
@@ -107,7 +108,17 @@ struct PySolver {
         : id(id), feature_type(HomLib::feature_type_for(id)), extra_check(extra_check) {}
 };
 
-// The C++ solver of a PySolver: its extra_check and, if set, its range on the distortion
+// The range set by Solver.set_k_range; set_k_range() without bounds means no check at all
+inline HomLib::DistortionRange user_range(const PySolver& py_solver) {
+    const double inf = std::numeric_limits<double>::infinity();
+    if (py_solver.k_min == -inf && py_solver.k_max == inf) {
+        return HomLib::DistortionRange();
+    }
+    return HomLib::DistortionRange(py_solver.k_min, py_solver.k_max);
+}
+
+// The C++ solver of a PySolver: its extra_check, normalize_image_coord and, if set, its range on
+// the distortion
 template <typename Solver>
 Solver make_solver(const PySolver& py_solver) {
     Solver s = [&]() {
@@ -117,21 +128,26 @@ Solver make_solver(const PySolver& py_solver) {
             return Solver();
         }
     }();
+    s.normalize_image_coord = py_solver.normalize_image_coord;
     if (py_solver.has_k_range) {
-        // without bounds (set_k_range()): no check at all, not even the solver's default
-        s.use_k_range = std::isfinite(py_solver.k_min) || std::isfinite(py_solver.k_max);
-        s.k_range_in_input_units = true;
-        s.k_min = py_solver.k_min;
-        s.k_max = py_solver.k_max;
+        s.k_range = user_range(py_solver);
     }
     return s;
 }
 
-// The range that solve() applies when estimate() calls the solver directly (without the
-// estimator's normalization): the solver's range, applied to the points as given. For the
-// default range of the two-sided Wadenbäck solver, [-1, 0.1], this is the check its solver
-// function made before the range moved to the estimators.
-template <typename Solver>
-HomLib::DistortionRange direct_range(const Solver& s) {
-    return s.use_k_range ? HomLib::DistortionRange(s.k_min, s.k_max) : HomLib::DistortionRange();
+// The range of estimate(), which calls the solver on the points as given (without the estimators'
+// normalization, and without their default range): the range set by Solver.set_k_range, from the
+// normalized coordinates to those of the points (k divided by f0^2, f0 = mean(|x|)/sqrt(2)), or
+// as is without normalize_image_coord
+inline HomLib::DistortionRange direct_range(const PySolver& py_solver, const std::vector<Eigen::Vector2d>& x) {
+    const HomLib::DistortionRange range = py_solver.has_k_range ? user_range(py_solver) : HomLib::DistortionRange();
+    if (!range.enabled || !py_solver.normalize_image_coord || x.empty()) {
+        return range;
+    }
+    double f0 = 0.0;
+    for (const Eigen::Vector2d& p : x) {
+        f0 += p.norm();
+    }
+    f0 /= x.size() * std::sqrt(2.0);
+    return HomLib::DistortionRange(py_solver.k_min / (f0 * f0), py_solver.k_max / (f0 * f0));
 }

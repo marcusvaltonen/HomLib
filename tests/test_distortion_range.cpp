@@ -24,11 +24,12 @@ HomLib::PoseData MakePose(double k1, double k2) {
     return pose;
 }
 
-// A solver that returns fixed solutions, including NaN distortion parameters
+// A solver that returns fixed solutions (some with NaN parameters), filtered by the range it
+// gets, as the solvers do
 class FixedSolver : public HomLib::PoseEstimator<FixedSolver> {
 public:
     int solve(const std::vector<Eigen::Vector2d> &, const std::vector<Eigen::Vector2d> &,
-              std::vector<HomLib::PoseData> *poses, const HomLib::DistortionRange & = HomLib::DistortionRange()) const {
+              std::vector<HomLib::PoseData> *poses, const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
         const double nan = std::numeric_limits<double>::quiet_NaN();
         poses->push_back(MakePose(-0.3, -0.2));  // in the range
         poses->push_back(MakePose(nan, -0.2));
@@ -36,6 +37,7 @@ public:
         poses->push_back(MakePose(nan, nan));
         poses->push_back(MakePose(-0.3, 0.0));   // one-sided
         poses->push_back(MakePose(-2.0, -0.2));  // out of the range
+        HomLib::filter_distortion_range(poses, range);
         return poses->size();
     }
     int minimal_sample_size() const { return 5; }
@@ -46,13 +48,6 @@ bool HasK(const std::vector<HomLib::PoseData> &poses, double k, double tol) {
         if (std::abs(p.distortion_parameter - k) <= tol)
             return true;
     return false;
-}
-
-double NormalizationFactor(const std::vector<Eigen::Vector2d> &x) {
-    double f0 = 0;
-    for (const Eigen::Vector2d &q : x)
-        f0 += q.norm();
-    return f0 / (x.size() * std::sqrt(2.0));
 }
 
 // A solver that records the range it gets
@@ -91,7 +86,7 @@ void MakeTwoSided(std::mt19937 &rng, std::vector<Eigen::Vector2d> &x, std::vecto
 }
 
 bool Same(const HomLib::PoseData &a, const HomLib::PoseData &b) {
-    // bit for bit (NaN entries included)
+    // bit for bit (NaN entries included in the homography)
     return std::memcmp(a.homography.data(), b.homography.data(), 9 * sizeof(double)) == 0 &&
            a.distortion_parameter == b.distortion_parameter && a.distortion_parameter2 == b.distortion_parameter2;
 }
@@ -109,24 +104,22 @@ TEST_CASE("Distortion range: the check and its zero exemption") {
     REQUIRE_FALSE(on.contains(nan, -0.5));
 }
 
-TEST_CASE("Distortion range: the estimators pass it to the solvers in their coordinates") {
-    // Normalization factor 2: the solver's distortion parameters are 4 times those of the input
+TEST_CASE("Distortion range: the estimators pass it to the solvers, in their normalized coordinates") {
+    // The points don't change the range: it is in the solver's coordinates
     const std::vector<Eigen::Vector2d> x(5, Eigen::Vector2d(2, 2)), y = x;
     std::vector<HomLib::PoseData> poses;
     RangeSolver solver;
-    solver.estimate(x, y, &poses);
-    REQUIRE_FALSE(solver.last.enabled);
-    solver.use_k_range = true;
-    solver.k_min = -0.5;
-    solver.k_max = 0.05;
-    solver.estimate(x, y, &poses);
+    solver.estimate(x, y, &poses);   // the default
     REQUIRE(solver.last.enabled);
+    REQUIRE(solver.last.k_min == -1.0);
+    REQUIRE(solver.last.k_max == 0.1);
+    solver.k_range = HomLib::DistortionRange(-0.5, 0.05);
+    solver.estimate(x, y, &poses);
     REQUIRE(solver.last.k_min == -0.5);
     REQUIRE(solver.last.k_max == 0.05);
-    solver.k_range_in_input_units = true;
+    solver.k_range = HomLib::DistortionRange();
     solver.estimate(x, y, &poses);
-    REQUIRE(solver.last.k_min == Catch::Approx(-0.5 * 4));
-    REQUIRE(solver.last.k_max == Catch::Approx(0.05 * 4));
+    REQUIRE_FALSE(solver.last.enabled);
 }
 
 TEST_CASE("Distortion range in the solvers: the roots in the range, before their homography") {
@@ -195,30 +188,24 @@ TEST_CASE("Distortion range in the solvers that keep one root: the best root in 
     REQUIRE(gained > 0);
 }
 
-TEST_CASE("Range check of the estimators drops NaN distortion parameters") {
-    // Points with a normalization factor of 2: the distortion parameters in the input units are
-    // those of the solver divided by 4
+TEST_CASE("Range check: NaN distortion parameters are dropped") {
+    // Points with a normalization factor of 2: the distortion parameters of the input are those
+    // of the solver divided by 4
     const std::vector<Eigen::Vector2d> x(5, Eigen::Vector2d(2, 2)), y = x;
-    for (bool in_input_units : {false, true}) {
-        FixedSolver solver;
-        std::vector<HomLib::PoseData> poses;
-        REQUIRE_FALSE(solver.use_k_range);
-        REQUIRE(solver.estimate(x, y, &poses) == 6);
+    FixedSolver solver;
+    std::vector<HomLib::PoseData> poses;
+    solver.k_range = HomLib::DistortionRange();
+    REQUIRE(solver.estimate(x, y, &poses) == 6);
 
-        // Ranges that exclude 0, so that the one-sided solution passes only as such
-        solver.use_k_range = true;
-        solver.k_range_in_input_units = in_input_units;
-        const double scale = in_input_units ? 0.25 : 1.0;
-        solver.k_min = -1.0 * scale;
-        solver.k_max = -0.1 * scale;
-        int n = solver.estimate(x, y, &poses);
-        REQUIRE(n == 2);
-        REQUIRE(poses.size() == 2);
-        REQUIRE(poses[0].distortion_parameter == Catch::Approx(-0.3 / 4));
-        REQUIRE(poses[0].distortion_parameter2 == Catch::Approx(-0.2 / 4));
-        REQUIRE(poses[1].distortion_parameter == Catch::Approx(-0.3 / 4));
-        REQUIRE(poses[1].distortion_parameter2 == 0.0);
-    }
+    // A range that excludes 0, so that the one-sided solution passes only as such
+    solver.k_range = HomLib::DistortionRange(-1.0, -0.1);
+    int n = solver.estimate(x, y, &poses);
+    REQUIRE(n == 2);
+    REQUIRE(poses.size() == 2);
+    REQUIRE(poses[0].distortion_parameter == Catch::Approx(-0.3 / 4));
+    REQUIRE(poses[0].distortion_parameter2 == Catch::Approx(-0.2 / 4));
+    REQUIRE(poses[1].distortion_parameter == Catch::Approx(-0.3 / 4));
+    REQUIRE(poses[1].distortion_parameter2 == 0.0);
 }
 
 TEST_CASE("Range check of the affine and orientation estimators") {
@@ -262,35 +249,28 @@ TEST_CASE("Range check of the affine and orientation estimators") {
             q *= s;
     const double ka = -0.15508855476035885 / (s * s), ko = -0.18221254202290402 / (s * s);
     const double tola = 1e-7 / (s * s);
-    // The distortion parameters in the normalized coordinates of the estimators
-    const double ka_norm = ka * NormalizationFactor(xa) * NormalizationFactor(xa);
-    const double ko_norm = ko * NormalizationFactor(xo) * NormalizationFactor(xo);
+    // The distortion parameters in the solvers' normalized coordinates
+    auto norm2 = [](const std::vector<Eigen::Vector2d> &x) {
+        double f0 = 0;
+        for (const Eigen::Vector2d &q : x)
+            f0 += q.norm();
+        f0 /= x.size() * std::sqrt(2.0);
+        return f0 * f0;
+    };
+    const double ka_norm = ka * norm2(xa), ko_norm = ko * norm2(xo);
 
     SECTION("affine") {
         HomLib::ValtonenOrnhagICPR2026::AffineSolverSingleSided solver;
         std::vector<HomLib::PoseData> poses;
-        REQUIRE_FALSE(solver.use_k_range);
+        REQUIRE(solver.k_range.enabled);   // the default, [-1, 0.1]
         solver.estimate(xa, ya, A, &poses);
         REQUIRE(HasK(poses, ka, tola));
 
-        solver.use_k_range = true;
-        // In the normalized coordinates
-        solver.k_min = 2 * ka_norm;
-        solver.k_max = ka_norm / 2;
+        // A range in the normalized coordinates, including or excluding k
+        solver.k_range = HomLib::DistortionRange(2 * ka_norm, ka_norm / 2);
         solver.estimate(xa, ya, A, &poses);
         REQUIRE(HasK(poses, ka, tola));
-        solver.k_min = ka_norm / 2;
-        solver.k_max = 0.1;
-        REQUIRE(solver.estimate(xa, ya, A, &poses) == 0);
-        REQUIRE(poses.empty());
-        // In the input units
-        solver.k_range_in_input_units = true;
-        solver.k_min = 2 * ka;
-        solver.k_max = ka / 2;
-        solver.estimate(xa, ya, A, &poses);
-        REQUIRE(HasK(poses, ka, tola));
-        solver.k_min = 2 * ka_norm;  // contains ka_norm, not ka
-        solver.k_max = ka_norm / 2;
+        solver.k_range = HomLib::DistortionRange(ka_norm / 2, 0.1);
         REQUIRE(solver.estimate(xa, ya, A, &poses) == 0);
         REQUIRE(poses.empty());
     }
@@ -298,28 +278,15 @@ TEST_CASE("Range check of the affine and orientation estimators") {
     SECTION("orientation") {
         HomLib::ValtonenOrnhagICPR2026::OrientationSolverSingleSided solver;
         std::vector<HomLib::PoseData> poses;
-        REQUIRE_FALSE(solver.use_k_range);
+        REQUIRE(solver.k_range.enabled);   // the default, [-1, 0.1]
         solver.estimate(xo, yo, ori, &poses);
         REQUIRE(HasK(poses, ko, tola));
 
-        solver.use_k_range = true;
-        // In the normalized coordinates
-        solver.k_min = 2 * ko_norm;
-        solver.k_max = ko_norm / 2;
+        // A range in the normalized coordinates, including or excluding k
+        solver.k_range = HomLib::DistortionRange(2 * ko_norm, ko_norm / 2);
         solver.estimate(xo, yo, ori, &poses);
         REQUIRE(HasK(poses, ko, tola));
-        solver.k_min = ko_norm / 2;
-        solver.k_max = 0.1;
-        REQUIRE(solver.estimate(xo, yo, ori, &poses) == 0);
-        REQUIRE(poses.empty());
-        // In the input units
-        solver.k_range_in_input_units = true;
-        solver.k_min = 2 * ko;
-        solver.k_max = ko / 2;
-        solver.estimate(xo, yo, ori, &poses);
-        REQUIRE(HasK(poses, ko, tola));
-        solver.k_min = 2 * ko_norm;  // contains ko_norm, not ko
-        solver.k_max = ko_norm / 2;
+        solver.k_range = HomLib::DistortionRange(ko_norm / 2, 0.1);
         REQUIRE(solver.estimate(xo, yo, ori, &poses) == 0);
         REQUIRE(poses.empty());
     }

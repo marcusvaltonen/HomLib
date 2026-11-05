@@ -91,7 +91,7 @@ TEST_CASE("Kukelova CVPR 2015") {
     REQUIRE(posedata[4].homography.isApprox(expected, tol));
 }
 
-TEST_CASE("Kukelova CVPR 2015 - optional range check of the estimator") {
+TEST_CASE("Kukelova CVPR 2015 - range check of the estimator") {
     // A two-sided problem with k1 = k2 = -0.3 (the points of the Wadenbäck two-sided test)
     const std::vector<Eigen::Vector2d> x = {
         Eigen::Vector2d(-0.093972209335993,  0.0431909090094019),
@@ -113,51 +113,46 @@ TEST_CASE("Kukelova CVPR 2015 - optional range check of the estimator") {
                 return true;
         return false;
     };
+    auto norm2 = [](const std::vector<Eigen::Vector2d> &p) {   // f0^2 of the estimator
+        double f0 = 0;
+        for (const Eigen::Vector2d &q : p)
+            f0 += q.norm();
+        f0 /= p.size() * std::sqrt(2.0);
+        return f0 * f0;
+    };
     HomLib::KukelovaCVPR2015::SolverTwoSided solver;
     std::vector<HomLib::PoseData> all, poses;
 
-    // Off by default
-    REQUIRE_FALSE(solver.use_k_range);
+    // Without a range
+    solver.k_range = HomLib::DistortionRange();
     solver.estimate(x, y, &all);
     REQUIRE(has_truth(all, -0.3));
 
-    // In the normalized coordinates (there, the true k is -0.3 * f0^2, about -0.018)
-    solver.use_k_range = true;
+    // The default, [-1, 0.1] in the normalized coordinates (there, the true k is -0.3 f0^2)
+    solver.k_range = HomLib::DistortionRange(-1.0, 0.1);
     solver.estimate(x, y, &poses);
     REQUIRE(has_truth(poses, -0.3));
     REQUIRE(poses.size() < all.size());
     for (const HomLib::PoseData &p : poses) {
-        // the distortion parameters, back in the normalized coordinates (multiplied by the
-        // square of the normalization factor), are in [k_min, k_max]
-        double f0 = 0;
-        for (const Eigen::Vector2d &q : x)
-            f0 += q.norm();
-        f0 /= x.size() * std::sqrt(2.0);
-        REQUIRE(p.distortion_parameter * f0 * f0 >= solver.k_min - 1e-12);
-        REQUIRE(p.distortion_parameter * f0 * f0 <= solver.k_max + 1e-12);
-        REQUIRE(p.distortion_parameter2 * f0 * f0 >= solver.k_min - 1e-12);
-        REQUIRE(p.distortion_parameter2 * f0 * f0 <= solver.k_max + 1e-12);
+        REQUIRE(p.distortion_parameter * norm2(x) >= -1.0 - 1e-12);
+        REQUIRE(p.distortion_parameter * norm2(x) <= 0.1 + 1e-12);
+        REQUIRE(p.distortion_parameter2 * norm2(x) >= -1.0 - 1e-12);
+        REQUIRE(p.distortion_parameter2 * norm2(x) <= 0.1 + 1e-12);
     }
 
-    // In the input units, on the points scaled by s (k scaled by 1/s^2)
+    // The same problem with the points scaled by s (k scaled by 1/s^2): the same solutions
     const double s = 1000.0;
     std::vector<Eigen::Vector2d> xs, ys;
     for (int i = 0; i < 5; i++) {
         xs.push_back(s * x[i]);
         ys.push_back(s * y[i]);
     }
-    solver.k_range_in_input_units = true;
-    solver.k_min = -0.5 / (s * s);
-    solver.k_max = 0.0;
-    solver.estimate(xs, ys, &poses);
-    REQUIRE(has_truth(poses, -0.3 / (s * s)));
-    for (const HomLib::PoseData &p : poses) {
-        REQUIRE(p.distortion_parameter >= solver.k_min);
-        REQUIRE(p.distortion_parameter <= solver.k_max);
-        REQUIRE(p.distortion_parameter2 >= solver.k_min);
-        REQUIRE(p.distortion_parameter2 <= solver.k_max);
-    }
-    solver.k_min = -0.2 / (s * s);
-    solver.estimate(xs, ys, &poses);
-    REQUIRE_FALSE(has_truth(poses, -0.3 / (s * s)));
+    std::vector<HomLib::PoseData> scaled;
+    solver.estimate(xs, ys, &scaled);
+    REQUIRE(scaled.size() == poses.size());
+    REQUIRE(has_truth(scaled, -0.3 / (s * s)));
+    // A range that excludes the true k (in the normalized coordinates)
+    solver.k_range = HomLib::DistortionRange(-0.2 * norm2(x), 0.1);
+    solver.estimate(xs, ys, &scaled);
+    REQUIRE_FALSE(has_truth(scaled, -0.3 / (s * s)));
 }

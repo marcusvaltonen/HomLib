@@ -99,6 +99,9 @@ class Wadenback3DV2026TwoSidedTestCase(unittest.TestCase):
         ])
 
         self.solver = homlib.Wadenback3DV2026TwoSided(extra_check=True)
+        # The estimators' default range (estimate() calls the solver without a range unless one
+        # is set)
+        self.solver.set_k_range(-1.0, 0.1)
 
     def test_two_sided_length(self):
         sols = self.solver.estimate(self.p1, self.p2)
@@ -110,19 +113,23 @@ class Wadenback3DV2026TwoSidedTestCase(unittest.TestCase):
         self.assertAlmostEqual(sols[0].distortion_parameter2, -0.3, 12)
 
     def test_two_sided_k_range(self):
-        # The solver's default range, [-1, 0.1], keeps only the true solution; without a range,
-        # estimate() returns the solver's other real roots too
+        # The range is in the normalized coordinates (the points divided by mean(|x|)/sqrt(2));
+        # [-1, 0.1] keeps only the true solution, and without a range estimate() returns the
+        # solver's other real roots too
         self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 1)
-        self.solver.set_k_range()
+        self.solver.reset_k_range()   # estimate(): no range by default
         self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 3)
-        self.solver.set_k_range(-0.5, -0.2)
+        f02 = (np.mean(np.linalg.norm(self.p1, axis=0)) / np.sqrt(2)) ** 2
+        self.solver.set_k_range(-0.5 * f02, -0.2 * f02)   # the true k, -0.3, is -0.3 f02 there
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 1)
         self.assertAlmostEqual(sols[0].distortion_parameter, -0.3, 12)
         self.solver.set_k_range(k_min=0.0)
         self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 0)
-        self.solver.reset_k_range()
-        self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 1)
+        self.solver.set_k_range()   # no bounds: no check
+        self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 3)
+        self.solver.set_k_range(float('inf'), float('inf'))   # an empty range, not "no bounds"
+        self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 0)
 
     def test_two_sided_homography(self):
         sols = self.solver.estimate(self.p1, self.p2)

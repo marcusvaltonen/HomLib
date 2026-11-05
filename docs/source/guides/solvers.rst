@@ -247,3 +247,89 @@ Many of the solvers were generated using the automatic generator by
 
    :ref:`api` for the full API reference, :ref:`references` for the original
    papers, and the :ref:`examples` for worked examples.
+
+
+Range check on the distortion
+-----------------------------
+
+Most solvers with distortion find it as the roots of a polynomial and return several
+solutions, most with implausible distortion parameters. A range check keeps only the solutions
+with both parameters in ``[k_min, k_max]`` (a parameter equal to 0, the one that a one-sided
+solver doesn't estimate, passes). The solvers apply it to each root before computing
+its homography, so RANSAC has fewer hypotheses to score. It only selects the hypotheses: the
+refinement isn't constrained.
+
+Where it applies
+^^^^^^^^^^^^^^^^
+
+The robust estimators (LO-MSAC and the other backends) apply ``[-1, 0.1]`` by default. Before
+calling a solver, they normalize each minimal sample: they compute
+:math:`f_0 = \mathrm{mean}(|x|) / \sqrt{2}` from the first image's points :math:`x`, measured
+from the distortion center (the origin), and divide the points of both images by :math:`f_0`
+(the solvers with equal distortion in both images need the same scale in both). The range
+applies in these normalized coordinates, whatever the units of the input.
+
+:meth:`~homlib.Solver.set_k_range` replaces the range, ``set_k_range()`` without bounds
+disables it, and :meth:`~homlib.Solver.reset_k_range` restores the default. The direct
+:meth:`~homlib.Solver.estimate` calls the solver on the points as given, without a range unless
+one is set; a range set with :meth:`~homlib.Solver.set_k_range` is then converted to the points'
+scale (:math:`f_0` from the first image's points), or used as is with
+``normalize_image_coord = False``.
+
+Why the default is safe
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Lens reviews give a lens's distortion as the relative displacement :math:`D` of the image
+corners. To first order, :math:`D \approx k\, r_c^2`, where :math:`r_c` is the corners' radius in
+the coordinates used. For points spread over an image, :math:`f_0` is about 0.19 times the image
+diagonal (for any common aspect ratio), so in HomLib's normalized coordinates
+:math:`r_c \approx 2.6` and :math:`k \approx D / 7`, whatever the focal length. ``[-1, 0.1]``
+thus admits up to about 70% of pincushion distortion (:math:`k > 0`) at the corners, and any
+barrel distortion (:math:`k < 0`) that the division model can represent there, since that requires
+:math:`1 + k r_c^2 > 0`, i.e. :math:`k > -0.15`. Real lenses are far inside:
+
+- **Smartphones and action cameras**: on more than 300 such cameras, López-Antequera et al.
+  [LopezAntequera2019]_ (Fig. 3) measured the first coefficient of Brown's model in about
+  ``[-0.4, 0]`` in *focal-normalized coordinates* (the centered coordinates divided by the focal
+  length :math:`f`); to first order, the division model's parameter :math:`k_f` is the same. In the
+  normalized coordinates, it is :math:`k = k_f (f_0 / f)^2`, where :math:`f_0`, about 0.19 times
+  the image diagonal, equals the focal length of an 8 mm lens in 35 mm equivalent (43.3 mm
+  diagonal): for a 14 mm action camera with :math:`k_f \approx -0.4`, :math:`k \approx -0.14`.
+- **Long lenses**, which have pincushion distortion: lens reviews measured 0.8% at 200 mm for a
+  70–200 mm lens and about 3% at the long end of a 20–200 mm superzoom [OpticalLimits]_, i.e.
+  :math:`k \approx +0.001` to :math:`+0.004`.
+
+The default thus only removes roots that no real lens would give. See the example
+:ref:`sphx_glr_gallery_example_k_range.py`.
+
+Turning off the normalization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+With ``solver.normalize_image_coord = False`` (:attr:`~homlib.Solver.normalize_image_coord`),
+the estimators use the points as given, and the range applies in their coordinates. The default
+``[-1, 0.1]`` then applies in these units too: for pixel coordinates, it rejects almost nothing,
+so set a range suited to them with :meth:`~homlib.Solver.set_k_range`.
+
+This is useful when each image's focal length is known: divide its centered coordinates by it,
+and the range is in focal-normalized coordinates. Choose it for the lens there: for the same
+corner distortion, :math:`k_f` grows with the square of the focal length
+(:math:`D \approx k_f (21.6\,\mathrm{mm} / f)^2` for a 35 mm-equivalent :math:`f`), so 1% of
+pincushion distortion at the corners of a 200 mm lens is :math:`k_f \approx +0.9`, and 2% at
+50 mm already :math:`k_f \approx +0.11`. ``[-1, 0.1]`` suits wide-angle lenses (barrel
+distortion), not lenses with pincushion distortion. Dividing by the focal length has two uses:
+
+- **A tighter range.** For wide-angle and action cameras (barrel distortion), a range such as
+  ``[-0.6, 0.05]`` applies to all of them. In the setup of
+  ``python/tests/test_normalization.py`` (a 14 mm lens, Wadenbäck et al.'s two-sided solver), it
+  leaves about a third as many solutions per minimal sample as the default, and keeps the true
+  solution.
+- **Images with very different pixel scales.** Since the estimators take :math:`f_0` from the
+  first image's points, a very large first image can put the second image's :math:`k` at the
+  wrong scale. For a panorama with a focal length of 16000 px and a 1000 × 1000 view of it with a
+  focal length of 1000 px, the view's true :math:`k` is outside ``[-1, 0.1]`` in every minimal sample, while
+  with each image divided by its focal length it is inside.
+
+HomLib uses one scale for both images because the solvers with equal distortion in both images
+need it. If each image were divided by its own :math:`f_0`, the second case couldn't happen: a
+barrel distortion would always satisfy :math:`|k| < 1/\max r^2 \le 1/2` there (since
+:math:`1 + k r^2 > 0` at every distorted radius :math:`r`, and the mean radius is :math:`\sqrt{2}`).

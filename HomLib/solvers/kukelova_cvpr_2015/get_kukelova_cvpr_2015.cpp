@@ -138,8 +138,11 @@ namespace KukelovaCVPR2015 {
             }
             // Get parameters.
             xx = sols.col(i).real();
+            // The distortion parameters, back in the input's coordinates
             const double s2 = std::pow(scale, 2);
-            if (dist_equal ? !range.contains(0.5 * (xx(0) + xx(1)) * s2) : !range.contains(xx(0) * s2, xx(1) * s2)) {
+            const double k1 = dist_equal ? 0.5 * (xx(0) + xx(1)) * s2 : xx(0) * s2;
+            const double k2 = dist_equal ? k1 : xx(1) * s2;
+            if (!range.contains(k1, k2)) {
                 continue;
             }
 
@@ -153,14 +156,8 @@ namespace KukelovaCVPR2015 {
             // Package output
             HomLib::PoseData pd;
             pd.homography = Htmp;
-            if (dist_equal) {
-
-                pd.distortion_parameter = 0.5 * (xx(0) + xx(1)) * std::pow(scale, 2);
-                pd.distortion_parameter2 = pd.distortion_parameter;
-            } else {
-                pd.distortion_parameter = xx(0) * std::pow(scale, 2);
-                pd.distortion_parameter2 = xx(1) * std::pow(scale, 2);
-            }
+            pd.distortion_parameter = k1;
+            pd.distortion_parameter2 = k2;
 
             output.push_back(pd);
         }

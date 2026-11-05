@@ -1,18 +1,34 @@
 #pragma once
 
+#include <limits>
 #include <vector>
 #include "posedata.hpp"
 
 namespace HomLib {
 
-// Optional range check on the distortion parameters, the same for the solvers and the
-// estimators (PoseEstimator, AffinePoseEstimator, OrientationPoseEstimator): the parameters
-// must both be in [k_min, k_max]. A parameter equal to 0, the one that a one-sided solver
-// doesn't estimate, passes. Disabled by default (then k_min and k_max aren't used).
+// Range check on the distortion parameters of a solver's solutions, in the coordinates of the
+// points it gets: both parameters must be in [k_min, k_max]. A parameter equal to 0, the one that
+// a one-sided solver doesn't estimate, passes. DistortionRange() checks nothing (the solvers'
+// default argument); the robust estimators use [-1, 0.1] by default.
+//
+// The robust estimators hold the range, k_range (EstimatorBase), and normalize each sample before
+// calling the solver: they divide both images' points by f0 = mean(|x|)/sqrt(2), computed from the
+// first image's points x (measured from the distortion center, the origin). The range is in these
+// normalized coordinates, whatever the units of the input. The solvers check it before computing
+// the homographies of the rejected roots, so RANSAC has fewer hypotheses to score. It only
+// selects the hypotheses: the refinement isn't constrained.
+//
+// The default [-1, 0.1] is safe: to first order, the relative distortion at the image corners
+// is D = k r_c^2, and for points spread over an image, r_c is about 2.6 in the normalized
+// coordinates, so the range only rejects more than about 70% of pincushion distortion there,
+// whatever the focal length (see the solver guide).
+//
+// TODO: Kukelova et al.'s 5-point solvers normalize their points again (with the larger of the
+// two images' scales; they check the range after scaling back): normalize once, in one place.
 struct DistortionRange {
     bool enabled = false;
-    double k_min = -1.0;
-    double k_max = 0.1;
+    double k_min = -std::numeric_limits<double>::infinity();
+    double k_max = std::numeric_limits<double>::infinity();
 
     DistortionRange() = default;
     DistortionRange(double k_min_, double k_max_) : enabled(true), k_min(k_min_), k_max(k_max_) {}

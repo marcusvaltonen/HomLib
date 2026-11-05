@@ -146,8 +146,8 @@ bool HasSolution(const std::vector<HomLib::PoseData> &poses, double k1, double k
 }  // namespace
 
 TEST_CASE("Wadenback 3DV 2026 - two-sided returns all the real roots") {
-    // The solver doesn't check the range of the distortion parameters (the estimator does, see the
-    // next test): its roots include implausible ones
+    // Without a range, the solver returns all its real roots, implausible ones included (the
+    // estimators give it one, see the next test)
     std::vector<HomLib::PoseData> all = HomLib::Wadenback3DV2026::get_double_sided(kTwoSidedX, kTwoSidedY, false);
     REQUIRE(HasSolution(all, -0.3, -0.3, 1e-9));
     bool outside = false;
@@ -156,40 +156,42 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided returns all the real roots") {
     REQUIRE(outside);
 }
 
-TEST_CASE("Wadenback 3DV 2026 - two-sided estimator with a range in the input units") {
-    // The test problem in other units: the points scaled by s, so k scaled by 1/s^2
-    const double s = 1000.0, k = -0.3 / (s * s);
+// f0^2 of the estimators' normalization (x divided by f0 = mean(|x|)/sqrt(2))
+static double Norm2(const std::vector<Eigen::Vector2d> &x) {
+    double f0 = 0;
+    for (const Eigen::Vector2d &q : x)
+        f0 += q.norm();
+    f0 /= x.size() * std::sqrt(2.0);
+    return f0 * f0;
+}
+
+TEST_CASE("Wadenback 3DV 2026 - two-sided estimator with a range") {
+    HomLib::Wadenback3DV2026::SolverTwoSided solver;
+    std::vector<HomLib::PoseData> poses, unfiltered;
+    const std::vector<Eigen::Vector2d> &x0 = kTwoSidedX, &y0 = kTwoSidedY;
+
+    // Default: [-1, 0.1] in the normalized coordinates
+    REQUIRE(solver.k_range.enabled);
+    REQUIRE(solver.k_range.k_min == -1.0);
+    REQUIRE(solver.k_range.k_max == 0.1);
+    solver.estimate(x0, y0, &poses);
+    REQUIRE(HasSolution(poses, -0.3, -0.3, 1e-7));
+    solver.k_range = HomLib::DistortionRange();
+    solver.estimate(x0, y0, &unfiltered);
+    REQUIRE(unfiltered.size() > poses.size());
+
+    // The test problem in other units: the points scaled by s, so k scaled by 1/s^2. The range
+    // is in the normalized coordinates, the same for both (k = -0.3 f0^2 there)
+    const double s = 1000.0, k = -0.3 / (s * s), f02 = Norm2(x0);
     std::vector<Eigen::Vector2d> x, y;
     for (int i = 0; i < 5; i++) {
         x.push_back(s * kTwoSidedX[i]);
         y.push_back(s * kTwoSidedY[i]);
     }
-    HomLib::Wadenback3DV2026::SolverTwoSided solver;
-    std::vector<HomLib::PoseData> poses, unfiltered;
-
-    // Default: on, in the normalized coordinates, whatever the units
-    REQUIRE(solver.use_k_range);
-    REQUIRE_FALSE(solver.k_range_in_input_units);
+    solver.k_range = HomLib::DistortionRange(-0.5 * f02, 0.0);
     solver.estimate(x, y, &poses);
     REQUIRE(HasSolution(poses, k, k, 1e-7 / (s * s)));
-    solver.use_k_range = false;
-    solver.estimate(x, y, &unfiltered);
-    REQUIRE(unfiltered.size() > poses.size());
-    solver.use_k_range = true;
-
-    // Range in the input units, including or excluding k
-    solver.k_range_in_input_units = true;
-    solver.k_min = -0.5 / (s * s);
-    solver.k_max = 0.0;
-    solver.estimate(x, y, &poses);
-    REQUIRE(HasSolution(poses, k, k, 1e-7 / (s * s)));
-    for (const HomLib::PoseData &p : poses) {
-        REQUIRE(p.distortion_parameter >= solver.k_min);
-        REQUIRE(p.distortion_parameter <= solver.k_max);
-        REQUIRE(p.distortion_parameter2 >= solver.k_min);
-        REQUIRE(p.distortion_parameter2 <= solver.k_max);
-    }
-    solver.k_min = -0.2 / (s * s);
+    solver.k_range.k_min = -0.2 * f02;
     solver.estimate(x, y, &poses);
     REQUIRE_FALSE(HasSolution(poses, k, k, 1e-7 / (s * s)));
 }
@@ -210,18 +212,16 @@ TEST_CASE("Wadenback 3DV 2026 - one-sided estimator with a range check") {
         Eigen::Vector2d(-0.544031097770073, -0.0440402280844913),
         Eigen::Vector2d(-0.424602042497788,  0.0211895908990797)
     };
+    const double f02 = Norm2(x);   // k2 = -0.3 f02 in the normalized coordinates
     HomLib::Wadenback3DV2026::SolverSingleSided solver;
-    solver.use_k_range = true;
-    solver.k_range_in_input_units = true;
-    solver.k_min = -0.5;   // excludes 0: the parameter that the solver doesn't estimate passes anyway
-    solver.k_max = -0.1;
+    solver.k_range = HomLib::DistortionRange(-0.5 * f02, -0.1 * f02);   // excludes 0: the parameter that the solver doesn't estimate passes anyway
     std::vector<HomLib::PoseData> poses;
     solver.estimate(x, y, &poses);
     bool found = false;
     for (const HomLib::PoseData &p : poses)
         found = found || (p.distortion_parameter == 0 && std::abs(p.distortion_parameter2 + 0.3) < 1e-7);
     REQUIRE(found);
-    solver.k_max = -0.4;   // excludes k2
+    solver.k_range.k_max = -0.4 * f02;   // excludes k2
     solver.estimate(x, y, &poses);
     REQUIRE(poses.empty());
 }

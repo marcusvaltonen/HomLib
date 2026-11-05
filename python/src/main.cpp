@@ -32,8 +32,7 @@ std::vector<HomLib::PoseData> dispatch_estimate_point(
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
-        s.solve(x, y, &poses, direct_range(s));
-        HomLib::filter_distortion_range(&poses, direct_range(s));   // for the solvers that don't check it
+        s.solve(x, y, &poses, direct_range(solver, x));
         return poses;
     });
 }
@@ -52,8 +51,7 @@ std::vector<HomLib::PoseData> dispatch_estimate_affine(
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
-        s.solve(x, y, A, &poses, direct_range(s));
-        HomLib::filter_distortion_range(&poses, direct_range(s));   // for the solvers that don't check it
+        s.solve(x, y, A, &poses, direct_range(solver, x));
         return poses;
     });
 }
@@ -71,8 +69,7 @@ std::vector<HomLib::PoseData> dispatch_estimate_orientation(
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
-        s.solve(x, y, ori, &poses, direct_range(s));
-        HomLib::filter_distortion_range(&poses, direct_range(s));   // for the solvers that don't check it
+        s.solve(x, y, ori, &poses, direct_range(solver, x));
         return poses;
     });
 }
@@ -195,6 +192,24 @@ PYBIND11_MODULE(_core, m) {
         .def_readonly("id", &PySolver::id, "Solver identifier (:class:`SolverId`).")
         .def_readonly("feature_type", &PySolver::feature_type, "Feature type (:class:`FeatureType`).")
         .def_readonly("extra_check", &PySolver::extra_check, "Whether extra validation checks are enabled.")
+        .def_readwrite("normalize_image_coord", &PySolver::normalize_image_coord,
+            R"pbdoc(
+                Whether the robust estimators normalize each sample (default True).
+
+                They divide the points of both images by ``mean(|x|) / sqrt(2)``, computed from the
+                first image's points (measured from the distortion center, the origin), and the
+                range on the distortion (:meth:`set_k_range`) applies in these normalized
+                coordinates. :meth:`estimate` doesn't normalize, but converts a range set with
+                :meth:`set_k_range` to the points' scale the same way.
+
+                With False, the points are used as given, and the range applies in their
+                coordinates, in :meth:`estimate` too. The default [-1, 0.1] then rejects almost
+                nothing for pixel coordinates, so set a range suited to them. This is useful when
+                each image's focal length is known: with each image's centered points divided by
+                it, a range chosen for the lens applies directly, and images with very different
+                pixel scales (e.g. a large panorama and a small view of it) keep each image's k at
+                its own scale. See the solver guide, "Range check on the distortion".
+            )pbdoc")
         .def("set_k_range", [](PySolver& s, std::optional<double> k_min, std::optional<double> k_max) {
                 const double lo = k_min ? *k_min : -std::numeric_limits<double>::infinity();
                 const double hi = k_max ? *k_max : std::numeric_limits<double>::infinity();
@@ -208,11 +223,18 @@ PYBIND11_MODULE(_core, m) {
             R"pbdoc(
                 Keep only the minimal solutions with distortion parameters in [k_min, k_max].
 
-                The bounds are in the units of the points given to ``estimate()`` (a parameter
-                equal to 0, the one that a one-sided solver doesn't estimate, passes). The check
-                selects the hypotheses of the minimal solver, in :meth:`estimate` and in the robust
-                estimators (LO-MSAC and the other backends); it doesn't constrain the refinement.
-                It replaces the solver's default range (see :meth:`reset_k_range`).
+                The bounds are in HomLib's normalized coordinates: the robust estimators (LO-MSAC
+                and the other backends) divide each sample by ``mean(|x|) / sqrt(2)``, computed
+                from the first image's points, whatever the units of the input. They apply
+                [-1, 0.1] by default; this replaces it. :meth:`estimate` calls the solver on the
+                points as given, with no range unless one is set, converted to the points' scale
+                (see :attr:`normalize_image_coord`). A parameter equal to 0, the one that a
+                one-sided solver doesn't estimate, passes. The check selects the hypotheses of the
+                minimal solver; it doesn't constrain the refinement.
+
+                The default [-1, 0.1] only rejects roots that no real lens gives (see the solver
+                guide, "Range check on the distortion"). ``set_k_range()`` without bounds, like
+                infinite bounds on both sides, disables the check.
 
                 Parameters
                 ----------
@@ -229,8 +251,8 @@ PYBIND11_MODULE(_core, m) {
                 s.k_max = std::numeric_limits<double>::infinity();
             },
             R"pbdoc(
-                Back to the solver's default range on the distortion parameters: [-1, 0.1] in
-                normalized coordinates for the two-sided Wadenbäck solver, none for the others.
+                Back to the default: [-1, 0.1] in the robust estimators, no range in
+                :meth:`estimate` (see :meth:`set_k_range`).
             )pbdoc")
         .def_property_readonly("k_range", [](const PySolver& s) -> py::object {
                 if (!s.has_k_range) {
@@ -238,7 +260,8 @@ PYBIND11_MODULE(_core, m) {
                 }
                 return py::make_tuple(s.k_min, s.k_max);
             },
-            "The range set by :meth:`set_k_range`, as (k_min, k_max), or None (the solver's default).")
+            "The range set by :meth:`set_k_range`, as (k_min, k_max), or None if none was set (then [-1, 0.1] in the robust "
+            "estimators, no range in :meth:`estimate`).")
         .def("__repr__", [](const PySolver& s) {
             auto py_id = py::cast(s.id);
             std::string name = py_id.attr("name").cast<std::string>();
@@ -246,6 +269,9 @@ PYBIND11_MODULE(_core, m) {
                             ", extra_check=" + std::string(s.extra_check ? "True" : "False");
             if (s.has_k_range) {
                 r += ", k_range=" + py::repr(py::make_tuple(s.k_min, s.k_max)).cast<std::string>();
+            }
+            if (!s.normalize_image_coord) {
+                r += ", normalize_image_coord=False";
             }
             return r + ")";
         });

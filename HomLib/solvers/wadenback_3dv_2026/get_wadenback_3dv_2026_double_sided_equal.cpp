@@ -54,7 +54,7 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
         if (nroots > 1) {
             for (int i = 0; i < nroots; i++) {
                 double k = roots[i];
-                if (!range.contains(k, k)) {
+                if (!range.contains(k)) {
                     continue;
                 }
                 res = unused_equation_residual(d, k);
@@ -67,7 +67,7 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
         
         // Only compute homography for the best one
         double k = roots[best_id];
-        if (!range.contains(k, k)) {   // no root in the range
+        if (!range.contains(k)) {   // no root in the range
             return output;
         }
         std::vector<Eigen::Vector2d> x_undist;
@@ -93,7 +93,7 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
             HomLib::PoseData pd;
             Eigen::Matrix3d H;
             double k = roots[j];
-            if (!range.contains(k, k)) {
+            if (!range.contains(k)) {
                 continue;
             }
 

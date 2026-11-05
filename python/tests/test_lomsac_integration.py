@@ -48,7 +48,7 @@ class LomsacIntegrationTestCase(unittest.TestCase):
         solver = homlib.Wadenback3DV2026TwoSided()
         self.assertIsNone(solver.k_range)
 
-        # Range in the units of x and y, including the true distortion (0)
+        # A range in the normalized coordinates, including the true distortion (0)
         solver.set_k_range(-0.1, 0.1)
         self.assertEqual(solver.k_range, (-0.1, 0.1))
         estimate, stats = homlib.LOMSAC(solver, squared_inlier_threshold=0.005).estimate(self.x, self.y)
@@ -92,9 +92,10 @@ class LomsacIntegrationTestCase(unittest.TestCase):
         A = np.array([np.asarray(a).flatten() for a in instance.A]).T
         k = instance.posedata.distortion_parameter
 
-        # Range in the units of x and y, including the true distortion
+        # A range in the normalized coordinates (each sample divided by mean(|x|)/sqrt(2)),
+        # including the true distortion
         solver = homlib.ValtonenOrnhagICPR2026AffineSingleSided()
-        solver.set_k_range(2 * k, k / 2)
+        solver.set_k_range(-1.0, 0.1)
         estimate, stats = homlib.LOMSAC(solver, squared_inlier_threshold=1e-6).estimate(x, y, A=A)
         self.assertAlmostEqual(estimate.distortion_parameter, k, places=6)
         self.assertGreater(len(stats.inlier_indices), 45)
@@ -104,13 +105,28 @@ class LomsacIntegrationTestCase(unittest.TestCase):
         _, stats = homlib.LOMSAC(solver, squared_inlier_threshold=1e-6).estimate(x, y, A=A)
         self.assertEqual(len(stats.inlier_indices), 0)
 
-        # The direct estimate() applies the range too (this solver doesn't check it itself)
+        # The direct estimate() applies the range too
         solver.reset_k_range()
         self.assertGreater(len(solver.estimate(x[:, :2], y[:, :2], A=A[:, :2])), 0)
         solver.set_k_range(k_min=1e6)
         self.assertEqual(len(solver.estimate(x[:, :2], y[:, :2], A=A[:, :2])), 0)
         with self.assertRaises(TypeError):
             solver.set_k_range("a")
+
+    def test_lomsac_range_without_normalization(self):
+        # Without the estimators' normalization, the range applies to the points as given: here
+        # the points scaled by 1000 (pixels for a focal length of 1000), so k by 1e-6
+        x, y = 1000.0 * self.x, 1000.0 * self.y
+        solver = homlib.KukelovaCVPR2015TwoSided()
+        self.assertTrue(solver.normalize_image_coord)
+        solver.normalize_image_coord = False
+        self.assertIn("normalize_image_coord=False", repr(solver))
+        solver.set_k_range(-1e-6, 1e-6)   # includes the true distortion (0)
+        estimate, stats = homlib.LOMSAC(solver, squared_inlier_threshold=5000.0).estimate(x, y)
+        self.assertGreater(len(stats.inlier_indices), self.N - self.n_outliers - 10)
+        solver.set_k_range(k_min=1e-3)   # k = 1000 for coordinates divided by the focal length: no hypothesis
+        _, stats = homlib.LOMSAC(solver, squared_inlier_threshold=5000.0).estimate(x, y)
+        self.assertEqual(len(stats.inlier_indices), 0)
 
     def test_lomsac_fitzgibbon_one_sided(self):
         solver = homlib.FitzgibbonCVPR2001OneSided()

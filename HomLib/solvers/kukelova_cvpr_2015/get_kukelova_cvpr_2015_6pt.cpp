@@ -98,7 +98,7 @@ std::vector<HomLib::PoseData> get_6pt(
     for (int i = 0; i < nsols; i++) {
         n = rs(i) * V1.col(6) + V1.col(7);
         const double l2 = n(6) / n(2);
-        if (!dist_equal && !range.contains(l2)) {   // l2 is k1: before the SVD of l1
+        if (!dist_equal && !range.contains(l2)) {   // l2 is distortion_parameter: checked before the SVD that gives l1
             continue;
         }
 
@@ -114,7 +114,7 @@ std::vector<HomLib::PoseData> get_6pt(
 
         v2.head(4) /= v2(4);
         const double l1 = v2(3);
-        if (dist_equal ? !range.contains(0.5 * (l1 + l2)) : !range.contains(l2, l1)) {
+        if (dist_equal ? !range.contains(0.5 * (l1 + l2)) : !range.contains(l1)) {   // l2 checked above
             continue;
         }
 
