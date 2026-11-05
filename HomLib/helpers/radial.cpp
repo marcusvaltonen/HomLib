@@ -82,7 +82,7 @@ namespace HomLib {
         std::vector<Eigen::Vector2d> tmp = radialundistort(xd, kappa);
         xu->clear();
         xu->reserve(tmp.size());
-        for (size_t i = 0; tmp.size(); i++) {
+        for (size_t i = 0; i < tmp.size(); i++) {
             xu->push_back(tmp[i]);
         }
     }
