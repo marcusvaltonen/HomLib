@@ -97,6 +97,10 @@ std::vector<HomLib::PoseData> get_6pt(
 
     for (int i = 0; i < nsols; i++) {
         n = rs(i) * V1.col(6) + V1.col(7);
+        // The scale of n is arbitrary (it depends on the basis of the null space that the SVD
+        // returns), but columns 3 and 4 of T scale with it: without a fixed scale, the
+        // least-squares solution below (with noise) would depend on that basis.
+        n.normalize();
         const double l2 = n(6) / n(2);
         if (!dist_equal && !range.contains(l2)) {   // l2 is distortion_parameter: checked before the SVD that gives l1
             continue;
