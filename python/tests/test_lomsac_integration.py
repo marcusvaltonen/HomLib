@@ -3,6 +3,8 @@ import unittest
 import numpy as np
 import homlib
 
+from tests.helpers import normalize_H
+
 
 class LomsacIntegrationTestCase(unittest.TestCase):
     def setUp(self):
@@ -38,8 +40,8 @@ class LomsacIntegrationTestCase(unittest.TestCase):
 
         estimate, stats = lomsac.estimate(self.x, self.y)
 
-        H_est = estimate.homography / estimate.homography[2, 2]
-        H_gt = self.H / self.H[2, 2]
+        H_est = normalize_H(estimate.homography)
+        H_gt = normalize_H(self.H)
         self.assertLess(np.linalg.norm(H_est - H_gt), 0.1)
 
         self.assertGreater(len(stats.inlier_indices), self.N - self.n_outliers - 10)
@@ -50,8 +52,8 @@ class LomsacIntegrationTestCase(unittest.TestCase):
 
         estimate, stats = lomsac.estimate(self.x, self.y)
 
-        H_est = estimate.homography / estimate.homography[2, 2]
-        H_gt = self.H / self.H[2, 2]
+        H_est = normalize_H(estimate.homography)
+        H_gt = normalize_H(self.H)
         self.assertLess(np.linalg.norm(H_est - H_gt), 0.1)
 
     def test_lomsac_options_defaults(self):

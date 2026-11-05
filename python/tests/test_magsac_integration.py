@@ -4,6 +4,8 @@ import unittest
 import numpy as np
 import homlib
 
+from tests.helpers import normalize_H
+
 
 @unittest.skipUnless(homlib._HAS_MAGSAC, "MAGSAC not built")
 class MAGSACIntegrationTestCase(unittest.TestCase):
@@ -40,8 +42,8 @@ class MAGSACIntegrationTestCase(unittest.TestCase):
 
         estimate, stats = mg.estimate(self.x, self.y)
 
-        H_est = estimate.homography / estimate.homography[2, 2]
-        H_gt = self.H / self.H[2, 2]
+        H_est = normalize_H(estimate.homography)
+        H_gt = normalize_H(self.H)
         self.assertLess(np.linalg.norm(H_est - H_gt), 0.1)
         self.assertGreater(len(stats.inliers), self.N - self.n_outliers - 10)
 
@@ -51,8 +53,8 @@ class MAGSACIntegrationTestCase(unittest.TestCase):
 
         estimate, stats = mg.estimate(self.x, self.y)
 
-        H_est = estimate.homography / estimate.homography[2, 2]
-        H_gt = self.H / self.H[2, 2]
+        H_est = normalize_H(estimate.homography)
+        H_gt = normalize_H(self.H)
         self.assertLess(np.linalg.norm(H_est - H_gt), 0.1)
 
     def test_magsac_settings_defaults(self):
@@ -76,7 +78,7 @@ class MAGSACIntegrationTestCase(unittest.TestCase):
         mg = homlib.MAGSAC(solver, sigma_max=0.5)
         lomsac = homlib.LOMSAC(solver, squared_inlier_threshold=0.005)
 
-        H_gt = self.H / self.H[2, 2]
+        H_gt = normalize_H(self.H)
 
         n_runs = 5
         mg_times, lomsac_times = [], []
@@ -93,8 +95,8 @@ class MAGSACIntegrationTestCase(unittest.TestCase):
             lomsac_times.append(time.perf_counter() - t0)
             lomsac_inliers.append(len(stats_lo.inlier_indices))
 
-        H_mg = est_mg.homography / est_mg.homography[2, 2]
-        H_lo = est_lo.homography / est_lo.homography[2, 2]
+        H_mg = normalize_H(est_mg.homography)
+        H_lo = normalize_H(est_lo.homography)
         self.assertLess(np.linalg.norm(H_mg - H_gt), 0.1)
         self.assertLess(np.linalg.norm(H_lo - H_gt), 0.1)
 
@@ -111,9 +113,9 @@ class MAGSACIntegrationTestCase(unittest.TestCase):
         est_pp, stats_pp = mgpp.estimate(self.x, self.y)
         est_orig, stats_orig = mg_orig.estimate(self.x, self.y)
 
-        H_gt = self.H / self.H[2, 2]
-        H_pp = est_pp.homography / est_pp.homography[2, 2]
-        H_orig = est_orig.homography / est_orig.homography[2, 2]
+        H_gt = normalize_H(self.H)
+        H_pp = normalize_H(est_pp.homography)
+        H_orig = normalize_H(est_orig.homography)
 
         self.assertLess(np.linalg.norm(H_pp - H_gt), 0.1)
         self.assertLess(np.linalg.norm(H_orig - H_gt), 0.5)

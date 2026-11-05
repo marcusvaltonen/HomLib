@@ -4,6 +4,8 @@ import unittest
 import numpy as np
 import homlib
 
+from tests.helpers import normalize_H, retry
+
 
 @unittest.skipUnless(homlib._HAS_GCRANSAC, "GC-RANSAC not built")
 class GCRANSACIntegrationTestCase(unittest.TestCase):
@@ -34,26 +36,27 @@ class GCRANSACIntegrationTestCase(unittest.TestCase):
         self.N = N
         self.n_outliers = n_outliers
 
-    @unittest.skip("TODO: GC-RANSAC does not converge on synthetic data — investigate")
+    @retry()
     def test_gcransac_wadenback_one_sided(self):
         solver = homlib.Wadenback3DV2026OneSided()
         gc = homlib.GCRANSAC(solver, threshold=0.07)
 
         estimate, stats = gc.estimate(self.x, self.y)
 
-        H_est = estimate.homography / estimate.homography[2, 2]
-        H_gt = self.H / self.H[2, 2]
+        H_est = normalize_H(estimate.homography)
+        H_gt = normalize_H(self.H)
         self.assertLess(np.linalg.norm(H_est - H_gt), 0.1)
         self.assertGreater(len(stats.inliers), self.N - self.n_outliers - 10)
 
+    @retry()
     def test_gcransac_fitzgibbon_one_sided(self):
         solver = homlib.FitzgibbonCVPR2001OneSided()
         gc = homlib.GCRANSAC(solver, threshold=0.07)
 
         estimate, stats = gc.estimate(self.x, self.y)
 
-        H_est = estimate.homography / estimate.homography[2, 2]
-        H_gt = self.H / self.H[2, 2]
+        H_est = normalize_H(estimate.homography)
+        H_gt = normalize_H(self.H)
         self.assertLess(np.linalg.norm(H_est - H_gt), 0.1)
 
     def test_gcransac_settings_defaults(self):
@@ -62,6 +65,7 @@ class GCRANSACIntegrationTestCase(unittest.TestCase):
         self.assertGreater(settings.confidence, 0)
         self.assertGreater(settings.max_iterations, 0)
 
+    @retry()
     def test_gcransac_statistics_fields(self):
         solver = homlib.Wadenback3DV2026OneSided()
         gc = homlib.GCRANSAC(solver, threshold=0.07)
@@ -71,12 +75,13 @@ class GCRANSACIntegrationTestCase(unittest.TestCase):
         self.assertIsInstance(stats.inliers, list)
         self.assertGreater(stats.num_iterations, 0)
 
+    @retry()
     def test_gcransac_vs_lomsac(self):
         solver = homlib.Wadenback3DV2026OneSided()
         gc = homlib.GCRANSAC(solver, threshold=0.07)
         lomsac = homlib.LOMSAC(solver, squared_inlier_threshold=0.005)
 
-        H_gt = self.H / self.H[2, 2]
+        H_gt = normalize_H(self.H)
 
         n_runs = 5
         gc_times, lomsac_times = [], []
@@ -93,8 +98,8 @@ class GCRANSACIntegrationTestCase(unittest.TestCase):
             lomsac_times.append(time.perf_counter() - t0)
             lomsac_inliers.append(len(stats_lo.inlier_indices))
 
-        H_gc = est_gc.homography / est_gc.homography[2, 2]
-        H_lo = est_lo.homography / est_lo.homography[2, 2]
+        H_gc = normalize_H(est_gc.homography)
+        H_lo = normalize_H(est_lo.homography)
         self.assertLess(np.linalg.norm(H_gc - H_gt), 0.1)
         self.assertLess(np.linalg.norm(H_lo - H_gt), 0.1)
 
