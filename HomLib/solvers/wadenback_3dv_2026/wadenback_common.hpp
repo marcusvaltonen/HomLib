@@ -26,23 +26,20 @@ double compute_residual2(
 Eigen::Matrix<double, 12, 1> compute_coeffs(
     const std::vector<Eigen::Vector2d> &x
 );
-// Writes the real roots of p[0] + p[1] x + ... + p[N] x^N to roots (at most N) and returns their
-// number. Uses PoseLib's bisect_sturm on q(z) = p(s (z + c)), then one Newton step on p per root.
+// Finds the real roots of p[0] + p[1] x + ... + p[N] x^N, writes them to roots (at most N), and
+// returns their number. It calls PoseLib's bisect_sturm on q(z) = p(s (z + c)).
 //
-// bisect_sturm searches [-B, B], B = 1 + max |p_i / p_N|, and its stops are absolute (Ridders'
-// method until the bracket is below 1e-3 or after 30 iterations, then Newton until
-// |p(x)| / |p_N| < 1e-10). The solvers' polynomials have small, plausible roots and large,
-// spurious ones: these make B huge, so the iterations can stop far from a root; small roots are
-// found coarsely; and a root at 0 (no distortion) is the first bisection point, where the Sturm
-// count (p from the Sturm sequence) and Ridders' method (p from polyval) see p = 0 up to rounding,
-// possibly with different signs: then the root is counted in a half where Ridders' method finds
-// no sign change, and is dropped. s = max(|p[0] / p[N]|^(1/N), |p[1] / p[N]|^(1/(N-1))) brings the
-// typical root magnitude near 1, and the small offset c = 0.0123 (any small value works) moves a
-// root at x = 0 to z = -c, a bisection point (B n / 2^j) only if c 2^j / B is an integer.
-// The Newton step, kept if it reduces |p|, restores the accuracy lost when s > 1 (on q, the stop
-// on |p| is looser by s^N). It is also kept only if it moves x by at most 1e-3 s, the size of
-// bisect_sturm's last bracket: near a multiple root or two close roots, p' is close to 0 and the
-// step can jump to another root, which would then be returned twice and this one lost.
+// bisect_sturm stops on absolute thresholds. Ridders' method stops when the bracket is below 1e-3
+// or after 30 iterations. Newton's method stops when |p(x)| / |p_N| < tol (1e-10 by default). The
+// solvers' polynomials have small roots, close roots and large spurious roots. bisect_sturm finds
+// the small and close roots coarsely, and the large ones make its search interval huge. Three
+// changes fix this:
+// - s = max(|p[0] / p[N]|^(1/N), |p[1] / p[N]|^(1/(N-1))) brings the typical root near 1.
+// - tol = 1e-14 lets bisect_sturm's Newton steps reach the rounding level of q. This also makes
+//   the close roots accurate.
+// - Without distortion, p has a root at x = 0, which is bisect_sturm's first bisection point.
+//   There, p = 0 up to rounding, and bisect_sturm can lose the root. The offset c moves the root
+//   to z = -c.
 template <int N>
 int bisect_sturm_scaled(const double *p, double *roots) {
     static_assert(N >= 2, "degree at least 2");
@@ -56,28 +53,16 @@ int bisect_sturm_scaled(const double *p, double *roots) {
         q[i] = p[i] * sk;
         sk *= s;
     }
+    // Any small offset works, and 0.0123 has no special meaning. The offset only has to move a root
+    // at x = 0 off bisect_sturm's bisection points z = B n / 2^j. z = -c is one of them only if
+    // c 2^j / B is an integer.
     const double c = 0.0123;
     for (int i = 0; i < N; i++)   // Taylor shift: q(z) becomes q(z + c)
         for (int j = N - 1; j >= i; j--)
             q[j] += c * q[j + 1];
-    int nroots = poselib::sturm::bisect_sturm<N>(q, roots);
-    for (int i = 0; i < nroots; i++) {
-        const double x = (roots[i] + c) * s;
-        double f = p[N], df = 0;   // Horner: f = p(x), df = p'(x)
-        for (int j = N - 1; j >= 0; j--) {
-            df = df * x + f;
-            f = f * x + p[j];
-        }
-        roots[i] = x;
-        if (df != 0) {
-            const double x1 = x - f / df;
-            double f1 = p[N];
-            for (int j = N - 1; j >= 0; j--)
-                f1 = f1 * x1 + p[j];
-            if (std::abs(f1) < std::abs(f) && std::abs(x1 - x) <= 1e-3 * s)
-                roots[i] = x1;
-        }
-    }
+    int nroots = poselib::sturm::bisect_sturm<N>(q, roots, 1e-14);
+    for (int i = 0; i < nroots; i++)
+        roots[i] = (roots[i] + c) * s;
     return nroots;
 }
 // Guo's method (2019) for computing a homography from four points using an explicit method.

@@ -18,6 +18,7 @@ FetchContent_MakeAvailable(Catch2)
 
 # Add your test executable
 add_executable(HomLibTests
+    test_bisect_sturm_scaled.cpp
     test_fitzgibbon_cvpr_2001.cpp
     test_helpers.cpp
     test_kukelova_cvpr_2015.cpp

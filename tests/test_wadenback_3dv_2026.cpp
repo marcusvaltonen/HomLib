@@ -19,7 +19,6 @@
 // SOFTWARE.
 
 #include <Eigen/Dense>
-#include <algorithm>
 #include <cmath>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
@@ -253,10 +252,9 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided keeps true solutions with small residu
     REQUIRE(found);
 }
 
-
 TEST_CASE("Wadenback 3DV 2026 - two-sided finds the true solution when the polynomial has large spurious roots") {
     // A noise-free problem (from generate_problem_instance) whose polynomial has large spurious
-    // roots: bisect_sturm on the unscaled polynomial returned no solution
+    // roots. With bisect_sturm on the unscaled polynomial, the solver returned no solution.
     std::vector<Eigen::Vector2d> p1 = {
         Eigen::Vector2d(-0.22228857437217203, 0.31430661939176502),
         Eigen::Vector2d(-0.03837544385109707, 0.10042236874822685),
@@ -275,13 +273,14 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided finds the true solution when the polyn
     std::vector<HomLib::PoseData> sols = HomLib::Wadenback3DV2026::get_double_sided(p1, p2, true);
     bool found = false;
     for (const HomLib::PoseData &s : sols)
-        found = found || (std::abs(s.distortion_parameter - k1) < 1e-8 && std::abs(s.distortion_parameter2 - k2) < 1e-8);
+        found = found || (std::abs(s.distortion_parameter - k1) < 1e-8 &&
+                          std::abs(s.distortion_parameter2 - k2) < 1e-8);
     REQUIRE(found);
 }
 
 TEST_CASE("Wadenback 3DV 2026 - two-sided finds the true solution of a noise-free problem without distortion") {
-    // k1 = k2 = 0, so the polynomial has a root at 0 (up to rounding), the first bisection point of
-    // bisect_sturm. Without the shift, this problem had no solution.
+    // k1 = k2 = 0, so the polynomial has a root at 0 (up to rounding), bisect_sturm's first
+    // bisection point. Without the shift, the solver returned no solution.
     std::vector<Eigen::Vector2d> p1 = {
         Eigen::Vector2d(-0.16448817833007917, -0.46635181069809178),
         Eigen::Vector2d(0.024637866324819842, -0.48132714581808334),
@@ -299,32 +298,7 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided finds the true solution of a noise-fre
     std::vector<HomLib::PoseData> sols = HomLib::Wadenback3DV2026::get_double_sided(p1, p2, true);
     bool found = false;
     for (const HomLib::PoseData &s : sols)
-        found = found || (std::abs(s.distortion_parameter) < 1e-8 && std::abs(s.distortion_parameter2) < 1e-8);
+        found = found || (std::abs(s.distortion_parameter) < 1e-8 &&
+                          std::abs(s.distortion_parameter2) < 1e-8);
     REQUIRE(found);
-}
-
-TEST_CASE("Wadenback 3DV 2026 - bisect_sturm_scaled finds small real roots") {
-    // (x^2 - 2x + 2), whose roots 1 +/- i aren't real, times (x - r) for each of these small real
-    // roots, 0 included, gives degree 9. bisect_sturm on this polynomial finds them with errors up
-    // to about 4e-4.
-    const std::vector<double> real = {-0.05, -0.003, 0.0, 1e-4, 0.002, 0.01, 0.04};
-    std::vector<double> p = {2.0, -2.0, 1.0};   // ascending coefficients
-    for (double r : real) {
-        std::vector<double> q(p.size() + 1, 0.0);
-        for (size_t i = 0; i < p.size(); i++) {
-            q[i + 1] += p[i];
-            q[i] -= r * p[i];
-        }
-        p = q;
-    }
-    REQUIRE(p.size() == 10);
-    double roots[9];
-    const int n = HomLib::Wadenback3DV2026::bisect_sturm_scaled<9>(p.data(), roots);
-    REQUIRE(n == (int)real.size());
-    std::vector<double> found(roots, roots + n);
-    std::sort(found.begin(), found.end());
-    for (int i = 0; i < n; i++) {
-        CAPTURE(i, real[i], found[i]);
-        REQUIRE(std::abs(found[i] - real[i]) <= 1e-9 * (1.0 + std::abs(real[i])));
-    }
 }
