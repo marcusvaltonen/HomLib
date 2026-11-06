@@ -100,6 +100,13 @@ def lightglue_matcher(features, num_features, resize):
     # origin="center": (0, 0) at the center of the top-left pixel, as in OpenCV (LightGlue's default
     # for now; it plans to switch to "corner")
     extractor = extractor_class(max_num_keypoints=num_features, origin="center").eval().to(device)
+    if features == "sift" and extractor.conf.backend == "opencv":
+        # LightGlue's OpenCV SIFT lacks precise upscaling, which shifts the keypoints of the upscaled
+        # octave: use the same SIFT with it, as sift_matcher does (OpenCV >= 4.8)
+        c = extractor.conf
+        extractor.sift = cv2.SIFT_create(contrastThreshold=c.detection_threshold, nfeatures=c.max_num_keypoints,
+                                         edgeThreshold=c.edge_threshold, nOctaveLayers=c.num_octaves,
+                                         enable_precise_upscale=True)
     matcher = LightGlue(features=features).eval().to(device)
     # resize: the shorter side of the images, in pixels (None: the original images). The extractor
     # gives the keypoints in the original images.
