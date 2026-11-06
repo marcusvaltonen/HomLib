@@ -1,7 +1,7 @@
 """Regression test on real image pairs: LOMSAC with every point solver on 8 HPatches pairs.
 
 The OpenCV SIFT matches of these pairs, and their ground-truth homographies, come from
-``python/experiments/hpatches_sift.py --export_subset``. The test gets them with
+``python/experiments/hpatches_features.py --export_subset``. The test gets them with
 ``tests.helpers.fetch_test_data``: from ``$HOMLIB_TEST_DATA``, or downloaded from ``SUBSET_URL``.
 Without them, it is skipped, except in CI (``HOMLIB_REQUIRE_TEST_DATA``), where it fails.
 """
