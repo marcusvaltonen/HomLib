@@ -7,6 +7,7 @@
 
 #include "posedata.hpp"
 #include "wadenback_common.hpp"
+#include "get_wadenback_3dv_2026.hpp"
 
 
 namespace HomLib {
@@ -22,7 +23,8 @@ static inline Eigen::Vector3d get_rhs(
 std::vector<HomLib::PoseData> get_one_sided(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y,
-    bool extra_check
+    bool extra_check,
+    const HomLib::DistortionRange &range
 )
 {
     Eigen::Matrix<double, 12, 1> data = HomLib::Wadenback3DV2026::compute_coeffs(y);
@@ -48,18 +50,21 @@ std::vector<HomLib::PoseData> get_one_sided(
         return output;
     }
     
-    // With extra_check, only the root with the smallest residual among those that a homography
-    // can go with (see homography_of_root): try the roots by increasing residual
+    // The roots in the range. With extra_check, only the one with the smallest residual among
+    // those that a homography can go with (see homography_of_root): try them by increasing residual
     int order[3];
-    for (int i = 0; i < nroots; i++)
-        order[i] = i;
-    if (extra_check && nroots > 1) {
+    int m = 0;
+    for (int i = 0; i < nroots; i++) {
+        if (range.contains(roots[i]))
+            order[m++] = i;
+    }
+    if (extra_check && m > 1) {
         double res_of[3];
         for (int i = 0; i < nroots; i++)
             res_of[i] = unused_equation_residual(d, rhs, roots[i]);
-        std::sort(order, order + nroots, [&res_of](int a, int b) { return res_of[a] < res_of[b]; });
+        std::sort(order, order + m, [&res_of](int a, int b) { return res_of[a] < res_of[b]; });
     }
-    for (int j = 0; j < nroots; j++) {
+    for (int j = 0; j < m; j++) {
         const double k = roots[order[j]];
         HomLib::PoseData pd;
         if (!HomLib::Wadenback3DV2026::homography_of_root(x, y, 0.0, k, &pd.homography))

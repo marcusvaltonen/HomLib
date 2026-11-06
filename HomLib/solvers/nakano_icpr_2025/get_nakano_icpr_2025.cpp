@@ -34,7 +34,8 @@ namespace NakanoICPR2025 {
     std::vector<HomLib::PoseData> get(
         const std::vector<Eigen::Vector2d> &x,
         const std::vector<Eigen::Vector2d> &y,
-        bool extra_check
+        bool extra_check,
+        const HomLib::DistortionRange &range
     ) {
 
         // Compute m vectors
@@ -78,6 +79,9 @@ namespace NakanoICPR2025 {
         for (int i = 0; i < 3; i++) {
             if (std::abs(ks(i).imag()) < 1e-14) {
                 double k = ks(i).real();
+                if (!range.contains(k)) {
+                    continue;
+                }
                 Eigen::Vector3d alpha = X.col(i);
                 Eigen::Matrix<double, 12, 1> g = alpha[0] * N.col(0) + alpha[1] * N.col(1) + alpha[2] * N.col(2);
                 Eigen::Matrix<double, 3, 4> G = Eigen::Map<const Eigen::Matrix<double, 4, 3>>(g.data()).transpose();

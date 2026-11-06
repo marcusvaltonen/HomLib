@@ -26,6 +26,7 @@
 #include "posedata.hpp"
 #include "radial.hpp"
 #include "pose_estimator.h"
+#include "distortion_range.h"
 #include "refinement.hpp"
 #include "wadenback_common.hpp"
 #include "general_position.hpp"
@@ -62,7 +63,8 @@ class Solver : public PoseEstimator<Solver> {
     public:
         static constexpr int minimal_sample_size_value = 4;
         Solver() = default;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
+        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
+                  const HomLib::DistortionRange & = HomLib::DistortionRange()) const {   // no distortion (k = 0 passes)
             std::vector<HomLib::PoseData> output = HomLib::GuoPRL2019::get(x, y);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);

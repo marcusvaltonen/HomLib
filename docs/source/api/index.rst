@@ -63,6 +63,7 @@ Base classes
 
 .. autoclass:: Solver
    :members:
+   :inherited-members:
    :undoc-members:
 
 .. autoclass:: RobustEstimator

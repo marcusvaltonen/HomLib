@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 #include <Eigen/Dense>
+#include <cmath>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -115,6 +116,111 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided equal") {
 }
 
 
+namespace {
+// The points of the two-sided test (k1 = k2 = -0.3)
+const std::vector<Eigen::Vector2d> kTwoSidedX = {
+    Eigen::Vector2d(-0.093972209335993,  0.0431909090094019),
+    Eigen::Vector2d(-0.0969912533237537,  0.0171160938161422),
+    Eigen::Vector2d(-0.123299663772998,  0.500859415499538),
+    Eigen::Vector2d(-0.300610529524079,  0.477995136756032),
+    Eigen::Vector2d( 0.143634675965547, 0.402159621931429)
+};
+const std::vector<Eigen::Vector2d> kTwoSidedY = {
+    Eigen::Vector2d(-0.0150485985127741,   0.504312576320796),
+    Eigen::Vector2d(-0.0324017385815406,   0.525321116499528),
+    Eigen::Vector2d(0.335015888737872, 0.182133325842435),
+    Eigen::Vector2d(0.448124752741167, 0.313117448200805),
+    Eigen::Vector2d(0.0822796392160207,  0.0746306773026531)
+};
+bool HasSolution(const std::vector<HomLib::PoseData> &poses, double k1, double k2, double tol) {
+    for (const HomLib::PoseData &p : poses)
+        if (std::abs(p.distortion_parameter - k1) < tol && std::abs(p.distortion_parameter2 - k2) < tol)
+            return true;
+    return false;
+}
+}  // namespace
+
+TEST_CASE("Wadenback 3DV 2026 - two-sided returns all the real roots") {
+    // Without a range, the solver returns all its real roots, implausible ones included (the
+    // estimators give it one, see the next test)
+    std::vector<HomLib::PoseData> all = HomLib::Wadenback3DV2026::get_double_sided(kTwoSidedX, kTwoSidedY, false);
+    REQUIRE(HasSolution(all, -0.3, -0.3, 1e-9));
+    bool outside = false;
+    for (const HomLib::PoseData &p : all)
+        outside = outside || p.distortion_parameter < -1.0 || p.distortion_parameter > 0.1;
+    REQUIRE(outside);
+}
+
+// f0^2 of the estimators' normalization (x divided by f0 = mean(|x|)/sqrt(2))
+static double Norm2(const std::vector<Eigen::Vector2d> &x) {
+    double f0 = 0;
+    for (const Eigen::Vector2d &q : x)
+        f0 += q.norm();
+    f0 /= x.size() * std::sqrt(2.0);
+    return f0 * f0;
+}
+
+TEST_CASE("Wadenback 3DV 2026 - two-sided estimator with a range") {
+    HomLib::Wadenback3DV2026::SolverTwoSided solver;
+    std::vector<HomLib::PoseData> poses, unfiltered;
+    const std::vector<Eigen::Vector2d> &x0 = kTwoSidedX, &y0 = kTwoSidedY;
+
+    // Default: [-1, 0.1] in the normalized coordinates
+    REQUIRE(solver.k_range.enabled);
+    REQUIRE(solver.k_range.k_min == -1.0);
+    REQUIRE(solver.k_range.k_max == 0.1);
+    solver.estimate(x0, y0, &poses);
+    REQUIRE(HasSolution(poses, -0.3, -0.3, 1e-7));
+    solver.k_range = HomLib::DistortionRange();
+    solver.estimate(x0, y0, &unfiltered);
+    REQUIRE(unfiltered.size() > poses.size());
+
+    // The test problem in other units: the points scaled by s, so k scaled by 1/s^2. The range
+    // is in the normalized coordinates, the same for both (k = -0.3 f0^2 there)
+    const double s = 1000.0, k = -0.3 / (s * s), f02 = Norm2(x0);
+    std::vector<Eigen::Vector2d> x, y;
+    for (int i = 0; i < 5; i++) {
+        x.push_back(s * kTwoSidedX[i]);
+        y.push_back(s * kTwoSidedY[i]);
+    }
+    solver.k_range = HomLib::DistortionRange(-0.5 * f02, 0.0);
+    solver.estimate(x, y, &poses);
+    REQUIRE(HasSolution(poses, k, k, 1e-7 / (s * s)));
+    solver.k_range.k_min = -0.2 * f02;
+    solver.estimate(x, y, &poses);
+    REQUIRE_FALSE(HasSolution(poses, k, k, 1e-7 / (s * s)));
+}
+
+TEST_CASE("Wadenback 3DV 2026 - one-sided estimator with a range check") {
+    // The points of the one-sided test (k2 = -0.3; k1 = 0, not estimated)
+    const std::vector<Eigen::Vector2d> x = {
+        Eigen::Vector2d( 0.242104535827652, -0.296297354299645),
+        Eigen::Vector2d( 0.319776775526576, -0.114580331777873),
+        Eigen::Vector2d(-0.122936754370192, -0.532655969828257),
+        Eigen::Vector2d( 0.303141152380151, -0.295669384794041),
+        Eigen::Vector2d( 0.446905125282507, -0.528127859697035)
+    };
+    const std::vector<Eigen::Vector2d> y = {
+        Eigen::Vector2d(-0.562787932824692, -0.0769625591786919),
+        Eigen::Vector2d(-0.612813481767545, -0.0311462459576149),
+        Eigen::Vector2d(-0.577247052139350, -0.252034297773712),
+        Eigen::Vector2d(-0.544031097770073, -0.0440402280844913),
+        Eigen::Vector2d(-0.424602042497788,  0.0211895908990797)
+    };
+    const double f02 = Norm2(x);   // k2 = -0.3 f02 in the normalized coordinates
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
+    solver.k_range = HomLib::DistortionRange(-0.5 * f02, -0.1 * f02);   // excludes 0: the parameter that the solver doesn't estimate passes anyway
+    std::vector<HomLib::PoseData> poses;
+    solver.estimate(x, y, &poses);
+    bool found = false;
+    for (const HomLib::PoseData &p : poses)
+        found = found || (p.distortion_parameter == 0 && std::abs(p.distortion_parameter2 + 0.3) < 1e-7);
+    REQUIRE(found);
+    solver.k_range.k_max = -0.4 * f02;   // excludes k2
+    solver.estimate(x, y, &poses);
+    REQUIRE(poses.empty());
+}
+
 TEST_CASE("Wadenback 3DV 2026 - two-sided") {
     std::vector<Eigen::Vector2d> p1 = {
         Eigen::Vector2d(-0.093972209335993,  0.0431909090094019),
@@ -136,12 +242,15 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided") {
 
     double tol = 1e-12;
 
-    // Test size
-    REQUIRE(posedata.size() == 1);
+    // Test that the true solution is among the solutions
+    size_t i = 0;
+    while (i < posedata.size() && std::abs(posedata[i].distortion_parameter + 0.3) > 1e-6)
+        i++;
+    REQUIRE(i < posedata.size());
 
     // Test distortion parameters
-    REQUIRE(posedata[0].distortion_parameter == Catch::Approx(-0.3).margin(tol));
-    REQUIRE(posedata[0].distortion_parameter2 == Catch::Approx(-0.3).margin(tol));
+    REQUIRE(posedata[i].distortion_parameter == Catch::Approx(-0.3).margin(tol));
+    REQUIRE(posedata[i].distortion_parameter2 == Catch::Approx(-0.3).margin(tol));
 
     // Test homographies
     tol = 1e-7;
@@ -150,7 +259,7 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided") {
     expected << -5.37070541971519e-06,  5.58776046545164e-06, -8.62056987828971e-07,
 		-5.32137209241095e-06, -4.87624482275744e-06,  3.51720726336518e-06,
 		 1.80217660206107e-06,  2.74275008576624e-06,  7.02453977468668e-06;
-    REQUIRE(same_homography(posedata[0].homography, expected, tol));
+    REQUIRE(same_homography(posedata[i].homography, expected, tol));
 
 }
 
@@ -245,3 +354,53 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided keeps true solutions with small residu
     REQUIRE(found);
 }
 
+TEST_CASE("Wadenback 3DV 2026 - two-sided finds the true solution when the polynomial has large spurious roots") {
+    // A noise-free problem (from generate_problem_instance) whose polynomial has large spurious
+    // roots. With bisect_sturm on the unscaled polynomial, the solver returned no solution.
+    std::vector<Eigen::Vector2d> p1 = {
+        Eigen::Vector2d(-0.22228857437217203, 0.31430661939176502),
+        Eigen::Vector2d(-0.03837544385109707, 0.10042236874822685),
+        Eigen::Vector2d(-0.11636355791184126, -0.13965098240691243),
+        Eigen::Vector2d(-0.5865491539372335, 0.36438603065051883),
+        Eigen::Vector2d(-0.05486981595789691, 0.007273160660069204)
+    };
+    std::vector<Eigen::Vector2d> p2 = {
+        Eigen::Vector2d(-0.20568881397920583, -0.070662689073286891),
+        Eigen::Vector2d(-0.44603065366376693, 0.06058114360166704),
+        Eigen::Vector2d(-0.45001971432866672, 0.34917146625635209),
+        Eigen::Vector2d(0.073214048526512879, 0.015759890612219555),
+        Eigen::Vector2d(-0.46333767603136894, 0.16592217039762755)
+    };
+    const double k1 = -0.05327440628985463, k2 = -0.14799715908936334;
+    std::vector<HomLib::PoseData> sols = HomLib::Wadenback3DV2026::get_double_sided(p1, p2, true);
+    bool found = false;
+    for (const HomLib::PoseData &s : sols)
+        found = found || (std::abs(s.distortion_parameter - k1) < 1e-8 &&
+                          std::abs(s.distortion_parameter2 - k2) < 1e-8);
+    REQUIRE(found);
+}
+
+TEST_CASE("Wadenback 3DV 2026 - two-sided finds the true solution of a noise-free problem without distortion") {
+    // k1 = k2 = 0, so the polynomial has a root at 0 (up to rounding), bisect_sturm's first
+    // bisection point. Without the shift, the solver returned no solution.
+    std::vector<Eigen::Vector2d> p1 = {
+        Eigen::Vector2d(-0.16448817833007917, -0.46635181069809178),
+        Eigen::Vector2d(0.024637866324819842, -0.48132714581808334),
+        Eigen::Vector2d(-0.03602202346529898, -0.0023432739599042775),
+        Eigen::Vector2d(-0.098525774028301261, -0.32116693673464658),
+        Eigen::Vector2d(-0.27360658561455992, -0.50323232824640396)
+    };
+    std::vector<Eigen::Vector2d> p2 = {
+        Eigen::Vector2d(-0.56902024394117134, 0.025271059099945693),
+        Eigen::Vector2d(-0.61449799601353605, 0.10083937269758972),
+        Eigen::Vector2d(-0.63161211819172258, -0.19415140125492883),
+        Eigen::Vector2d(-0.58926396264666059, -0.0096652347137476877),
+        Eigen::Vector2d(-0.5434579786831869, 2.9793534084044206e-05)
+    };
+    std::vector<HomLib::PoseData> sols = HomLib::Wadenback3DV2026::get_double_sided(p1, p2, true);
+    bool found = false;
+    for (const HomLib::PoseData &s : sols)
+        found = found || (std::abs(s.distortion_parameter) < 1e-8 &&
+                          std::abs(s.distortion_parameter2) < 1e-8);
+    REQUIRE(found);
+}
