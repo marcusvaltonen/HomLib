@@ -7,6 +7,7 @@ on each image's center (HomLib's distortion center), and the homography is in th
 
 Features:
 - ``sift`` (default): OpenCV SIFT with Lowe's ratio test. Easy to reproduce, no learned model.
+  With OpenCV 4.8 or later, it uses SIFT's precise upscaling, which keypoint accuracy needs.
 - ``loma``: LoMa (Nordström et al., ECCV 2026), as in hpatches_loma.py.
 
 ``--export_subset`` writes the matches of 8 pairs (4 viewpoint, 4 illumination) for the regression
@@ -40,7 +41,11 @@ SUBSET = ["v_graffiti/2", "v_boat/3", "v_wall/4", "v_bird/2",
 
 def sift_matcher(num_features, ratio):
     """match(img1_path, img2_path) -> (points1, points2), Nx2, in pixels."""
-    sift = cv2.SIFT_create(num_features)
+    # enable_precise_upscale (OpenCV >= 4.8) removes a shift of the keypoints of the upscaled octave
+    try:
+        sift = cv2.SIFT_create(num_features, enable_precise_upscale=True)
+    except TypeError:
+        sift = cv2.SIFT_create(num_features)
     bf = cv2.BFMatcher()
     cache = {}
 
