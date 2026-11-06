@@ -5,6 +5,7 @@
 #include <vector>
 #include "posedata.hpp"
 #include "distortion_range.h"
+#include "solver_id.h"
 
 namespace HomLib {
 
