@@ -1,5 +1,6 @@
 import functools
 import hashlib
+import http.client
 import os
 import unittest
 import urllib.request
@@ -34,10 +35,9 @@ def normalize_H(H):
 
 
 def fetch_test_data(name, url):
-    """The path of a test data file: ``$HOMLIB_TEST_DATA/<name>`` if it exists, otherwise ``url``
-    downloaded to a cache directory and checked against the SHA-256 published next to it
-    (``url + ".sha256"``). Without it, raises unittest.SkipTest, or fails if
-    ``HOMLIB_REQUIRE_TEST_DATA`` is set (as in CI)."""
+    """The path of a test data file: ``$HOMLIB_TEST_DATA/<name>`` if it exists, else a cached
+    download of ``url``, checked against the SHA-256 in ``url + ".sha256"``. If neither works, skips
+    the test, or fails if ``HOMLIB_REQUIRE_TEST_DATA`` is non-empty (as in CI)."""
     data_dir = os.environ.get("HOMLIB_TEST_DATA")
     if data_dir and (Path(data_dir) / name).exists():
         return Path(data_dir) / name
@@ -46,17 +46,19 @@ def fetch_test_data(name, url):
         return cache
     error = None
     try:
-        with urllib.request.urlopen(url + ".sha256") as f:
+        with urllib.request.urlopen(url + ".sha256", timeout=60) as f:
             sha256 = f.read().decode().split()[0]
-        with urllib.request.urlopen(url) as f:
+        with urllib.request.urlopen(url, timeout=60) as f:
             data = f.read()
         if hashlib.sha256(data).hexdigest() != sha256:
             error = f"{name}: wrong SHA-256"
-    except (OSError, ValueError, IndexError) as e:
+    except (OSError, ValueError, IndexError, http.client.HTTPException) as e:
         error = f"{name}: {e}"
     if error is None:
         cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_bytes(data)
+        tmp = cache.with_suffix(".tmp")
+        tmp.write_bytes(data)
+        tmp.replace(cache)   # atomic: an interrupted write leaves no corrupt file in the cache
         return cache
     if os.environ.get("HOMLIB_REQUIRE_TEST_DATA"):
         raise RuntimeError(f"Test data unavailable ({error})")

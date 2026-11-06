@@ -14,7 +14,9 @@ test ``python/tests/test_hpatches.py``.
 
 Requirements
 ------------
-pip install opencv-python tqdm    (and loma for --features loma)
+pip install opencv-python tqdm
+For ``--features loma``: LoMa from https://github.com/davnords/LoMa (``pip install -e .`` in a
+clone; the PyPI package named ``loma`` is unrelated).
 
 Usage
 -----
@@ -37,7 +39,7 @@ SUBSET = ["v_graffiti/2", "v_boat/3", "v_wall/4", "v_bird/2",
 
 
 def sift_matcher(num_features, ratio):
-    """match(img1_path, img2_path) -> (points1, points2), Nx2, in pixels"""
+    """match(img1_path, img2_path) -> (points1, points2), Nx2, in pixels."""
     sift = cv2.SIFT_create(num_features)
     bf = cv2.BFMatcher()
     cache = {}
@@ -87,13 +89,16 @@ def main():
     parser.add_argument("--features", choices=["sift", "loma"], default="sift")
     parser.add_argument("--num_features", type=int, default=4000, help="SIFT features, or LoMa keypoints")
     parser.add_argument("--ratio", type=float, default=0.8, help="Ratio test (SIFT)")
-    parser.add_argument("--output", type=str, default=None, help="The matches file to write")
+    parser.add_argument("--output", type=str, default=None,
+                        help="The matches file to write (default: <data_dir>/hpatches_<features>.npz)")
     parser.add_argument("--matches", type=str, default=None, help="An existing matches file (with --export_subset)")
     parser.add_argument("--export_subset", type=str, default=None,
                         help="Write the matches of the 8 pairs of the regression test to this file")
     args = parser.parse_args()
 
     if args.matches:
+        if not args.export_subset:
+            parser.error("--matches needs --export_subset")
         pairs = load_matches(Path(args.matches))
     else:
         match = (sift_matcher(args.num_features, args.ratio) if args.features == "sift"

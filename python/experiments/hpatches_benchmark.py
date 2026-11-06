@@ -3,11 +3,14 @@ HPatches benchmark of HomLib's point solvers, on precomputed matches (hpatches_f
 
 For each pair, the script runs LOMSAC with every point solver, and reports, for the viewpoint and
 the illumination sequences:
-- the share of the true inliers that LOMSAC finds (the matches within the inlier threshold of the
-  ground-truth homography);
-- the AUC of the corner error, mapping the image corners with the estimated model (distortion
+- the share of the true inliers that LOMSAC finds, the true inliers being the matches within the
+  inlier threshold of the ground-truth homography. This share ignores false inliers: the corner
+  error accounts for them;
+- the AUC of the corner error, which maps the image corners with the estimated model (distortion
   included) and with the ground-truth homography;
-- the median time per pair.
+- the median time of a LOMSAC run.
+
+Pairs with no true inlier are left out, since no solver can find any.
 
 ``--output`` saves the results of every pair to a JSON file, and ``--compare a.json b.json``
 prints the differences between two such runs (e.g. two versions of HomLib), with their standard
@@ -34,7 +37,7 @@ from hpatches_data import load_matches
 
 
 def true_inliers(pair, threshold):
-    """The matches within the threshold of the ground-truth homography"""
+    """The matches within the threshold of the ground-truth homography."""
     x, y, H = pair["x"], pair["y"], pair["H"]
     p = H @ np.vstack([x, np.ones(x.shape[1])])
     return np.flatnonzero(np.linalg.norm(p[:2] / p[2] - y, axis=0) < threshold)
@@ -42,7 +45,7 @@ def true_inliers(pair, threshold):
 
 def map_points(pose, p):
     """The points p of image 1 mapped to image 2 with an estimated model: undistorted with k1,
-    mapped with H, distorted with k2 (division model)"""
+    mapped with H, distorted with k2 (division model)."""
     k1, k2 = pose.distortion_parameter, pose.distortion_parameter2
     q = np.array(pose.homography) @ np.vstack([p, 1 + k1 * np.sum(p**2, 0)])
     u = q[:2] / q[2]
@@ -52,8 +55,10 @@ def map_points(pose, p):
 
 
 def corner_error(pose, pair):
-    """Mean distance between the image corners mapped by the estimated model and by the ground
-    truth, in pixels"""
+    """The mean distance between the image corners mapped by the estimated model and by the
+    ground truth, in pixels."""
+    # The points are centered on the image center, ((w - 1) / 2, (h - 1) / 2) with OpenCV's pixel
+    # centers at integer coordinates: the outer corners of the image are at (±w / 2, ±h / 2).
     w, h = pair["width"] / 2, pair["height"] / 2
     corners = np.array([[-w, w, w, -w], [-h, -h, h, h]])
     g = pair["H"] @ np.vstack([corners, np.ones(4)])
@@ -71,7 +76,7 @@ def main():
     parser.add_argument("matches", nargs="?", help="The matches file (hpatches_features.py)")
     parser.add_argument("--threshold", type=float, default=3.0, help="Inlier threshold in pixels")
     parser.add_argument("--seeds", type=int, default=3, help="LOMSAC runs per pair (random seeds)")
-    parser.add_argument("--solvers", nargs="*", default=None,
+    parser.add_argument("--solvers", nargs="*", choices=[s.name for s in point_solvers()], default=None,
                         help="SolverId names (default: every point solver)")
     parser.add_argument("--output", type=str, default=None, help="Save the results to this JSON file")
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
@@ -90,10 +95,10 @@ def main():
     # results[solver][pair] = per seed: (share of the true inliers found, corner error, time)
     results = {s.name: {} for s in solvers}
     for key, pair in tqdm(pairs.items(), desc="Pairs"):
-        if pair["x"].shape[1] < 8:
+        gt = set(true_inliers(pair, args.threshold).tolist())
+        if not gt:
             continue
         x, y = np.ascontiguousarray(pair["x"]), np.ascontiguousarray(pair["y"])
-        gt = set(true_inliers(pair, args.threshold).tolist())
         for s in solvers:
             runs = []
             for seed in range(1, args.seeds + 1):
@@ -101,7 +106,7 @@ def main():
                 t0 = time.perf_counter()
                 pose, stats = lomsac.estimate(x, y)
                 elapsed = time.perf_counter() - t0
-                runs.append((len(gt & set(stats.inlier_indices)) / max(len(gt), 1),
+                runs.append((len(gt & set(stats.inlier_indices)) / len(gt),
                              corner_error(pose, pair), elapsed))
             results[s.name][key] = runs
     if args.output:
@@ -115,7 +120,8 @@ def kind(key):
 
 
 def print_results(results):
-    print(f"\n{'Solver':<46s} {'Pairs':<13s} {'True inliers':>12s}  AUC@1  AUC@3  AUC@5 AUC@10  {'Time (ms)':>9s}")
+    print(f"\n{'Solver':<46s} {'Sequences':<13s} {'Inliers found':>13s}  AUC@1  AUC@3  AUC@5 AUC@10  "
+          f"{'Time (ms)':>9s}")
     for name, per_pair in sorted(results.items()):
         for k in ("illumination", "viewpoint"):
             runs = [r for key, rs in per_pair.items() if kind(key) == k for r in rs]
@@ -124,19 +130,19 @@ def print_results(results):
             recall, err, t = (np.array(v) for v in zip(*runs))
             # AUC of the cumulative error curve up to each threshold
             aucs = [np.mean(np.maximum(0, 1 - err / th)) * 100 for th in (1, 3, 5, 10)]
-            print(f"{name:<46s} {k:<13s} {np.mean(recall) * 100:11.2f}%"
+            print(f"{name:<46s} {k:<13s} {np.mean(recall) * 100:12.2f}%"
                   + "".join(f" {a:6.2f}" for a in aucs) + f"  {np.median(t) * 1e3:9.2f}")
 
 
 def compare(path_a, path_b):
     """The differences between two runs, b - a, for the pairs and solvers of both: share of the
     true inliers found and AUC@5, averaged over the seeds of each pair, with their standard errors
-    over the pairs; and the ratio of the median times"""
+    over the pairs; and the ratio of the median times."""
     with open(path_a) as f:
         a = json.load(f)
     with open(path_b) as f:
         b = json.load(f)
-    print(f"{'Solver':<46s} {'Pairs':<13s} {'True inliers':>18s} {'AUC@5':>18s} {'Time':>7s}")
+    print(f"{'Solver':<46s} {'Sequences':<13s} {'Inliers found':>18s} {'AUC@5':>18s} {'Time':>7s}")
     for name in sorted(set(a) & set(b)):
         for k in ("illumination", "viewpoint"):
             keys = [key for key in a[name] if key in b[name] and kind(key) == k]
@@ -157,7 +163,7 @@ def per_pair(results, name, keys, i):
 
 
 def standard_error(d):
-    return d.std() / np.sqrt(len(d))
+    return d.std(ddof=1) / np.sqrt(len(d))
 
 
 if __name__ == "__main__":

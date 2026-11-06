@@ -23,11 +23,19 @@ SUBSET_URL = os.environ.get(
 THRESHOLD = 3.0   # inlier threshold in pixels
 SEEDS = (1, 2, 3)
 
-# The share of the true inliers that LOMSAC must find, on average over the pairs and the seeds.
-# The two-sided distortion solvers are weaker on some illumination pairs, whose homography is the
-# identity: there, any k1 = k2 fits the matches.
+# The share of the true inliers that each solver must find in LOMSAC, on average over the pairs and
+# the seeds: a little below the measured values, with a margin for the random number generators,
+# which differ between platforms. The Kukelova and Wadenbäck two-sided solvers are weaker on some
+# illumination pairs, whose homography is the identity: there, any k1 = k2 fits the matches.
 MIN_RECALL = 0.95
-MIN_RECALL_TWO_SIDED = 0.7
+MIN_RECALL_OF = {
+    "KukelovaCVPR2015TwoSided": 0.8,
+    "KukelovaCVPR2015TwoSided6Pt": 0.75,
+    "KukelovaCVPR2015TwoSidedEqual": 0.8,
+    "KukelovaCVPR2015TwoSidedEqual6Pt": 0.75,
+    "Wadenback3DV2026TwoSided": 0.85,
+    "Wadenback3DV2026TwoSidedEqual": 0.85,
+}
 
 
 def load_pairs(path):
@@ -37,7 +45,7 @@ def load_pairs(path):
 
 
 def recall(solver_id, x, y, H):
-    """The share of the true inliers (within THRESHOLD of H) that LOMSAC finds, averaged over SEEDS"""
+    """The share of the true inliers (within THRESHOLD of H) that LOMSAC finds, over SEEDS."""
     p = H @ np.vstack([x, np.ones(x.shape[1])])
     true = set(np.flatnonzero(np.linalg.norm(p[:2] / p[2] - y, axis=0) < THRESHOLD).tolist())
     found = []
@@ -57,10 +65,9 @@ class HPatchesTestCase(unittest.TestCase):
         for solver_id in homlib.SolverId.__members__.values():
             if homlib.Solver(solver_id).feature_type != homlib.FeatureType.Points:
                 continue
-            two_sided = "TwoSided" in solver_id.name
-            mean = np.mean([recall(solver_id, *p) for p in self.pairs.values()])
             with self.subTest(solver=solver_id.name):
-                self.assertGreater(mean, MIN_RECALL_TWO_SIDED if two_sided else MIN_RECALL)
+                mean = np.mean([recall(solver_id, *p) for p in self.pairs.values()])
+                self.assertGreater(mean, MIN_RECALL_OF.get(solver_id.name, MIN_RECALL))
 
 
 if __name__ == "__main__":

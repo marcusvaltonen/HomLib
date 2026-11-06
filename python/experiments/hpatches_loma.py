@@ -6,7 +6,8 @@ LoMa (Nordström et al., ECCV 2026) for local feature matching.
 
 Requirements
 ------------
-pip install loma opencv-python matplotlib tqdm
+pip install opencv-python matplotlib tqdm, and LoMa from https://github.com/davnords/LoMa
+(``pip install -e .`` in a clone; the PyPI package named ``loma`` is unrelated)
 
 HPatches dataset is downloaded automatically on first run.
 
