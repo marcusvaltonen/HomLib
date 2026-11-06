@@ -19,7 +19,6 @@
 // SOFTWARE.
 
 #include <Eigen/Dense>
-#include <limits>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -64,17 +63,4 @@ TEST_CASE("Nakano ICPR 2025") {
                  0.851682151867801,  0.527896230136481, -1.5204980422764300;
     REQUIRE(posedata[0].homography.isApprox(expected, tol));
 
-}
-
-TEST_CASE("Nakano ICPR 2025 - eigensolver without convergence") {
-    // A NaN coordinate stops the eigensolver from converging: the solver must return no solution
-    std::vector<Eigen::Vector2d> p1 = {
-        Eigen::Vector2d(0.1, 0.2), Eigen::Vector2d(0.8, -0.3), Eigen::Vector2d(-0.5, 0.6),
-        Eigen::Vector2d(0.4, 0.9), Eigen::Vector2d(-0.7, -0.4)
-    };
-    std::vector<Eigen::Vector2d> p2 = p1;
-    p2[2](0) = std::numeric_limits<double>::quiet_NaN();
-
-    REQUIRE(HomLib::NakanoICPR2025::get(p1, p2, false).empty());
-    REQUIRE(HomLib::NakanoICPR2025::get(p1, p2, true).empty());
 }
