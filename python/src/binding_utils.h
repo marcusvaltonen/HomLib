@@ -95,7 +95,7 @@ inline void preprocess_orientation(
 struct PySolver {
     HomLib::SolverId id;
     HomLib::FeatureType feature_type;
-    bool extra_check;
+    py::dict options;
     // The range on the distortion parameters set by Solver.set_k_range, in HomLib's normalized
     // coordinates (see DistortionRange); without it, the estimators' default, [-1, 0.1]
     bool has_k_range = false;
@@ -104,8 +104,8 @@ struct PySolver {
     double k_min = -std::numeric_limits<double>::infinity();
     double k_max = std::numeric_limits<double>::infinity();
 
-    PySolver(HomLib::SolverId id, bool extra_check = false)
-        : id(id), feature_type(HomLib::feature_type_for(id)), extra_check(extra_check) {}
+    PySolver(HomLib::SolverId id, py::kwargs kwargs)
+        : id(id), feature_type(HomLib::feature_type_for(id)), options(kwargs) {}
 };
 
 // The range set by Solver.set_k_range; set_k_range() without bounds means no check at all
@@ -117,17 +117,28 @@ inline HomLib::DistortionRange user_range(const PySolver& py_solver) {
     return HomLib::DistortionRange(py_solver.k_min, py_solver.k_max);
 }
 
-// The C++ solver of a PySolver: its extra_check, normalize_image_coord and, if set, its range on
-// the distortion
+// Stamp out a SFINAE member detector for a solver option.
+#define HOMLIB_DEFINE_OPTION(name)                                                          \
+    template <typename T, typename = void>                                                  \
+    struct has_##name : std::false_type {};                                                  \
+    template <typename T>                                                                   \
+    struct has_##name<T, std::void_t<decltype(std::declval<T&>().name)>> : std::true_type {};
+
+// Copy an option from PySolver.options into the C++ solver if the solver has that member.
+#define HOMLIB_COPY_OPTION(solver, opts, name, type)                   \
+    if constexpr (has_##name<std::decay_t<decltype(solver)>>::value) {  \
+        if (opts.contains(#name))                                      \
+            solver.name = opts[#name].cast<type>();                     \
+    }
+
+HOMLIB_DEFINE_OPTION(extra_check)
+
+// The C++ solver of a PySolver: its options (extra_check), normalize_image_coord and, if set, its
+// range on the distortion
 template <typename Solver>
 Solver make_solver(const PySolver& py_solver) {
-    Solver s = [&]() {
-        if constexpr (std::is_constructible_v<Solver, bool>) {
-            return Solver(py_solver.extra_check);
-        } else {
-            return Solver();
-        }
-    }();
+    Solver s{};
+    HOMLIB_COPY_OPTION(s, py_solver.options, extra_check, bool)
     s.normalize_image_coord = py_solver.normalize_image_coord;
     if (py_solver.has_k_range) {
         s.k_range = user_range(py_solver);

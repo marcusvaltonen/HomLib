@@ -46,8 +46,7 @@ std::vector<HomLib::PoseData> get_ori(
 class AffineSolverSingleSided : public AffinePoseEstimator<AffineSolverSingleSided> {
     public:
         static constexpr int minimal_sample_size_value = 2;
-        AffineSolverSingleSided() = default;
-        explicit AffineSolverSingleSided(bool extra_check) : extra_check(extra_check) {}
+        bool extra_check = false;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Matrix2d> &A, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
             std::vector<HomLib::PoseData> output = HomLib::ValtonenOrnhagICPR2026::get_affine(x, y, A, extra_check);
@@ -71,8 +70,6 @@ class AffineSolverSingleSided : public AffinePoseEstimator<AffineSolverSingleSid
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_onesided_right(x, y, pose);
         }
-    private:
-        bool extra_check = false;
     };
 
 class OrientationSolverSingleSided : public OrientationPoseEstimator<OrientationSolverSingleSided> {

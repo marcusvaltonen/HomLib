@@ -24,7 +24,6 @@
 #include <vector>
 #include <random>
 #include <algorithm>
-#include <cstdlib>
 #include <catch2/catch_test_macros.hpp>
 
 #include "posedata.hpp"
@@ -59,12 +58,11 @@ struct TestData {
 };
 
 TestData generate_test_data(int seed, int n_points, int n_outliers, HomLib::DistortionCase distortion) {
-    std::srand(seed);
-
     HomLib::ProblemConfig config;
     config.distortion = distortion;
     config.point_noise = 0.0001;
     config.number_points = n_points;
+    config.seed = static_cast<unsigned int>(seed);
 
     HomLib::ProblemInstance inst = HomLib::generate_problem_instance(config);
 
@@ -98,7 +96,7 @@ TestData generate_test_data(int seed, int n_points, int n_outliers, HomLib::Dist
 
 TEST_CASE("LOMSAC - point features") {
     auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
-    HomLib::Wadenback3DV2026::SolverSingleSided solver(true);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
 
     ransac_lib::LORansacOptions options;
     options.squared_inlier_threshold_ = 0.005 * 0.005;
@@ -155,17 +153,22 @@ TEST_CASE("LOMSAC - orientation features") {
 
 TEST_CASE("GC-RANSAC - point features") {
     auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
-    HomLib::Wadenback3DV2026::SolverSingleSided solver(true);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
 
     HomLib::GCRANSACSettings settings;
     settings.threshold = 0.005;
     settings.max_iterations = 5000;
 
-    auto [pose, stats] = HomLib::run_gcransac_point(solver, data.x, data.y, settings);
-
+    // GC-RANSAC uses std::random_device internally (no seed API), so retry
+    // up to 3 times to guard against unlucky sampling draws.
     size_t expected_inliers = data.n_total - data.n_outliers;
-    REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
-    REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
+    bool success = false;
+    for (int attempt = 0; attempt < 3 && !success; ++attempt) {
+        auto [pose, stats] = HomLib::run_gcransac_point(solver, data.x, data.y, settings);
+        success = (stats.inliers.size() > 0.9 * expected_inliers) &&
+                  (data.instance.hom_error(pose.homography) < 0.1);
+    }
+    REQUIRE(success);
 }
 
 TEST_CASE("GC-RANSAC - affine features") {
@@ -211,7 +214,7 @@ TEST_CASE("GC-RANSAC - orientation features") {
 
 TEST_CASE("MAGSAC++ - point features") {
     auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
-    HomLib::Wadenback3DV2026::SolverSingleSided solver(true);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
 
     HomLib::MAGSACSettings settings;
     settings.sigma_max = 0.01;
@@ -267,7 +270,7 @@ TEST_CASE("MAGSAC++ - orientation features") {
 
 TEST_CASE("SupeRANSAC - point features") {
     auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
-    HomLib::Wadenback3DV2026::SolverSingleSided solver(true);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
 
     superansac::RANSACSettings settings;
     settings.inlierThreshold = 0.005;

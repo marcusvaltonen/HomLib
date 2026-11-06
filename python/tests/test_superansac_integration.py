@@ -4,6 +4,8 @@ import unittest
 import numpy as np
 import homlib
 
+from tests.helpers import normalize_H
+
 
 @unittest.skipUnless(homlib._HAS_SUPERANSAC, "SupeRANSAC not built")
 class SuperansacIntegrationTestCase(unittest.TestCase):
@@ -43,8 +45,8 @@ class SuperansacIntegrationTestCase(unittest.TestCase):
 
         estimate, stats = sa.estimate(self.x, self.y)
 
-        H_est = estimate.homography / estimate.homography[2, 2]
-        H_gt = self.H / self.H[2, 2]
+        H_est = normalize_H(estimate.homography)
+        H_gt = normalize_H(self.H)
         self.assertLess(np.linalg.norm(H_est - H_gt), 0.1)
 
         self.assertGreater(len(stats.inliers), self.N - self.n_outliers - 10)
@@ -59,8 +61,8 @@ class SuperansacIntegrationTestCase(unittest.TestCase):
 
         estimate, stats = sa.estimate(self.x, self.y)
 
-        H_est = estimate.homography / estimate.homography[2, 2]
-        H_gt = self.H / self.H[2, 2]
+        H_est = normalize_H(estimate.homography)
+        H_gt = normalize_H(self.H)
         self.assertLess(np.linalg.norm(H_est - H_gt), 0.1)
 
     def test_superansac_settings_defaults(self):
@@ -89,7 +91,7 @@ class SuperansacIntegrationTestCase(unittest.TestCase):
                                final_optimization=homlib.SuperansacLocalOptType.None_)
         lomsac = homlib.LOMSAC(solver, squared_inlier_threshold=0.005)
 
-        H_gt = self.H / self.H[2, 2]
+        H_gt = normalize_H(self.H)
 
         n_runs = 5
 
@@ -110,8 +112,8 @@ class SuperansacIntegrationTestCase(unittest.TestCase):
             lomsac_inliers.append(len(stats_lo.inlier_indices))
 
         # Both should find a reasonable homography
-        H_sa = est_sa.homography / est_sa.homography[2, 2]
-        H_lo = est_lo.homography / est_lo.homography[2, 2]
+        H_sa = normalize_H(est_sa.homography)
+        H_lo = normalize_H(est_lo.homography)
         self.assertLess(np.linalg.norm(H_sa - H_gt), 0.1)
         self.assertLess(np.linalg.norm(H_lo - H_gt), 0.1)
 

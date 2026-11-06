@@ -177,7 +177,7 @@ PYBIND11_MODULE(_core, m) {
             Wraps a specific solver algorithm identified by :class:`SolverId`.
             Solver-specific parameters (e.g. ``extra_check``) are set at construction.
         )pbdoc")
-        .def(py::init<HomLib::SolverId, bool>(),
+        .def(py::init<HomLib::SolverId, py::kwargs>(),
             R"pbdoc(
                 Construct a Solver.
 
@@ -185,13 +185,14 @@ PYBIND11_MODULE(_core, m) {
                 ----------
                 id : SolverId
                     Which solver algorithm to use.
-                extra_check : bool
-                    Whether to apply extra validation checks (only affects solvers that support it).
+                **kwargs
+                    Solver-specific options (e.g. ``extra_check=True``).
+                    Unknown options are silently ignored.
             )pbdoc",
-            "id"_a, "extra_check"_a = false)
+            "id"_a)
         .def_readonly("id", &PySolver::id, "Solver identifier (:class:`SolverId`).")
         .def_readonly("feature_type", &PySolver::feature_type, "Feature type (:class:`FeatureType`).")
-        .def_readonly("extra_check", &PySolver::extra_check, "Whether extra validation checks are enabled.")
+        .def_readonly("options", &PySolver::options, "Solver-specific options.")
         .def_readwrite("normalize_image_coord", &PySolver::normalize_image_coord,
             R"pbdoc(
                 Whether the robust estimators normalize each sample (default True).
@@ -265,8 +266,11 @@ PYBIND11_MODULE(_core, m) {
         .def("__repr__", [](const PySolver& s) {
             auto py_id = py::cast(s.id);
             std::string name = py_id.attr("name").cast<std::string>();
-            std::string r = "Solver(SolverId." + name +
-                            ", extra_check=" + std::string(s.extra_check ? "True" : "False");
+            std::string r = "Solver(SolverId." + name;
+            for (auto item : s.options) {
+                r += ", " + py::str(item.first).cast<std::string>() +
+                     "=" + py::str(item.second).cast<std::string>();
+            }
             if (s.has_k_range) {
                 r += ", k_range=" + py::repr(py::make_tuple(s.k_min, s.k_max)).cast<std::string>();
             }
