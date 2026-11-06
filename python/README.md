@@ -24,13 +24,16 @@ python experiments/synthetic_benchmark.py --output synthetic.json
 ```
 
 - ``hpatches_features.py`` downloads HPatches to ``data`` if needed (a large archive), and writes the
-  matches of its 580 pairs. It uses OpenCV SIFT by default, or LoMa with ``--features loma``. LoMa
-  installs from https://github.com/davnords/LoMa; the PyPI package named ``loma`` is unrelated.
+  matches of its 580 pairs. It uses OpenCV SIFT with Lowe's ratio test by default. It can also use
+  LightGlue with SuperPoint, DISK, ALIKED or SIFT (``--matcher lightglue``), as Wadenbäck et al.
+  (3DV 2026) do on HPatches, or LoMa (``--features loma``). LightGlue and LoMa install from
+  https://github.com/cvg/LightGlue and https://github.com/davnords/LoMa; the PyPI package named
+  ``loma`` is unrelated. Its docstring gives the settings of the paper.
 - ``hpatches_benchmark.py`` runs every point solver in LOMSAC on these matches. It reports the share
   of the true inliers found, the AUC of the corner error, and the time.
 - ``synthetic_benchmark.py`` runs every point solver on problems from ``generate_problem_instance``.
   It reports how often each solver misses the true solution, how its error grows with noise, and
-  its time.
+  its time. With ``--outliers``, it runs LOMSAC on problems with outliers instead.
 
 ``--output`` saves the results, and ``--compare before.json after.json`` prints the differences
 between two runs, for example with two versions of HomLib.
