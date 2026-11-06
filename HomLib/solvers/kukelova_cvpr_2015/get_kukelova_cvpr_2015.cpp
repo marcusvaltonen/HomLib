@@ -37,7 +37,8 @@ namespace KukelovaCVPR2015 {
     std::vector<HomLib::PoseData> get(
         const std::vector<Eigen::Vector2d> &x,
         const std::vector<Eigen::Vector2d> &y,
-        bool dist_equal
+        bool dist_equal,
+        const HomLib::DistortionRange &range
     ) {
         // This is a five point method
         const int nbr_pts = 5;
@@ -137,6 +138,13 @@ namespace KukelovaCVPR2015 {
             }
             // Get parameters.
             xx = sols.col(i).real();
+            // The distortion parameters, back in the input's coordinates
+            const double s2 = std::pow(scale, 2);
+            const double k1 = dist_equal ? 0.5 * (xx(0) + xx(1)) * s2 : xx(0) * s2;
+            const double k2 = dist_equal ? k1 : xx(1) * s2;
+            if (!range.contains(k1, k2)) {
+                continue;
+            }
 
             //if (dist_equal && (std::abs(xx(0) - xx(1)) > 0.01 * std::sqrt(xx(0) * xx(1)))) {
             //    continue;
@@ -148,14 +156,8 @@ namespace KukelovaCVPR2015 {
             // Package output
             HomLib::PoseData pd;
             pd.homography = Htmp;
-            if (dist_equal) {
-
-                pd.distortion_parameter = 0.5 * (xx(0) + xx(1)) * std::pow(scale, 2);
-                pd.distortion_parameter2 = pd.distortion_parameter;
-            } else {
-                pd.distortion_parameter = xx(0) * std::pow(scale, 2);
-                pd.distortion_parameter2 = xx(1) * std::pow(scale, 2);
-            }
+            pd.distortion_parameter = k1;
+            pd.distortion_parameter2 = k2;
 
             output.push_back(pd);
         }

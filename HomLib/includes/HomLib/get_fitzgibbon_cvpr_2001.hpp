@@ -30,20 +30,27 @@
 
 namespace HomLib {
 namespace FitzgibbonCVPR2001 {
+// With a range: choosing the best solution among those with a distortion parameter in the range
+// (checked before computing their homography)
 std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &x,
-    const std::vector<Eigen::Vector2d> &y
+    const std::vector<Eigen::Vector2d> &y,
+    const HomLib::DistortionRange &range = HomLib::DistortionRange()
 );
+// With a range: choosing the best solution among those with a distortion parameter in the range
+// (checked before computing their homography)
 std::vector<HomLib::PoseData> get_single(
     const std::vector<Eigen::Vector2d> &x,
-    const std::vector<Eigen::Vector2d> &y
+    const std::vector<Eigen::Vector2d> &y,
+    const HomLib::DistortionRange &range = HomLib::DistortionRange()
 );
 class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
         SolverSingleSided() = default;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::FitzgibbonCVPR2001::get_single(x, y);
+        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
+                  const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
+            std::vector<HomLib::PoseData> output = HomLib::FitzgibbonCVPR2001::get_single(x, y, range);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
@@ -60,8 +67,9 @@ class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
     public:
         static constexpr int minimal_sample_size_value = 5;
         SolverTwoSidedEqual() = default;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::FitzgibbonCVPR2001::get(x, y);
+        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
+                  const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
+            std::vector<HomLib::PoseData> output = HomLib::FitzgibbonCVPR2001::get(x, y, range);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }

@@ -1,6 +1,11 @@
 #pragma once
 
+#include <cmath>
+#include <limits>
+#include <optional>
+
 #include <sstream>
+#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
@@ -12,6 +17,7 @@
 #include <Eigen/Dense>
 
 #include <posedata.hpp>
+#include <distortion_range.h>
 #include <solver_id.h>
 #include <solver_dispatch.h>
 
@@ -90,10 +96,26 @@ struct PySolver {
     HomLib::SolverId id;
     HomLib::FeatureType feature_type;
     py::dict options;
+    // The range on the distortion parameters set by Solver.set_k_range, in HomLib's normalized
+    // coordinates (see DistortionRange); without it, the estimators' default, [-1, 0.1]
+    bool has_k_range = false;
+    // Whether the estimators normalize each sample (EstimatorBase::normalize_image_coord)
+    bool normalize_image_coord = true;
+    double k_min = -std::numeric_limits<double>::infinity();
+    double k_max = std::numeric_limits<double>::infinity();
 
     PySolver(HomLib::SolverId id, py::kwargs kwargs)
         : id(id), feature_type(HomLib::feature_type_for(id)), options(kwargs) {}
 };
+
+// The range set by Solver.set_k_range; set_k_range() without bounds means no check at all
+inline HomLib::DistortionRange user_range(const PySolver& py_solver) {
+    const double inf = std::numeric_limits<double>::infinity();
+    if (py_solver.k_min == -inf && py_solver.k_max == inf) {
+        return HomLib::DistortionRange();
+    }
+    return HomLib::DistortionRange(py_solver.k_min, py_solver.k_max);
+}
 
 // Stamp out a SFINAE member detector for a solver option.
 #define HOMLIB_DEFINE_OPTION(name)                                                          \
@@ -111,9 +133,32 @@ struct PySolver {
 
 HOMLIB_DEFINE_OPTION(extra_check)
 
+// The C++ solver of a PySolver: its options (extra_check), normalize_image_coord and, if set, its
+// range on the distortion
 template <typename Solver>
 Solver make_solver(const PySolver& py_solver) {
     Solver s{};
     HOMLIB_COPY_OPTION(s, py_solver.options, extra_check, bool)
+    s.normalize_image_coord = py_solver.normalize_image_coord;
+    if (py_solver.has_k_range) {
+        s.k_range = user_range(py_solver);
+    }
     return s;
+}
+
+// The range of estimate(), which calls the solver on the points as given (without the estimators'
+// normalization, and without their default range): the range set by Solver.set_k_range, from the
+// normalized coordinates to those of the points (k divided by f0^2, f0 = mean(|x|)/sqrt(2)), or
+// as is without normalize_image_coord
+inline HomLib::DistortionRange direct_range(const PySolver& py_solver, const std::vector<Eigen::Vector2d>& x) {
+    const HomLib::DistortionRange range = py_solver.has_k_range ? user_range(py_solver) : HomLib::DistortionRange();
+    if (!range.enabled || !py_solver.normalize_image_coord || x.empty()) {
+        return range;
+    }
+    double f0 = 0.0;
+    for (const Eigen::Vector2d& p : x) {
+        f0 += p.norm();
+    }
+    f0 /= x.size() * std::sqrt(2.0);
+    return HomLib::DistortionRange(py_solver.k_min / (f0 * f0), py_solver.k_max / (f0 * f0));
 }

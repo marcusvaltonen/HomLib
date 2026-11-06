@@ -5,6 +5,7 @@
 
 #include "posedata.hpp"
 #include "wadenback_common.hpp"
+#include "get_wadenback_3dv_2026.hpp"
 #include <iostream>
 
 namespace HomLib {
@@ -18,7 +19,8 @@ static inline void fast_eigenvector_solver(
 std::vector<HomLib::PoseData> get_double_sided(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y,
-    bool extra_check
+    bool extra_check,
+    const HomLib::DistortionRange &range
 )
 {
     Eigen::Matrix<double, 24, 1> data;
@@ -142,11 +144,9 @@ std::vector<HomLib::PoseData> get_double_sided(
     for (int i = 0; i < nroots; i++) {
         double k1 = sols(0, i);
         double k2 = sols(1, i);
-
-        if (k1 > 0.1 || k1 < -1)
+        if (!range.contains(k1, k2)) {
             continue;
-        if (k2 > 0.1 || k2 < -1)
-            continue;
+        }
 
         if (extra_check && nroots > 1) {
             double res1a = compute_residual1(x, k1);

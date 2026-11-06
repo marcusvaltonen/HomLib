@@ -6,6 +6,7 @@
 
 #include "posedata.hpp"
 #include "wadenback_common.hpp"
+#include "get_wadenback_3dv_2026.hpp"
 
 
 namespace HomLib {
@@ -17,7 +18,8 @@ static inline double unused_equation_residual(
 std::vector<HomLib::PoseData> get_double_sided_equal(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y,
-    bool extra_check
+    bool extra_check,
+    const HomLib::DistortionRange &range
 )
 {
     Eigen::Matrix<double, 24, 1> data;
@@ -52,6 +54,9 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
         if (nroots > 1) {
             for (int i = 0; i < nroots; i++) {
                 double k = roots[i];
+                if (!range.contains(k)) {
+                    continue;
+                }
                 res = unused_equation_residual(d, k);
                 if (res < min_res) {
                     min_res = res;
@@ -62,6 +67,9 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
         
         // Only compute homography for the best one
         double k = roots[best_id];
+        if (!range.contains(k)) {   // no root in the range
+            return output;
+        }
         std::vector<Eigen::Vector2d> x_undist;
         std::vector<Eigen::Vector2d> y_undist;
         for (int i = 0; i < 4; i++) {
@@ -85,6 +93,9 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
             HomLib::PoseData pd;
             Eigen::Matrix3d H;
             double k = roots[j];
+            if (!range.contains(k)) {
+                continue;
+            }
 
             std::vector<Eigen::Vector2d> x_undist;
             std::vector<Eigen::Vector2d> y_undist;

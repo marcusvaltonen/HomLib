@@ -30,17 +30,21 @@
 
 namespace HomLib {
 namespace NakanoICPR2025 {
+// With a range: keeping only the solutions with distortion parameters in the range (checked
+// before computing their homography; with extra_check, the best of these)
 std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y,
-    bool extra_check
+    bool extra_check,
+    const HomLib::DistortionRange &range = HomLib::DistortionRange()
 );
 class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
         bool extra_check = false;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::NakanoICPR2025::get(x, y, extra_check);
+        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
+                  const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
+            std::vector<HomLib::PoseData> output = HomLib::NakanoICPR2025::get(x, y, extra_check, range);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
@@ -65,8 +69,9 @@ class SolverSingleSidedRight : public PoseEstimator<SolverSingleSidedRight> {
     public:
         static constexpr int minimal_sample_size_value = 5;
         bool extra_check = false;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
-            std::vector<HomLib::PoseData> output = HomLib::NakanoICPR2025::get(y, x, extra_check);  // Hack here
+        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
+                  const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
+            std::vector<HomLib::PoseData> output = HomLib::NakanoICPR2025::get(y, x, extra_check, range);  // Hack here
             for (size_t i = 0; i < output.size(); i++) {
                 output[i].homography = output[i].homography.inverse();  //Hack here
                 output[i].distortion_parameter = output[i].distortion_parameter2;  //Hack here

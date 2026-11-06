@@ -47,8 +47,10 @@ class AffineSolverSingleSided : public AffinePoseEstimator<AffineSolverSingleSid
     public:
         static constexpr int minimal_sample_size_value = 2;
         bool extra_check = false;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Matrix2d> &A, std::vector<HomLib::PoseData> *poses) const {
+        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Matrix2d> &A, std::vector<HomLib::PoseData> *poses,
+                  const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
             std::vector<HomLib::PoseData> output = HomLib::ValtonenOrnhagICPR2026::get_affine(x, y, A, extra_check);
+            HomLib::filter_distortion_range(&output, range);   // a single solution at the minimal sample size
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
@@ -74,8 +76,10 @@ class OrientationSolverSingleSided : public OrientationPoseEstimator<Orientation
     public:
         static constexpr int minimal_sample_size_value = 4;
         OrientationSolverSingleSided() = default;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Vector2d> &ori, std::vector<HomLib::PoseData> *poses) const {
+        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Vector2d> &ori, std::vector<HomLib::PoseData> *poses,
+                  const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
             std::vector<HomLib::PoseData> output = HomLib::ValtonenOrnhagICPR2026::get_ori(x, y, ori);
+            HomLib::filter_distortion_range(&output, range);   // a single solution at the minimal sample size
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
