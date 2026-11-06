@@ -38,13 +38,13 @@ release asset, and is skipped without it. To regenerate the file and publish it 
 
 ```console
 python experiments/hpatches_sift.py --data_dir data --export_subset hpatches_sift_subset.npz
-gh release create test-data-v1 hpatches_sift_subset.npz --title "Test data" \
-    --notes "Data files for the tests (not a HomLib release)"
-shasum -a 256 hpatches_sift_subset.npz
+shasum -a 256 hpatches_sift_subset.npz > hpatches_sift_subset.npz.sha256
+gh release create test-data-v1 hpatches_sift_subset.npz hpatches_sift_subset.npz.sha256 \
+    --title "Test data" --notes "Data files for the tests (not a HomLib release)"
 ```
 
-then update ``SUBSET_SHA256`` (and ``SUBSET_URL`` for another release tag) in
-``tests/test_hpatches.py``. HPatches is under the
+The test checks the downloaded file against the ``.sha256`` file next to it, so a new upload only
+needs both files replaced (``gh release upload test-data-v1 ... --clobber``). HPatches is under the
 MIT license.
 
 ## Tests

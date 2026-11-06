@@ -3,7 +3,8 @@
 The OpenCV SIFT matches of these pairs, and their ground-truth homographies, come from
 ``python/experiments/hpatches_sift.py --export_subset``. The test looks for them at
 ``$HOMLIB_TEST_DATA/hpatches_sift_subset.npz``, then downloads them from ``SUBSET_URL`` to a
-cache directory (checking ``SUBSET_SHA256``). Without them, it is skipped.
+cache directory, and checks it against the SHA-256 published next to it
+(``SUBSET_URL + ".sha256"``). Without them, it is skipped.
 """
 
 import hashlib
@@ -17,11 +18,10 @@ import numpy as np
 import homlib
 
 SUBSET_NAME = "hpatches_sift_subset.npz"
-# The release asset (see python/README.md, "Test data for the regression test")
+# The release asset and its checksum (see python/README.md, "Test data for the regression test")
 SUBSET_URL = os.environ.get(
     "HOMLIB_TEST_DATA_URL",
     "https://github.com/marcusvaltonen/HomLib/releases/download/test-data-v1/" + SUBSET_NAME)
-SUBSET_SHA256 = "699b605f421efedd1bba58eace3398cba645701c3a4a2492b0a949d5e6037138"
 
 THRESHOLD = 3.0   # inlier threshold in pixels
 SEEDS = (1, 2, 3)
@@ -40,15 +40,19 @@ def find_subset():
     if not SUBSET_URL:
         return None
     cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "homlib" / SUBSET_NAME
-    if not cache.exists():
-        try:
-            cache.parent.mkdir(parents=True, exist_ok=True)
-            urllib.request.urlretrieve(SUBSET_URL, cache)
-        except (OSError, ValueError):
-            return None
-    if SUBSET_SHA256 and hashlib.sha256(cache.read_bytes()).hexdigest() != SUBSET_SHA256:
-        cache.unlink()
+    if cache.exists():
+        return cache
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        with urllib.request.urlopen(SUBSET_URL + ".sha256") as f:
+            sha256 = f.read().decode().split()[0]
+        with urllib.request.urlopen(SUBSET_URL) as f:
+            data = f.read()
+    except (OSError, ValueError, IndexError):
         return None
+    if hashlib.sha256(data).hexdigest() != sha256:
+        return None
+    cache.write_bytes(data)
     return cache
 
 
