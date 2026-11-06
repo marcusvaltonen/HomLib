@@ -16,8 +16,8 @@ satisfies
 
    \mathbf{x}' \sim H\,\mathbf{x},
 
-where :math:`H` is a :math:`3 \times 3` matrix defined up to scale, so it has
-eight degrees of freedom.  Each point correspondence provides two constraints,
+where :math:`H` is an invertible :math:`3 \times 3` matrix defined up to scale,
+so it has eight degrees of freedom.  Each point correspondence provides two constraints,
 hence at least four correspondences in *general position* are needed to
 determine :math:`H` uniquely.
 
