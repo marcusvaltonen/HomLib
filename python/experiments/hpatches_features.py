@@ -5,6 +5,10 @@ For each pair (image 1 with each of the 5 others in each sequence, 580 pairs), t
 features and saves the matched points with the ground-truth homography. The points are centered
 on each image's center (HomLib's distortion center), and the homography is in these coordinates.
 
+Pixel coordinates: OpenCV and LightGlue put (0, 0) at the center of the top-left pixel, so the
+image center is ((w - 1) / 2, (h - 1) / 2). LoMa puts (0, 0) at the top-left corner of the image
+(the center of the top-left pixel is (0.5, 0.5)): the script shifts its points by -0.5 px.
+
 The features and the matcher:
 - ``--features sift`` (default): OpenCV SIFT, matched with Lowe's ratio test. Easy to reproduce,
   with no learned model. With OpenCV 4.8 or later, it uses SIFT's precise upscaling, which keypoint
@@ -81,7 +85,9 @@ def loma_matcher(num_keypoints):
 
     def match(path1, path2):
         kpts1, kpts2 = model.match(path1, path2)
-        return np.asarray(kpts1, dtype=float).reshape(-1, 2), np.asarray(kpts2, dtype=float).reshape(-1, 2)
+        # LoMa's (0, 0) is the top-left corner of the image: shift to OpenCV's convention
+        return (np.asarray(kpts1, dtype=float).reshape(-1, 2) - 0.5,
+                np.asarray(kpts2, dtype=float).reshape(-1, 2) - 0.5)
     return match
 
 
