@@ -42,3 +42,20 @@ def load_hpatches_pairs(seq_dir: Path, max_sequences: int | None = None):
                 continue
             H_gt = np.loadtxt(h_path).reshape(3, 3)
             yield seq.name, i, str(ref_path), str(img_path), H_gt
+
+
+def save_matches(path: Path, pairs):
+    """Save the matches of each pair, {"seq/i": dict(x, y, H, width, height)}, to a .npz file"""
+    flat = {}
+    for k, p in pairs.items():
+        flat[k + ":x"], flat[k + ":y"], flat[k + ":H"] = p["x"], p["y"], p["H"]
+        flat[k + ":size"] = np.array([p["width"], p["height"]])
+    np.savez_compressed(path, **flat)
+
+
+def load_matches(path: Path):
+    """The matches saved by save_matches"""
+    flat = np.load(path)
+    keys = sorted({k.rsplit(":", 1)[0] for k in flat.files})
+    return {k: dict(x=flat[k + ":x"], y=flat[k + ":y"], H=flat[k + ":H"],
+                    width=int(flat[k + ":size"][0]), height=int(flat[k + ":size"][1])) for k in keys}
