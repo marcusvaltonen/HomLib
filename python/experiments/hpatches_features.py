@@ -152,7 +152,8 @@ def main():
     parser.add_argument("--features", choices=["sift", "superpoint", "disk", "aliked", "loma"], default="sift")
     parser.add_argument("--matcher", choices=["ratio", "lightglue"], default="ratio",
                         help="Lowe's ratio test (OpenCV SIFT only) or LightGlue")
-    parser.add_argument("--num_features", type=int, default=4000, help="Keypoints per image")
+    parser.add_argument("--num_features", type=int, default=None,
+                        help="Keypoints per image (default: 4000 for OpenCV SIFT, 2048 for LightGlue and LoMa)")
     parser.add_argument("--ratio", type=float, default=None, help="Ratio test threshold (default: 0.8)")
     parser.add_argument("--resize", type=int, default=None,
                         help="With LightGlue: resize the shorter side of the images to this size")
@@ -175,11 +176,11 @@ def main():
         if args.ratio is not None and args.matcher != "ratio":
             parser.error("--ratio needs --matcher ratio")
         if args.features == "loma":
-            match = loma_matcher(args.num_features)
+            match = loma_matcher(args.num_features or 2048)
         elif args.matcher == "lightglue":
-            match = lightglue_matcher(args.features, args.num_features, args.resize)
+            match = lightglue_matcher(args.features, args.num_features or 2048, args.resize)
         elif args.features == "sift":
-            match = sift_matcher(args.num_features, 0.8 if args.ratio is None else args.ratio)
+            match = sift_matcher(args.num_features or 4000, 0.8 if args.ratio is None else args.ratio)
         else:
             parser.error(f"--features {args.features} needs --matcher lightglue")
         pairs = compute_matches(download_hpatches(Path(args.data_dir)), match)
