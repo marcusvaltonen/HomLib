@@ -89,26 +89,31 @@ inline void preprocess_orientation(
 struct PySolver {
     HomLib::SolverId id;
     HomLib::FeatureType feature_type;
-    bool extra_check;
+    py::dict options;
 
-    PySolver(HomLib::SolverId id, bool extra_check = false)
-        : id(id), feature_type(HomLib::feature_type_for(id)), extra_check(extra_check) {}
+    PySolver(HomLib::SolverId id, py::kwargs kwargs)
+        : id(id), feature_type(HomLib::feature_type_for(id)), options(kwargs) {}
 };
 
-// Compile-time member detector: has_<name><T> is true if T has a public member `name`.
-// To add a new solver-specific option, define a detector here, add a field to PySolver,
-// and add an `if constexpr` block in make_solver.
-template <typename T, typename = void>
-struct has_extra_check : std::false_type {};
-template <typename T>
-struct has_extra_check<T, std::void_t<decltype(std::declval<T&>().extra_check)>> : std::true_type {};
+// Stamp out a SFINAE member detector for a solver option.
+#define HOMLIB_DEFINE_OPTION(name)                                                          \
+    template <typename T, typename = void>                                                  \
+    struct has_##name : std::false_type {};                                                  \
+    template <typename T>                                                                   \
+    struct has_##name<T, std::void_t<decltype(std::declval<T&>().name)>> : std::true_type {};
 
-// Construct a C++ solver from PySolver, copying solver-specific options via member detection.
+// Copy an option from PySolver.options into the C++ solver if the solver has that member.
+#define HOMLIB_COPY_OPTION(solver, opts, name, type)                   \
+    if constexpr (has_##name<std::decay_t<decltype(solver)>>::value) {  \
+        if (opts.contains(#name))                                      \
+            solver.name = opts[#name].cast<type>();                     \
+    }
+
+HOMLIB_DEFINE_OPTION(extra_check)
+
 template <typename Solver>
 Solver make_solver(const PySolver& py_solver) {
     Solver s{};
-    if constexpr (has_extra_check<Solver>::value) {
-        s.extra_check = py_solver.extra_check;
-    }
+    HOMLIB_COPY_OPTION(s, py_solver.options, extra_check, bool)
     return s;
 }
