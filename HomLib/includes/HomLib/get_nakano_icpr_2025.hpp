@@ -38,8 +38,7 @@ std::vector<HomLib::PoseData> get(
 class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
-        SolverSingleSided() = default;
-        explicit SolverSingleSided(bool extra_check) : extra_check(extra_check) {}
+        bool extra_check = false;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::NakanoICPR2025::get(x, y, extra_check);
             for (size_t i = 0; i < output.size(); i++) {
@@ -61,23 +60,17 @@ class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_onesided(x, y, pose);
         }
-    private:
-        bool extra_check = false;
     };
 class SolverSingleSidedRight : public PoseEstimator<SolverSingleSidedRight> {
     public:
         static constexpr int minimal_sample_size_value = 5;
-        SolverSingleSidedRight() = default;
-        explicit SolverSingleSidedRight(bool extra_check) : extra_check(extra_check) {}
+        bool extra_check = false;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const {
             std::vector<HomLib::PoseData> output = HomLib::NakanoICPR2025::get(y, x, extra_check);  // Hack here
             for (size_t i = 0; i < output.size(); i++) {
                 output[i].homography = output[i].homography.inverse();  //Hack here
                 output[i].distortion_parameter = output[i].distortion_parameter2;  //Hack here
                 output[i].distortion_parameter2 = 0.0;  //Hack here
-                // std::cout << "H[" << i << "] = " << output[i].homography / output[i].homography(2,2) << std::endl;
-                // std::cout << "k1[" << i << "] = " << output[i].distortion_parameter << std::endl;
-                // std::cout << "k2[" << i << "] = " << output[i].distortion_parameter2 << std::endl;
                 poses->push_back(output[i]);
             }
             return output.size();
@@ -96,8 +89,6 @@ class SolverSingleSidedRight : public PoseEstimator<SolverSingleSidedRight> {
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_onesided_right(x, y, pose);
         }
-    private:
-        bool extra_check = false;
     };
 
 }

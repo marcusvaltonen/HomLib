@@ -96,7 +96,7 @@ TestData generate_test_data(int seed, int n_points, int n_outliers, HomLib::Dist
 
 TEST_CASE("LOMSAC - point features") {
     auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
-    HomLib::Wadenback3DV2026::SolverSingleSided solver(true);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
 
     ransac_lib::LORansacOptions options;
     options.squared_inlier_threshold_ = 0.005 * 0.005;
@@ -153,7 +153,7 @@ TEST_CASE("LOMSAC - orientation features") {
 
 TEST_CASE("GC-RANSAC - point features") {
     auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
-    HomLib::Wadenback3DV2026::SolverSingleSided solver(true);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
 
     HomLib::GCRANSACSettings settings;
     settings.threshold = 0.005;
@@ -214,7 +214,7 @@ TEST_CASE("GC-RANSAC - orientation features") {
 
 TEST_CASE("MAGSAC++ - point features") {
     auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
-    HomLib::Wadenback3DV2026::SolverSingleSided solver(true);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
 
     HomLib::MAGSACSettings settings;
     settings.sigma_max = 0.01;
@@ -270,7 +270,7 @@ TEST_CASE("MAGSAC++ - orientation features") {
 
 TEST_CASE("SupeRANSAC - point features") {
     auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
-    HomLib::Wadenback3DV2026::SolverSingleSided solver(true);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
 
     superansac::RANSACSettings settings;
     settings.inlierThreshold = 0.005;

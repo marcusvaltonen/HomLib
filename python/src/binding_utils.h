@@ -86,15 +86,6 @@ inline void preprocess_orientation(
     }
 }
 
-template <typename Solver>
-Solver make_solver(bool extra_check) {
-    if constexpr (std::is_constructible_v<Solver, bool>) {
-        return Solver(extra_check);
-    } else {
-        return Solver();
-    }
-}
-
 struct PySolver {
     HomLib::SolverId id;
     HomLib::FeatureType feature_type;
@@ -103,3 +94,21 @@ struct PySolver {
     PySolver(HomLib::SolverId id, bool extra_check = false)
         : id(id), feature_type(HomLib::feature_type_for(id)), extra_check(extra_check) {}
 };
+
+// Compile-time member detector: has_<name><T> is true if T has a public member `name`.
+// To add a new solver-specific option, define a detector here, add a field to PySolver,
+// and add an `if constexpr` block in make_solver.
+template <typename T, typename = void>
+struct has_extra_check : std::false_type {};
+template <typename T>
+struct has_extra_check<T, std::void_t<decltype(std::declval<T&>().extra_check)>> : std::true_type {};
+
+// Construct a C++ solver from PySolver, copying solver-specific options via member detection.
+template <typename Solver>
+Solver make_solver(const PySolver& py_solver) {
+    Solver s{};
+    if constexpr (has_extra_check<Solver>::value) {
+        s.extra_check = py_solver.extra_check;
+    }
+    return s;
+}

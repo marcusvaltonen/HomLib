@@ -30,7 +30,7 @@ std::vector<HomLib::PoseData> dispatch_estimate_point(
 
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
         s.solve(x, y, &poses);
         return poses;
@@ -49,7 +49,7 @@ std::vector<HomLib::PoseData> dispatch_estimate_affine(
 
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
         s.solve(x, y, A, &poses);
         return poses;
@@ -67,7 +67,7 @@ std::vector<HomLib::PoseData> dispatch_estimate_orientation(
 
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
         s.solve(x, y, ori, &poses);
         return poses;
@@ -87,7 +87,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_point(
 
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_lomsac_point(s, x, y, options);
     });
 }
@@ -105,7 +105,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_affine
 
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_lomsac_affine(s, x, y, A, options);
     });
 }
@@ -122,7 +122,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_orient
 
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_lomsac_orientation(s, x, y, ori, options);
     });
 }
