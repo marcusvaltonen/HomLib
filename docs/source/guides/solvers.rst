@@ -262,7 +262,7 @@ refinement isn't constrained.
 Where it applies
 ^^^^^^^^^^^^^^^^
 
-The robust estimators (LO-MSAC and the other backends) apply ``[-1, 0.1]`` by default. Before
+The robust estimators (LOMSAC and the other backends) apply ``[-1, 0.1]`` by default. Before
 calling a solver, they normalize each minimal sample: they compute
 :math:`f_0 = \mathrm{mean}(|x|) / \sqrt{2}` from the first image's points :math:`x`, measured
 from the distortion center (the origin), and divide the points of both images by :math:`f_0`

@@ -8,7 +8,7 @@ distortion keeps only the solutions with both parameters in ``[k_min, k_max]``. 
 apply it to each root, before computing its homography: RANSAC has fewer hypotheses to score,
 and the solvers skip the homographies of the rejected roots.
 
-The range is in HomLib's normalized coordinates: the robust estimators (LO-MSAC and the other
+The range is in HomLib's normalized coordinates: the robust estimators (LOMSAC and the other
 backends) divide both images' points of each sample by
 :math:`f_0 = \mathrm{mean}(|x|) / \sqrt{2}`, computed from the first image's points (measured
 from the distortion center), whatever the units of the input. They
@@ -74,7 +74,7 @@ print(f"True solution kept: {n_true_kept} of {n_problems} problems")
 # Faster RANSAC
 # -------------
 #
-# LO-MSAC on 500 noisy matches, 40% of them outliers, with its default range and without a
+# LOMSAC on 500 noisy matches, 40% of them outliers, with its default range and without a
 # range (times: median of 5 runs). The points are in pixels, for a focal length of 1000 px:
 # the range doesn't depend on their units.
 
@@ -98,7 +98,7 @@ for label, use_range in [("with the default range", True), ("without a range", F
         times.append(time.perf_counter() - start)
     elapsed = np.median(times)
     correct = np.sum(np.array(stats.inlier_indices) >= n_outliers)
-    print(f"LO-MSAC {label}: {elapsed * 1e3:.1f} ms, {len(stats.inlier_indices)} inliers "
+    print(f"LOMSAC {label}: {elapsed * 1e3:.1f} ms, {len(stats.inlier_indices)} inliers "
           f"({correct} of the {x.shape[1] - n_outliers} true ones), "
           f"k1, k2 (in the generator's units, i.e. pixels / 1000) = {estimate.distortion_parameter * f**2:.4f}, "
           f"{estimate.distortion_parameter2 * f**2:.4f} (true {instance.posedata.distortion_parameter:.4f}, "

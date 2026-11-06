@@ -33,22 +33,6 @@ Point-based solvers
    of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)*, 2021,
    pp. 1751--1760.
 
-.. [LopezAntequera2019] M. López-Antequera, R. Marí, P. Gargallo, Y. Kuang, J. Gonzalez-Jimenez,
-   and G. Haro, "Deep Single Image Camera Calibration with Radial Distortion," in *Proceedings of
-   the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)*, 2019,
-   pp. 11809--11817. https://research.mapillary.com/publication/cvpr19d
-
-   The distortion of real cameras, for the range check on the distortion
-   (:meth:`~homlib.Solver.set_k_range`).
-
-.. [OpticalLimits] OpticalLimits, lens reviews (distortion without in-camera correction):
-   `Nikkor Z 70-200mm f/2.8 VR S II
-   <https://opticallimits.com/nikon/nikon-z/nikkor-z-70-200mm-f-2-8-vr-s-ii-review/>`_ and
-   `Sigma 20-200mm f/3.5-6.3 DG Contemporary
-   <https://opticallimits.com/sony/sony-fe-full-format/review-of-the-sigma-20-200mm-f-3-5-6-3-dg-contemporary-in-sony-e-mount/>`_.
-
-   Typical distortion of long lenses, for the range check on the distortion.
-
 .. [Nakano2024] G. Nakano, "Inverse DLT Method for One-Sided Radial Distortion Homography,"
    in *Proceedings of the International Conference on Pattern Recognition (ICPR)*, 2024,
    pp. 448--462.
@@ -117,3 +101,22 @@ Automatic solver generation
 .. [Larsson2017] V. Larsson, K. Åström, and M. Oskarsson, "Efficient Solvers for Minimal
    Problems by Syzygy-based Reduction," in *Proceedings of the IEEE Conference on Computer
    Vision and Pattern Recognition (CVPR)*, 2017.
+
+Miscellaneous
+-------------
+
+.. [LopezAntequera2019] M. López-Antequera, R. Marí, P. Gargallo, Y. Kuang, J. Gonzalez-Jimenez,
+   and G. Haro, "Deep Single Image Camera Calibration with Radial Distortion," in *Proceedings of
+   the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)*, 2019,
+   pp. 11809--11817. https://research.mapillary.com/publication/cvpr19d
+
+   The distortion of real cameras, for the range check on the distortion
+   (:meth:`~homlib.Solver.set_k_range`).
+
+.. [OpticalLimits] OpticalLimits, lens reviews (distortion without in-camera correction):
+   `Nikkor Z 70-200mm f/2.8 VR S II
+   <https://opticallimits.com/nikon/nikon-z/nikkor-z-70-200mm-f-2-8-vr-s-ii-review/>`_ and
+   `Sigma 20-200mm f/3.5-6.3 DG Contemporary
+   <https://opticallimits.com/sony/sony-fe-full-format/review-of-the-sigma-20-200mm-f-3-5-6-3-dg-contemporary-in-sony-e-mount/>`_.
+
+   Typical distortion of long lenses, for the range check on the distortion.

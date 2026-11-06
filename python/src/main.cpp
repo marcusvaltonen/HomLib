@@ -224,7 +224,7 @@ PYBIND11_MODULE(_core, m) {
             R"pbdoc(
                 Keep only the minimal solutions with distortion parameters in [k_min, k_max].
 
-                The bounds are in HomLib's normalized coordinates: the robust estimators (LO-MSAC
+                The bounds are in HomLib's normalized coordinates: the robust estimators (LOMSAC
                 and the other backends) divide each sample by ``mean(|x|) / sqrt(2)``, computed
                 from the first image's points, whatever the units of the input. They apply
                 [-1, 0.1] by default; this replaces it. :meth:`estimate` calls the solver on the
