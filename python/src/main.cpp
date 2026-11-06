@@ -30,7 +30,7 @@ std::vector<HomLib::PoseData> dispatch_estimate_point(
 
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
         s.solve(x, y, &poses);
         return poses;
@@ -49,7 +49,7 @@ std::vector<HomLib::PoseData> dispatch_estimate_affine(
 
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
         s.solve(x, y, A, &poses);
         return poses;
@@ -67,7 +67,7 @@ std::vector<HomLib::PoseData> dispatch_estimate_orientation(
 
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
         s.solve(x, y, ori, &poses);
         return poses;
@@ -87,7 +87,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_point(
 
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_lomsac_point(s, x, y, options);
     });
 }
@@ -105,7 +105,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_affine
 
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_lomsac_affine(s, x, y, A, options);
     });
 }
@@ -122,7 +122,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_orient
 
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_lomsac_orientation(s, x, y, ori, options);
     });
 }
@@ -177,7 +177,7 @@ PYBIND11_MODULE(_core, m) {
             Wraps a specific solver algorithm identified by :class:`SolverId`.
             Solver-specific parameters (e.g. ``extra_check``) are set at construction.
         )pbdoc")
-        .def(py::init<HomLib::SolverId, bool>(),
+        .def(py::init<HomLib::SolverId, py::kwargs>(),
             R"pbdoc(
                 Construct a Solver.
 
@@ -185,18 +185,23 @@ PYBIND11_MODULE(_core, m) {
                 ----------
                 id : SolverId
                     Which solver algorithm to use.
-                extra_check : bool
-                    Whether to apply extra validation checks (only affects solvers that support it).
+                **kwargs
+                    Solver-specific options (e.g. ``extra_check=True``).
+                    Unknown options are silently ignored.
             )pbdoc",
-            "id"_a, "extra_check"_a = false)
+            "id"_a)
         .def_readonly("id", &PySolver::id, "Solver identifier (:class:`SolverId`).")
         .def_readonly("feature_type", &PySolver::feature_type, "Feature type (:class:`FeatureType`).")
-        .def_readonly("extra_check", &PySolver::extra_check, "Whether extra validation checks are enabled.")
+        .def_readonly("options", &PySolver::options, "Solver-specific options.")
         .def("__repr__", [](const PySolver& s) {
             auto py_id = py::cast(s.id);
             std::string name = py_id.attr("name").cast<std::string>();
-            return "Solver(SolverId." + name +
-                   ", extra_check=" + std::string(s.extra_check ? "True" : "False") + ")";
+            std::string opts;
+            for (auto item : s.options) {
+                opts += ", " + py::str(item.first).cast<std::string>() +
+                        "=" + py::str(item.second).cast<std::string>();
+            }
+            return "Solver(SolverId." + name + opts + ")";
         });
 
     // --- PoseData ---

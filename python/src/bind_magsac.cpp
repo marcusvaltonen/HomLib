@@ -16,7 +16,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_poi
 
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_magsac_point(s, x, y, settings);
     });
 }
@@ -34,7 +34,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_aff
 
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_magsac_affine(s, x, y, A, settings);
     });
 }
@@ -51,7 +51,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_ori
 
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_magsac_orientation(s, x, y, ori, settings);
     });
 }
