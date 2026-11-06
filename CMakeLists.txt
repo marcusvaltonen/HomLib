@@ -91,6 +91,8 @@ set(HOMLIB_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/includes/HomLib
     ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/helpers
     ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/robust
+    ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/solvers/cai_pami_2025
+    ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/solvers/dlt
     ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/solvers/fitzgibbon_cvpr_2001
     ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/solvers/kukelova_cvpr_2015
     ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/solvers/nakano_icpr_2025

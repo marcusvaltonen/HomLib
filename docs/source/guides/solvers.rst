@@ -3,7 +3,7 @@
 Solver Guide
 ============
 
-HomLib provides 14 minimal solvers from 6 papers for estimating homographies
+HomLib provides 17 solvers from 9 papers for estimating homographies
 with simultaneous radial distortion correction. This guide explains the
 mathematical model, the available solvers, and how to choose the right one.
 
@@ -130,6 +130,14 @@ Point-based solvers
      - Corrs.
      - Distortion
      - Reference
+   * - :class:`~homlib.CaiPAMI2025`
+     - 4
+     - None
+     - [Cai2025]_
+   * - :class:`~homlib.DLT`
+     - 4
+     - None
+     - [HartleyZisserman2003]_
    * - :class:`~homlib.FitzgibbonCVPR2001OneSided`
      - 5
      - One-sided
@@ -174,6 +182,10 @@ Point-based solvers
      - 5
      - Two-sided indep.
      - [Wadenback2026]_
+   * - :class:`~homlib.GuoPRL2019`
+     - 4
+     - None
+     - [Guo2019]_
 
 Affine-covariant solvers
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -226,7 +238,8 @@ Choosing a solver
    - One camera is distortion-free (e.g. rectified or pinhole) → **one-sided**.
    - Both cameras have the same lens → **two-sided equal**.
    - Different lenses on each camera → **two-sided independent**.
-   - No distortion at all → :class:`~homlib.BarathVISAPP2016Affine` (requires affine features).
+   - No distortion at all → :class:`~homlib.CaiPAMI2025` (point features) or
+     :class:`~homlib.BarathVISAPP2016Affine` (affine features).
 
 3. **Recommended defaults:**
 
