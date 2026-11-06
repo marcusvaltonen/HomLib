@@ -30,6 +30,8 @@ python experiments/hpatches_sift.py --data_dir data
 ```
 
 It downloads HPatches to ``data`` if needed, and caches the matches there.
+``--output run.json`` saves the results, and ``--compare before.json after.json`` prints the
+differences between two runs (e.g. with two versions of HomLib), with their standard errors.
 
 ### Test data for the regression test
 ``tests/test_hpatches.py`` runs the point solvers on the matches of 8 HPatches pairs. The file isn't

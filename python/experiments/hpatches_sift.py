@@ -11,8 +11,10 @@ the illumination sequences:
 - the median time per pair.
 
 The matches are cached in the data directory, so later runs skip the feature extraction.
-``--export_subset`` writes the matches of a few pairs to a file, for the regression test
-``python/tests/test_hpatches.py``.
+``--output`` saves the results of every pair to a JSON file, and ``--compare a.json b.json``
+prints the differences between two such runs (e.g. two versions of HomLib), with their standard
+errors over the pairs. ``--export_subset`` writes the matches of a few pairs to a file, for the
+regression test ``python/tests/test_hpatches.py``.
 
 Requirements
 ------------
@@ -21,11 +23,13 @@ pip install opencv-python tqdm
 Usage
 -----
     python hpatches_sift.py [--data_dir data] [--solvers Wadenback3DV2026TwoSided DLT] [--seeds 3]
+                            [--output results.json]
+    python hpatches_sift.py --compare before.json after.json
 """
 
 import argparse
+import json
 import time
-from collections import defaultdict
 from pathlib import Path
 
 import cv2
@@ -33,27 +37,7 @@ import numpy as np
 from tqdm import tqdm
 
 import homlib
-
-HPATCHES_URL = "http://icvl.ee.ic.ac.uk/vgg/hpatches/sequences/hpatches-sequences-release.tar.gz"
-HPATCHES_DIRNAME = "hpatches-sequences-release"
-
-
-def download_hpatches(data_dir: Path) -> Path:
-    """Download and extract HPatches if not already present."""
-    seq_dir = data_dir / HPATCHES_DIRNAME
-    if seq_dir.exists():
-        return seq_dir
-    import tarfile
-    import urllib.request
-    archive = data_dir / "hpatches-sequences-release.tar.gz"
-    if not archive.exists():
-        print(f"Downloading HPatches to {archive} ...")
-        data_dir.mkdir(parents=True, exist_ok=True)
-        urllib.request.urlretrieve(HPATCHES_URL, archive)
-    print("Extracting ...")
-    with tarfile.open(archive, "r:gz") as tar:
-        tar.extractall(data_dir)
-    return seq_dir
+from hpatches_data import download_hpatches
 
 
 def sift_matches(seq_dir: Path, num_features: int, ratio: float):
@@ -144,7 +128,13 @@ def main():
                         help="SolverId names (default: every point solver)")
     parser.add_argument("--export_subset", type=str, default=None,
                         help="Write the matches of a few pairs to this file, and exit")
+    parser.add_argument("--output", type=str, default=None, help="Save the results to this JSON file")
+    parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
+                        help="Print the differences B - A between two saved runs, and exit")
     args = parser.parse_args()
+    if args.compare:
+        compare(*args.compare)
+        return
 
     pairs = load_or_compute_matches(Path(args.data_dir), args.num_features, args.ratio)
     if args.export_subset:
@@ -156,31 +146,77 @@ def main():
 
     solvers = ([homlib.SolverId.__members__[s] for s in args.solvers] if args.solvers
                else point_solvers())
-    results = defaultdict(lambda: defaultdict(list))
+    # results[solver][pair] = per seed: (share of the true inliers found, corner error, time)
+    results = {s.name: {} for s in solvers}
     for key, pair in tqdm(pairs.items(), desc="Pairs"):
         if pair["x"].shape[1] < 8:
             continue
         x, y = np.ascontiguousarray(pair["x"]), np.ascontiguousarray(pair["y"])
         gt = set(true_inliers(pair, args.threshold).tolist())
-        kind = "viewpoint" if key.startswith("v_") else "illumination"
         for s in solvers:
+            runs = []
             for seed in range(1, args.seeds + 1):
                 lomsac = homlib.LOMSAC(homlib.Solver(s), inlier_threshold=args.threshold, random_seed=seed)
                 t0 = time.perf_counter()
                 pose, stats = lomsac.estimate(x, y)
                 elapsed = time.perf_counter() - t0
-                r = results[(s.name, kind)]
-                r["recall"].append(len(gt & set(stats.inlier_indices)) / max(len(gt), 1))
-                r["error"].append(corner_error(pose, pair))
-                r["time"].append(elapsed)
+                runs.append((len(gt & set(stats.inlier_indices)) / max(len(gt), 1),
+                             corner_error(pose, pair), elapsed))
+            results[s.name][key] = runs
+    if args.output:
+        with open(args.output, "w") as f:
+            json.dump(results, f)
+    print_results(results)
 
+
+def kind(key):
+    return "viewpoint" if key.startswith("v_") else "illumination"
+
+
+def print_results(results):
     print(f"\n{'Solver':<46s} {'Pairs':<13s} {'True inliers':>12s}  AUC@1  AUC@3  AUC@5 AUC@10  {'Time (ms)':>9s}")
-    for (name, kind), r in sorted(results.items()):
-        err = np.array(r["error"])
-        aucs = [np.mean(np.minimum(err, t) / t) * 100 for t in (1, 3, 5, 10)]
-        aucs = [100 - a for a in aucs]   # AUC of the cumulative error curve up to t
-        print(f"{name:<46s} {kind:<13s} {np.mean(r['recall']) * 100:11.2f}%"
-              + "".join(f" {a:6.2f}" for a in aucs) + f"  {np.median(r['time']) * 1e3:9.2f}")
+    for name, per_pair in sorted(results.items()):
+        for k in ("illumination", "viewpoint"):
+            runs = [r for key, rs in per_pair.items() if kind(key) == k for r in rs]
+            if not runs:
+                continue
+            recall, err, t = (np.array(v) for v in zip(*runs))
+            # AUC of the cumulative error curve up to each threshold
+            aucs = [np.mean(np.maximum(0, 1 - err / th)) * 100 for th in (1, 3, 5, 10)]
+            print(f"{name:<46s} {k:<13s} {np.mean(recall) * 100:11.2f}%"
+                  + "".join(f" {a:6.2f}" for a in aucs) + f"  {np.median(t) * 1e3:9.2f}")
+
+
+def compare(path_a, path_b):
+    """The differences between two runs, b - a, for the pairs and solvers of both: share of the
+    true inliers found and AUC@5, averaged over the seeds of each pair, with their standard errors
+    over the pairs; and the ratio of the median times"""
+    with open(path_a) as f:
+        a = json.load(f)
+    with open(path_b) as f:
+        b = json.load(f)
+    print(f"{'Solver':<46s} {'Pairs':<13s} {'True inliers':>18s} {'AUC@5':>18s} {'Time':>7s}")
+    for name in sorted(set(a) & set(b)):
+        for k in ("illumination", "viewpoint"):
+            keys = [key for key in a[name] if key in b[name] and kind(key) == k]
+            if not keys:
+                continue
+            d_recall = (per_pair(b, name, keys, 0) - per_pair(a, name, keys, 0)) * 100
+            d_auc = (per_pair(b, name, keys, 1) - per_pair(a, name, keys, 1)) * 100
+            ratio = np.median(per_pair(b, name, keys, 2)) / np.median(per_pair(a, name, keys, 2))
+            print(f"{name:<46s} {k:<13s} {d_recall.mean():+8.2f} ±{standard_error(d_recall):5.2f} pts"
+                  f" {d_auc.mean():+8.2f} ±{standard_error(d_auc):5.2f} pts {ratio:6.2f}x")
+
+
+def per_pair(results, name, keys, i):
+    """For each pair, the mean over the seeds of: the share of the true inliers found (i = 0), the
+    AUC@5 of the corner error (i = 1), or the time (i = 2)"""
+    value = [lambda run: run[0], lambda run: max(0.0, 1 - run[1] / 5), lambda run: run[2]][i]
+    return np.array([np.mean([value(run) for run in results[name][key]]) for key in keys])
+
+
+def standard_error(d):
+    return d.std() / np.sqrt(len(d))
 
 
 if __name__ == "__main__":
