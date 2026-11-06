@@ -1,4 +1,4 @@
-"""The HPatches sequences: download, and the image pairs of each sequence."""
+"""HPatches: download, the image pairs, and the matches files of hpatches_features.py."""
 
 from pathlib import Path
 
@@ -22,12 +22,13 @@ def download_hpatches(data_dir: Path) -> Path:
         urllib.request.urlretrieve(HPATCHES_URL, archive)
     print("Extracting ...")
     with tarfile.open(archive, "r:gz") as tar:
-        tar.extractall(data_dir)
+        tar.extractall(data_dir, filter="data")
     return seq_dir
 
 
 def load_hpatches_pairs(seq_dir: Path, max_sequences: int | None = None):
-    """Yield (img_ref_path, img_i_path, H_gt) tuples from HPatches."""
+    """Yield (sequence name, image index i, path of image 1, path of image i, H from image 1 to
+    image i)."""
     sequences = sorted(p for p in seq_dir.iterdir() if p.is_dir())
     if max_sequences is not None:
         sequences = sequences[:max_sequences]
@@ -45,7 +46,8 @@ def load_hpatches_pairs(seq_dir: Path, max_sequences: int | None = None):
 
 
 def save_matches(path: Path, pairs):
-    """Save the matches of each pair, {"seq/i": dict(x, y, H, width, height)}, to a .npz file"""
+    """Save the matches to a .npz file. pairs maps "seq/i" to dict(x, y: 2xN points centered on
+    their image; H: the ground truth in these coordinates; width, height: of image 1)."""
     flat = {}
     for k, p in pairs.items():
         flat[k + ":x"], flat[k + ":y"], flat[k + ":H"] = p["x"], p["y"], p["H"]
@@ -54,7 +56,7 @@ def save_matches(path: Path, pairs):
 
 
 def load_matches(path: Path):
-    """The matches saved by save_matches"""
+    """The matches saved by save_matches."""
     flat = np.load(path)
     keys = sorted({k.rsplit(":", 1)[0] for k in flat.files})
     return {k: dict(x=flat[k + ":x"], y=flat[k + ":y"], H=flat[k + ":H"],
