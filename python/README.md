@@ -24,9 +24,9 @@ python experiments/synthetic_benchmark.py --output synthetic.json
 ```
 
 - ``hpatches_features.py`` downloads HPatches to ``data`` if needed (a large archive), and writes the
-  matches of its 580 pairs. It uses OpenCV SIFT with Lowe's ratio test by default. It can also use
-  LightGlue with SuperPoint, DISK, ALIKED or SIFT (``--matcher lightglue``), or LoMa
-  (``--features loma``). Wadenbäck et al. (3DV 2026) use SuperPoint with LightGlue on HPatches,
+  matches of its 580 pairs. It uses OpenCV SIFT by default, with precise upscaling (OpenCV 4.8 or
+  later) and Lowe's ratio test. It can also use LightGlue with SuperPoint, DISK, ALIKED or SIFT
+  (``--matcher lightglue``), or LoMa (``--features loma``). Wadenbäck et al. (3DV 2026) use SuperPoint with LightGlue on HPatches,
   and the docstring of ``hpatches_features.py`` gives their settings. LightGlue and LoMa install
   from https://github.com/cvg/LightGlue and https://github.com/davnords/LoMa; the PyPI package
   named ``loma`` is unrelated.
