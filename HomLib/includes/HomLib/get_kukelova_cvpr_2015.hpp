@@ -49,6 +49,7 @@ std::vector<HomLib::PoseData> get_6pt(
 class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
     public:
         static constexpr int minimal_sample_size_value = 5;
+        static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED_EQUAL;
         SolverTwoSidedEqual() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -70,6 +71,7 @@ class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
 class SolverTwoSidedEqual6Pt : public PoseEstimator<SolverTwoSidedEqual6Pt> {
     public:
         static constexpr int minimal_sample_size_value = 6;
+        static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED_EQUAL;
         SolverTwoSidedEqual6Pt() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -91,6 +93,7 @@ class SolverTwoSidedEqual6Pt : public PoseEstimator<SolverTwoSidedEqual6Pt> {
 class SolverTwoSided : public PoseEstimator<SolverTwoSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
+        static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED;
         SolverTwoSided() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -112,6 +115,7 @@ class SolverTwoSided : public PoseEstimator<SolverTwoSided> {
 class SolverTwoSided6Pt : public PoseEstimator<SolverTwoSided6Pt> {
     public:
         static constexpr int minimal_sample_size_value = 6;
+        static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED;
         SolverTwoSided6Pt() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {

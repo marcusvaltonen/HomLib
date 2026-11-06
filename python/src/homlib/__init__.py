@@ -128,10 +128,25 @@ class NakanoICPR2025OneSided(Solver):
 
 
 class NakanoICPR2025OneSidedRight(Solver):
-    """One-sided right radial distortion solver by Nakano (ICPR 2025), 5-point."""
+    """One-sided right radial distortion solver by Nakano (ICPR 2025), 5-point.
+
+    Automatically derived from :class:`NakanoICPR2025OneSided` by swapping the
+    point arguments and inverting the homography.
+    """
 
     def __init__(self, extra_check=False):
         super().__init__(SolverId.NakanoICPR2025OneSidedRight, extra_check=extra_check)
+
+
+class FitzgibbonCVPR2001OneSidedRight(Solver):
+    """One-sided right radial distortion solver by Fitzgibbon (CVPR 2001), 5-point.
+
+    Automatically derived from :class:`FitzgibbonCVPR2001OneSided` by swapping the
+    point arguments and inverting the homography.
+    """
+
+    def __init__(self):
+        super().__init__(SolverId.FitzgibbonCVPR2001OneSidedRight)
 
 
 class Wadenback3DV2026OneSided(Solver):
@@ -139,6 +154,17 @@ class Wadenback3DV2026OneSided(Solver):
 
     def __init__(self, extra_check=True):
         super().__init__(SolverId.Wadenback3DV2026OneSided, extra_check=extra_check)
+
+
+class Wadenback3DV2026OneSidedRight(Solver):
+    """One-sided right radial distortion solver by Wadenback et al. (3DV 2026), 5-point.
+
+    Automatically derived from :class:`Wadenback3DV2026OneSided` by swapping the
+    point arguments and inverting the homography.
+    """
+
+    def __init__(self, extra_check=True):
+        super().__init__(SolverId.Wadenback3DV2026OneSidedRight, extra_check=extra_check)
 
 
 class Wadenback3DV2026TwoSidedEqual(Solver):
@@ -174,10 +200,21 @@ class BarathVISAPP2016Affine(Solver):
 
 
 class ValtonenOrnhagICPR2026AffineSingleSided(Solver):
-    """Affine-covariant one-sided radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point."""
+    """Affine-covariant one-sided right radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point."""
 
     def __init__(self, extra_check=False):
         super().__init__(SolverId.ValtonenOrnhagICPR2026AffineSingleSided, extra_check=extra_check)
+
+
+class ValtonenOrnhagICPR2026AffineSingleSidedLeft(Solver):
+    """Affine-covariant one-sided left radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point.
+
+    Automatically derived from :class:`ValtonenOrnhagICPR2026AffineSingleSided` by
+    swapping the point arguments, inverting the affine features and homography.
+    """
+
+    def __init__(self, extra_check=False):
+        super().__init__(SolverId.ValtonenOrnhagICPR2026AffineSingleSidedLeft, extra_check=extra_check)
 
 
 # ---------------------------------------------------------------------------
@@ -185,10 +222,21 @@ class ValtonenOrnhagICPR2026AffineSingleSided(Solver):
 # ---------------------------------------------------------------------------
 
 class ValtonenOrnhagICPR2026OrientationSingleSided(Solver):
-    """Orientation-covariant one-sided radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point."""
+    """Orientation-covariant one-sided right radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point."""
 
     def __init__(self):
         super().__init__(SolverId.ValtonenOrnhagICPR2026OrientationSingleSided)
+
+
+class ValtonenOrnhagICPR2026OrientationSingleSidedLeft(Solver):
+    """Orientation-covariant one-sided left radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point.
+
+    Automatically derived from :class:`ValtonenOrnhagICPR2026OrientationSingleSided` by
+    swapping the point arguments, the orientation components, and inverting the homography.
+    """
+
+    def __init__(self):
+        super().__init__(SolverId.ValtonenOrnhagICPR2026OrientationSingleSidedLeft)
 
 
 # ---------------------------------------------------------------------------
@@ -531,15 +579,19 @@ __all__ = [
     "KukelovaCVPR2015TwoSided6Pt",
     "NakanoICPR2025OneSided",
     "NakanoICPR2025OneSidedRight",
+    "FitzgibbonCVPR2001OneSidedRight",
     "Wadenback3DV2026OneSided",
+    "Wadenback3DV2026OneSidedRight",
     "Wadenback3DV2026TwoSidedEqual",
     "Wadenback3DV2026TwoSided",
     "GuoPRL2019",
     # Affine-covariant solvers
     "BarathVISAPP2016Affine",
     "ValtonenOrnhagICPR2026AffineSingleSided",
+    "ValtonenOrnhagICPR2026AffineSingleSidedLeft",
     # Orientation-covariant solvers
     "ValtonenOrnhagICPR2026OrientationSingleSided",
+    "ValtonenOrnhagICPR2026OrientationSingleSidedLeft",
     # RANSAC backends
     "RobustEstimator",
     "LOMSAC",
