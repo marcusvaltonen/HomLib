@@ -39,6 +39,9 @@ information of the corresponding descriptors.
 
 | Authors (year)                           | #Corrs | Minimal            | Radial distortion coeff. | IMU data           | General homography | Descriptor |
 | ---------------------------------------- | ------ | ------------------ | ------------------------ | ------------------ | ------------------ | ---------- |
+| Hartley and Zisserman (2003) / DLT       | 4      | :heavy_check_mark: |                          |                    | :heavy_check_mark: | P          |
+| Guo (2019)                               | 4      | :heavy_check_mark: |                          |                    | :heavy_check_mark: | P          |
+| Cai et al. (2025)                        | 4      | :heavy_check_mark: |                          |                    | :heavy_check_mark: | P          |
 | Fitzgibbon (2001)                        | 5      |                    | :heavy_check_mark: (e)   |                    | :heavy_check_mark: | P          |
 |                                          | 5      |                    | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | P          |
 | Kukelova et al. (2015)                   | 5      | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: | P          |
@@ -62,6 +65,30 @@ others are re-implementations. If you use the code in your work, please cite
 the respective article:
 
 ```
+@Book{hartley-zisserman-2003,
+    author    = {Hartley, Richard and Zisserman, Andrew},
+    title     = {Multiple View Geometry in Computer Vision},
+    edition   = {2nd},
+    publisher = {Cambridge University Press},
+    year      = {2003},
+}
+
+@Article{guo-2019-prl,
+    author    = {Guo, Yang},
+    title     = {A Minimal Solution for Plane Motion and Structure from Two Perspective Views},
+    journal   = {Pattern Recognition Letters},
+    volume    = {120},
+    pages     = {96--103},
+    year      = {2019},
+}
+
+@Article{cai-etal-2025-pami,
+    author    = {Cai, Songwei and Wu, Zhijian and Guo, Li and Wang, Jian and Zhang, Shuzhi and Yan, Junchi and Shen, Shaojie},
+    title     = {Fast and Interpretable 2D Homography Decomposition: Similarity-Kernel-Similarity and Affine-Core-Affine Transformations},
+    journal   = {IEEE Transactions on Pattern Analysis and Machine Intelligence (PAMI)},
+    year      = {2025},
+}
+
 @InProceedings{fitzgibbon-etal-2001-cvpr,
     author    = {Fitzgibbon, Andrew},
     title     = {Simultaneous linear estimation of multiple view geometry and lens distortion},

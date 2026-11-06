@@ -145,6 +145,8 @@ PYBIND11_MODULE(_core, m) {
         R"pbdoc(
             Identifier for a specific minimal solver algorithm.
         )pbdoc")
+        .value("CaiPAMI2025", HomLib::SolverId::CaiPAMI2025)
+        .value("DLT", HomLib::SolverId::DLT)
         .value("FitzgibbonCVPR2001OneSided", HomLib::SolverId::FitzgibbonCVPR2001OneSided)
         .value("FitzgibbonCVPR2001TwoSidedEqual", HomLib::SolverId::FitzgibbonCVPR2001TwoSidedEqual)
         .value("KukelovaCVPR2015TwoSidedEqual", HomLib::SolverId::KukelovaCVPR2015TwoSidedEqual)
@@ -156,6 +158,7 @@ PYBIND11_MODULE(_core, m) {
         .value("Wadenback3DV2026OneSided", HomLib::SolverId::Wadenback3DV2026OneSided)
         .value("Wadenback3DV2026TwoSidedEqual", HomLib::SolverId::Wadenback3DV2026TwoSidedEqual)
         .value("Wadenback3DV2026TwoSided", HomLib::SolverId::Wadenback3DV2026TwoSided)
+        .value("GuoPRL2019", HomLib::SolverId::GuoPRL2019)
         .value("BarathVISAPP2016Affine", HomLib::SolverId::BarathVISAPP2016Affine)
         .value("ValtonenOrnhagICPR2026AffineSingleSided", HomLib::SolverId::ValtonenOrnhagICPR2026AffineSingleSided)
         .value("ValtonenOrnhagICPR2026OrientationSingleSided", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationSingleSided);

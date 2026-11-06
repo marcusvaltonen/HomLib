@@ -3,9 +3,12 @@
 #include <stdexcept>
 
 #include <solver_id.h>
+#include <get_cai_pami_2025.hpp>
+#include <get_dlt.hpp>
 #include <get_fitzgibbon_cvpr_2001.hpp>
 #include <get_kukelova_cvpr_2015.hpp>
 #include <get_nakano_icpr_2025.hpp>
+#include <get_guo_prl_2019.hpp>
 #include <get_wadenback_3dv_2026.hpp>
 #include <get_barath_visapp_2016.hpp>
 #include <get_valtonenornhag_icpr_2026.hpp>
@@ -15,6 +18,10 @@ namespace HomLib {
 template <typename Func>
 auto dispatch_point_solver(SolverId id, Func&& func) {
     switch (id) {
+        case SolverId::CaiPAMI2025:
+            return func(CaiPAMI2025::Solver{});
+        case SolverId::DLT:
+            return func(DLT::Solver{});
         case SolverId::FitzgibbonCVPR2001OneSided:
             return func(FitzgibbonCVPR2001::SolverSingleSided{});
         case SolverId::FitzgibbonCVPR2001TwoSidedEqual:
@@ -37,6 +44,8 @@ auto dispatch_point_solver(SolverId id, Func&& func) {
             return func(Wadenback3DV2026::SolverTwoSidedEqual{});
         case SolverId::Wadenback3DV2026TwoSided:
             return func(Wadenback3DV2026::SolverTwoSided{});
+        case SolverId::GuoPRL2019:
+            return func(GuoPRL2019::Solver{});
         default:
             throw std::invalid_argument("Not a point-based solver");
     }

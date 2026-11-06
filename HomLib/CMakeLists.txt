@@ -6,6 +6,8 @@ set(SRCS
     helpers/radial.cpp
     helpers/roots.cpp
     robust/refinement.cpp
+    solvers/cai_pami_2025/get_cai_pami_2025.cpp
+    solvers/dlt/get_dlt.cpp
     solvers/barath_visapp_2016/get_barath_visapp_2016_affine.cpp
     solvers/fitzgibbon_cvpr_2001/get_fitzgibbon_cvpr_2001.cpp
     solvers/fitzgibbon_cvpr_2001/get_fitzgibbon_cvpr_2001_single.cpp

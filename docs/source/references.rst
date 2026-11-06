@@ -8,6 +8,23 @@ If you use HomLib in your work, please cite the relevant paper(s) below.
 Point-based solvers
 -------------------
 
+.. [Cai2025] S. Cai, Z. Wu, L. Guo, J. Wang, S. Zhang, J. Yan, and S. Shen, "Fast and
+   Interpretable 2D Homography Decomposition: Similarity-Kernel-Similarity and
+   Affine-Core-Affine Transformations," *IEEE Transactions on Pattern Analysis and Machine
+   Intelligence (PAMI)*, 2025.
+
+   See :class:`~homlib.CaiPAMI2025`.
+
+.. [HartleyZisserman2003] R. Hartley and A. Zisserman, *Multiple View Geometry in Computer Vision*,
+   2nd ed., Cambridge University Press, 2003.
+
+   See :class:`~homlib.DLT`.
+
+.. [Guo2019] Y. Guo, "A Minimal Solution for Plane Motion and Structure from Two Perspective
+   Views," *Pattern Recognition Letters*, vol. 120, pp. 96--103, 2019.
+
+   See :class:`~homlib.GuoPRL2019`.
+
 .. [Fitzgibbon2001] A. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry
    and lens distortion," in *Proceedings of the IEEE Computer Society Conference on Computer
    Vision and Pattern Recognition (CVPR)*, 2001.
