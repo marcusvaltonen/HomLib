@@ -1,4 +1,9 @@
 import functools
+import hashlib
+import os
+import unittest
+import urllib.request
+from pathlib import Path
 
 import numpy as np
 
@@ -31,3 +36,33 @@ def verify_numpy_array(arr):
     """Convert numpy array to string for compatability with approvaltests."""
     with np.printoptions(threshold=np.inf):
         return np.array2string(arr, max_line_width=1e3)
+
+
+def fetch_test_data(name, url):
+    """The path of a test data file: ``$HOMLIB_TEST_DATA/<name>`` if it exists, otherwise ``url``
+    downloaded to a cache directory and checked against the SHA-256 published next to it
+    (``url + ".sha256"``). Without it, raises unittest.SkipTest, or fails if
+    ``HOMLIB_REQUIRE_TEST_DATA`` is set (as in CI)."""
+    data_dir = os.environ.get("HOMLIB_TEST_DATA")
+    if data_dir and (Path(data_dir) / name).exists():
+        return Path(data_dir) / name
+    cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "homlib" / name
+    if cache.exists():
+        return cache
+    error = None
+    try:
+        with urllib.request.urlopen(url + ".sha256") as f:
+            sha256 = f.read().decode().split()[0]
+        with urllib.request.urlopen(url) as f:
+            data = f.read()
+        if hashlib.sha256(data).hexdigest() != sha256:
+            error = f"{name}: wrong SHA-256"
+    except (OSError, ValueError, IndexError) as e:
+        error = f"{name}: {e}"
+    if error is None:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_bytes(data)
+        return cache
+    if os.environ.get("HOMLIB_REQUIRE_TEST_DATA"):
+        raise RuntimeError(f"Test data unavailable ({error})")
+    raise unittest.SkipTest(f"Test data unavailable ({error}); set HOMLIB_TEST_DATA")

@@ -1,21 +1,18 @@
 """Regression test on real image pairs: LOMSAC with every point solver on 8 HPatches pairs.
 
 The OpenCV SIFT matches of these pairs, and their ground-truth homographies, come from
-``python/experiments/hpatches_sift.py --export_subset``. The test looks for them at
-``$HOMLIB_TEST_DATA/hpatches_sift_subset.npz``, then downloads them from ``SUBSET_URL`` to a
-cache directory, and checks it against the SHA-256 published next to it
-(``SUBSET_URL + ".sha256"``). Without them, it is skipped.
+``python/experiments/hpatches_sift.py --export_subset``. The test gets them with
+``tests.helpers.fetch_test_data``: from ``$HOMLIB_TEST_DATA``, or downloaded from ``SUBSET_URL``.
+Without them, it is skipped, except in CI (``HOMLIB_REQUIRE_TEST_DATA``), where it fails.
 """
 
-import hashlib
 import os
 import unittest
-import urllib.request
-from pathlib import Path
 
 import numpy as np
 
 import homlib
+from tests.helpers import fetch_test_data
 
 SUBSET_NAME = "hpatches_sift_subset.npz"
 # The release asset and its checksum (see python/README.md, "Test data for the regression test")
@@ -31,29 +28,6 @@ SEEDS = (1, 2, 3)
 # identity: there, any k1 = k2 fits the matches.
 MIN_RECALL = 0.95
 MIN_RECALL_TWO_SIDED = 0.7
-
-
-def find_subset():
-    data_dir = os.environ.get("HOMLIB_TEST_DATA")
-    if data_dir and (Path(data_dir) / SUBSET_NAME).exists():
-        return Path(data_dir) / SUBSET_NAME
-    if not SUBSET_URL:
-        return None
-    cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "homlib" / SUBSET_NAME
-    if cache.exists():
-        return cache
-    try:
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        with urllib.request.urlopen(SUBSET_URL + ".sha256") as f:
-            sha256 = f.read().decode().split()[0]
-        with urllib.request.urlopen(SUBSET_URL) as f:
-            data = f.read()
-    except (OSError, ValueError, IndexError):
-        return None
-    if hashlib.sha256(data).hexdigest() != sha256:
-        return None
-    cache.write_bytes(data)
-    return cache
 
 
 def load_pairs(path):
@@ -77,10 +51,7 @@ def recall(solver_id, x, y, H):
 class HPatchesTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        path = find_subset()
-        if path is None:
-            raise unittest.SkipTest(f"{SUBSET_NAME} not found (set HOMLIB_TEST_DATA)")
-        cls.pairs = load_pairs(path)
+        cls.pairs = load_pairs(fetch_test_data(SUBSET_NAME, SUBSET_URL))
 
     def test_point_solvers(self):
         for solver_id in homlib.SolverId.__members__.values():
