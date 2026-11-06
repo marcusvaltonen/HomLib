@@ -86,7 +86,7 @@ namespace ValtonenOrnhagWACV2021 {
 
         // Pre-processing: Remove complex-valued solutions
         double thresh = 1e-5;
-        Eigen::Array3d real_sols;
+        Eigen::ArrayXd real_sols;
         real_sols = sols.imag().cwiseAbs().colwise().sum();
 
         // Allocate space for putative (real) homographies

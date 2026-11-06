@@ -79,6 +79,10 @@ namespace KukelovaCVPR2015 {
 
         // Solve eigenvalue problem
         Eigen::EigenSolver<Eigen::Matrix<double, 5, 5> > es(AM);
+        // Without convergence, the eigenvalues and eigenvectors are not computed: return no solution
+        if (es.info() != Eigen::Success) {
+            return Eigen::MatrixXcd(3, 0);
+        }
         Eigen::ArrayXcd D = es.eigenvalues();
         Eigen::ArrayXXcd V = es.eigenvectors();
         V = (V / V.row(0).array().replicate(5, 1)).eval();

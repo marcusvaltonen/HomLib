@@ -68,7 +68,7 @@ namespace ValtonenOrnhagICPR2020 {
         real_sols = sols.imag().cwiseAbs().colwise().sum();
 
         // Allocate space for putative (real) homographies
-        Eigen::MatrixXd best_homography(3, 3);
+        Eigen::MatrixXd best_homography = Eigen::MatrixXd::Zero(3, 3);
         double best_focal_length = 0.0;
         double best_algebraic_error = DBL_MAX;
         double algebraic_error;

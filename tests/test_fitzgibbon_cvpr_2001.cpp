@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 #include <Eigen/Dense>
+#include <limits>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -60,4 +61,18 @@ TEST_CASE("Fitzgibbon CVPR 2001") {
                -0.19494561,  0.39331832, -0.54704409,
                 0.23663649, -0.11162851, -0.22216837;
     REQUIRE(posedata.homography.isApprox(expected, tol));
+}
+
+TEST_CASE("Fitzgibbon CVPR 2001 - eigensolver without convergence") {
+    // A NaN coordinate stops the generalized eigensolver from converging: the solvers must return
+    // no solution, without reading the eigenvalues and eigenvectors that Eigen didn't compute.
+    std::vector<Eigen::Vector2d> p1 = {
+        Eigen::Vector2d(0.1, 0.2), Eigen::Vector2d(0.8, -0.3), Eigen::Vector2d(-0.5, 0.6),
+        Eigen::Vector2d(0.4, 0.9), Eigen::Vector2d(-0.7, -0.4)
+    };
+    std::vector<Eigen::Vector2d> p2 = p1;
+    p2[2](0) = std::numeric_limits<double>::quiet_NaN();
+
+    REQUIRE(HomLib::FitzgibbonCVPR2001::get(p1, p2).empty());
+    REQUIRE(HomLib::FitzgibbonCVPR2001::get_single(p1, p2).empty());
 }

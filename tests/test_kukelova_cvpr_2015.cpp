@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 #include <Eigen/Dense>
+#include <limits>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -155,4 +156,17 @@ TEST_CASE("Kukelova CVPR 2015 - range check of the estimator") {
     solver.k_range = HomLib::DistortionRange(-0.2 * norm2(x), 0.1);
     solver.estimate(xs, ys, &scaled);
     REQUIRE_FALSE(has_truth(scaled, -0.3 / (s * s)));
+}
+
+TEST_CASE("Kukelova CVPR 2015 - eigensolver without convergence") {
+    // A NaN coordinate stops the eigensolver from converging: the solver must return no solution
+    std::vector<Eigen::Vector2d> p1 = {
+        Eigen::Vector2d(0.1, 0.2), Eigen::Vector2d(0.8, -0.3), Eigen::Vector2d(-0.5, 0.6),
+        Eigen::Vector2d(0.4, 0.9), Eigen::Vector2d(-0.7, -0.4)
+    };
+    std::vector<Eigen::Vector2d> p2 = p1;
+    p2[2](0) = std::numeric_limits<double>::quiet_NaN();
+
+    REQUIRE(HomLib::KukelovaCVPR2015::get(p1, p2, false).empty());
+    REQUIRE(HomLib::KukelovaCVPR2015::get(p1, p2, true).empty());
 }
