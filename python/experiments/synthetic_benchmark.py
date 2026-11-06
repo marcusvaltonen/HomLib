@@ -11,6 +11,12 @@ case and noise level, the script reports:
   as in their Fig. 4, with ``--noise`` in pixels for a focal length of 1000 px);
 - the median time of a call, measured from Python, so it includes the overhead of the bindings.
 
+``--outliers`` runs a second experiment, as in Fig. 5 of Wadenbäck et al.: LOMSAC on problems with
+200 points, 0.5 px of noise and a share of outliers, with a 5 px inlier threshold. For each solver,
+on the distortion case it is made for, it reports the share of the true inliers that LOMSAC finds,
+and the median time of a run. LOMSAC usually finds them all when it can run until it is confident:
+``--iterations N`` limits it to N iterations, which shows how fast each solver finds them.
+
 ``generate_problem_instance`` seeds itself with the time, so two runs don't solve the same
 problems: ``--compare`` reports statistical differences, with their standard errors.
 
@@ -18,6 +24,7 @@ Usage
 -----
     python synthetic_benchmark.py [--problems 2000] [--noise 0 0.5 1 2] [--solvers ...]
                                   [--output results.json]
+    python synthetic_benchmark.py --outliers 0.2 0.4 0.6 0.8 [--iterations 100] [--problems 200]
     python synthetic_benchmark.py --compare before.json after.json
 """
 
@@ -69,12 +76,24 @@ def main():
     parser.add_argument("--noise", type=float, nargs="*", default=[0.0, 0.5, 1.0, 2.0],
                         help="Noise levels in pixels, for a focal length of 1000 px")
     parser.add_argument("--solvers", nargs="*", choices=sorted(SOLVERS), default=sorted(SOLVERS))
+    parser.add_argument("--outliers", type=float, nargs="*", default=None,
+                        help="Shares of outliers: run LOMSAC on problems with outliers instead")
+    parser.add_argument("--iterations", type=int, default=None,
+                        help="With --outliers: run LOMSAC for exactly this many iterations")
     parser.add_argument("--output", type=str, default=None, help="Save the results to this JSON file")
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
                         help="Print the differences B - A between two saved runs, and exit")
     args = parser.parse_args()
     if args.compare:
         compare(*args.compare)
+        return
+
+    if args.outliers:
+        results = run_outliers(args.solvers, args.outliers, args.problems, args.iterations)
+        if args.output:
+            with open(args.output, "w") as f:
+                json.dump({"outliers": results}, f)
+        print_outliers(results)
         return
 
     # results[solver][case][noise] = per problem: (best error, number of solutions, time)
@@ -100,6 +119,42 @@ def main():
         with open(args.output, "w") as f:
             json.dump(results, f)
     print_results(results)
+
+
+def run_outliers(solvers, shares, problems, iterations, n_points=200, noise=0.5, threshold=5.0):
+    """results[solver][share] = per problem: (share of the true inliers found, time)"""
+    results = {}
+    rng = np.random.default_rng()
+    for name in tqdm(solvers, desc="Solvers"):
+        solver = homlib.Solver(homlib.SolverId.__members__[name])
+        case = SOLVERS[name][1][-1]   # the case the solver is made for
+        results[name] = {}
+        for share in shares:
+            runs = []
+            for _ in range(problems):
+                instance = homlib.generate_problem_instance(homlib.ProblemConfig(case, noise / FOCAL, n_points))
+                x, y = np.array(instance.x1).T, np.array(instance.x2).T
+                n_out = int(round(share * n_points))
+                # Outliers: random points in the bounding box of the second image's points
+                y[:, :n_out] = rng.uniform(y.min(1, keepdims=True), y.max(1, keepdims=True), (2, n_out))
+                options = {} if iterations is None else dict(min_num_iterations=iterations,
+                                                             max_num_iterations=iterations)
+                lomsac = homlib.LOMSAC(solver, inlier_threshold=threshold / FOCAL, **options)
+                t0 = time.perf_counter()
+                _, stats = lomsac.estimate(np.ascontiguousarray(x), np.ascontiguousarray(y))
+                elapsed = time.perf_counter() - t0
+                found = np.sum(np.array(stats.inlier_indices, dtype=int) >= n_out)
+                runs.append((found / (n_points - n_out), elapsed))
+            results[name][str(share)] = runs
+    return results
+
+
+def print_outliers(results):
+    print(f"\n{'Solver':<34s} {'Outliers':>8s} {'Inliers found':>13s} {'Time (ms)':>9s}")
+    for name, per_share in sorted(results.items()):
+        for share, runs in per_share.items():
+            found, t = (np.array(v) for v in zip(*runs))
+            print(f"{name:<34s} {float(share) * 100:7.0f}% {np.mean(found) * 100:12.2f}% {np.median(t) * 1e3:9.2f}")
 
 
 def summary(runs):
@@ -136,6 +191,9 @@ def compare(path_a, path_b):
         a = json.load(f)
     with open(path_b) as f:
         b = json.load(f)
+    if "outliers" in a and "outliers" in b:
+        compare_outliers(a["outliers"], b["outliers"])
+        return
     print(f"{'Solver':<34s} {'Case':<16s} {'Noise':>5s} {'No solution':>13s} {'Missed':>13s} "
           f"{'Error':>6s} {'Time':>6s}")
     for name in sorted(set(a) & set(b)):
@@ -150,6 +208,20 @@ def compare(path_a, path_b):
                 error = f"{rb['median_error'] / ra['median_error']:5.2f}x" if finite else "  n/a"
                 print(f"{name:<34s} {case:<16s} {float(noise):5.1f} {none:>13s} {missed:>13s} {error:>6s} "
                       f"{rb['time'] / ra['time']:5.2f}x")
+
+
+def compare_outliers(a, b):
+    """b - a: the share of the true inliers found, with its standard error, and the time ratio"""
+    print(f"{'Solver':<34s} {'Outliers':>8s} {'Inliers found':>16s} {'Time':>6s}")
+    for name in sorted(set(a) & set(b)):
+        for share in a[name]:
+            if share not in b[name]:
+                continue
+            fa, ta = (np.array(v) for v in zip(*a[name][share]))
+            fb, tb = (np.array(v) for v in zip(*b[name][share]))
+            se = np.sqrt(fa.var(ddof=1) / len(fa) + fb.var(ddof=1) / len(fb)) * 100
+            print(f"{name:<34s} {float(share) * 100:7.0f}% {(fb.mean() - fa.mean()) * 100:+8.2f} ±{se:4.2f} pts "
+                  f"{np.median(tb) / np.median(ta):5.2f}x")
 
 
 if __name__ == "__main__":
