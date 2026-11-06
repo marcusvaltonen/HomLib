@@ -89,18 +89,24 @@ def lightglue_matcher(features, num_features, resize):
     import torch
     from lightglue import ALIKED, DISK, SIFT, LightGlue, SuperPoint
     from lightglue.utils import load_image, rbd
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     extractor_class = {"superpoint": SuperPoint, "disk": DISK, "aliked": ALIKED, "sift": SIFT}[features]
     extractor = extractor_class(max_num_keypoints=num_features).eval().to(device)
     matcher = LightGlue(features=features).eval().to(device)
     # resize: the shorter side of the images, in pixels (None: the original images). The extractor
     # gives the keypoints in the original images.
     options = dict(resize=resize, side="short") if resize else dict(resize=None)
+    cache = {}
+
+    def extract(path):
+        if path not in cache:
+            cache.clear()   # image 1 of a sequence is matched with the 5 others in a row
+            cache[path] = extractor.extract(load_image(path).to(device), **options)
+        return cache[path]
 
     @torch.no_grad()
     def match(path1, path2):
-        f1 = extractor.extract(load_image(path1).to(device), **options)
-        f2 = extractor.extract(load_image(path2).to(device), **options)
+        f1, f2 = extract(path1), extract(path2)
         m = rbd(matcher({"image0": f1, "image1": f2}))["matches"]
         f1, f2 = rbd(f1), rbd(f2)
         return (f1["keypoints"][m[:, 0]].cpu().numpy().astype(float),
@@ -129,7 +135,7 @@ def main():
     parser.add_argument("--matcher", choices=["ratio", "lightglue"], default="ratio",
                         help="Lowe's ratio test (OpenCV SIFT only) or LightGlue")
     parser.add_argument("--num_features", type=int, default=4000, help="Keypoints per image")
-    parser.add_argument("--ratio", type=float, default=0.8, help="Ratio test threshold")
+    parser.add_argument("--ratio", type=float, default=None, help="Ratio test threshold (default: 0.8)")
     parser.add_argument("--resize", type=int, default=None,
                         help="With LightGlue: resize the shorter side of the images to this size")
     parser.add_argument("--output", type=str, default=None,
@@ -144,12 +150,18 @@ def main():
             parser.error("--matches needs --export_subset")
         pairs = load_matches(Path(args.matches))
     else:
+        if args.matcher == "lightglue" and args.features == "loma":
+            parser.error("LoMa matches its own points: --features loma doesn't take --matcher lightglue")
+        if args.resize and args.matcher != "lightglue":
+            parser.error("--resize needs --matcher lightglue")
+        if args.ratio is not None and args.matcher != "ratio":
+            parser.error("--ratio needs --matcher ratio")
         if args.features == "loma":
             match = loma_matcher(args.num_features)
         elif args.matcher == "lightglue":
             match = lightglue_matcher(args.features, args.num_features, args.resize)
         elif args.features == "sift":
-            match = sift_matcher(args.num_features, args.ratio)
+            match = sift_matcher(args.num_features, 0.8 if args.ratio is None else args.ratio)
         else:
             parser.error(f"--features {args.features} needs --matcher lightglue")
         pairs = compute_matches(download_hpatches(Path(args.data_dir)), match)

@@ -7,14 +7,14 @@ the illumination sequences:
   inlier threshold of the ground-truth homography. This share ignores false inliers: the corner
   error accounts for them;
 - the AUC of the corner error, which maps the image corners with the estimated model (distortion
-  included) and with the ground-truth homography. The AUC at 1, 3 and 5 px is the mAA that
-  Wadenbäck et al. (3DV 2026) report on HPatches;
+  included) and with the ground-truth homography. Wadenbäck et al. (3DV 2026) report the AUC at
+  1, 3 and 5 px on HPatches, as "mAA (AUC)";
 - the median time of a LOMSAC run.
 
 Pairs with no true inlier are left out, since no solver can find any.
 
-``--iterations N`` runs LOMSAC for exactly N iterations, instead of stopping when it is confident,
-so that several runs give the accuracy as a function of the time, as in Fig. 6 of Wadenbäck et al.
+``--iterations N`` runs LOMSAC for exactly N iterations, instead of stopping when it is confident. Several
+runs give the accuracy as a function of the time, as in Fig. 6 of Wadenbäck et al.
 
 ``--output`` saves the results of every pair to a JSON file, and ``--compare a.json b.json``
 prints the differences between two such runs (e.g. two versions of HomLib), with their standard
@@ -99,6 +99,8 @@ def main():
                else point_solvers())
     # results[solver][pair] = per seed: (share of the true inliers found, corner error, time)
     results = {s.name: {} for s in solvers}
+    options = {} if args.iterations is None else dict(
+        min_num_iterations=args.iterations, max_num_iterations=args.iterations)
     for key, pair in tqdm(pairs.items(), desc="Pairs"):
         gt = set(true_inliers(pair, args.threshold).tolist())
         if not gt:
@@ -107,8 +109,6 @@ def main():
         for s in solvers:
             runs = []
             for seed in range(1, args.seeds + 1):
-                options = {} if args.iterations is None else dict(
-                    min_num_iterations=args.iterations, max_num_iterations=args.iterations)
                 lomsac = homlib.LOMSAC(homlib.Solver(s), inlier_threshold=args.threshold, random_seed=seed, **options)
                 t0 = time.perf_counter()
                 pose, stats = lomsac.estimate(x, y)
