@@ -97,7 +97,9 @@ def lightglue_matcher(features, num_features, resize):
     from lightglue.utils import load_image, rbd
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     extractor_class = {"superpoint": SuperPoint, "disk": DISK, "aliked": ALIKED, "sift": SIFT}[features]
-    extractor = extractor_class(max_num_keypoints=num_features).eval().to(device)
+    # origin="center": (0, 0) at the center of the top-left pixel, as in OpenCV (LightGlue's default
+    # for now; it plans to switch to "corner")
+    extractor = extractor_class(max_num_keypoints=num_features, origin="center").eval().to(device)
     matcher = LightGlue(features=features).eval().to(device)
     # resize: the shorter side of the images, in pixels (None: the original images). The extractor
     # gives the keypoints in the original images.
