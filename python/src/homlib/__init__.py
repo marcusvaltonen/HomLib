@@ -57,6 +57,27 @@ class Solver(_CppSolver):
 # Point-based solvers
 # ---------------------------------------------------------------------------
 
+class CaiPAMI2025(Solver):
+    """4-point homography solver using the ACA decomposition by Cai et al. (PAMI 2025). No distortion."""
+
+    def __init__(self):
+        super().__init__(SolverId.CaiPAMI2025)
+
+
+class DLT(Solver):
+    """Standard 4-point DLT homography solver. No distortion.
+
+    Parameters
+    ----------
+    use_qr : bool
+        If True, compute the null space via QR decomposition of A^T
+        (faster). If False (default), use SVD (more robust).
+    """
+
+    def __init__(self, use_qr=False):
+        super().__init__(SolverId.DLT, use_qr=use_qr)
+
+
 class FitzgibbonCVPR2001OneSided(Solver):
     """One-sided radial distortion solver by Fitzgibbon (CVPR 2001), 5-point."""
 
@@ -132,6 +153,13 @@ class Wadenback3DV2026TwoSided(Solver):
 
     def __init__(self, extra_check=False):
         super().__init__(SolverId.Wadenback3DV2026TwoSided, extra_check=extra_check)
+
+
+class GuoPRL2019(Solver):
+    """4-point homography solver using Guo's explicit method (PRL 2019). No distortion."""
+
+    def __init__(self):
+        super().__init__(SolverId.GuoPRL2019)
 
 
 # ---------------------------------------------------------------------------
@@ -493,6 +521,8 @@ __all__ = [
     "ProblemInstance",
     "generate_problem_instance",
     # Point-based solvers
+    "CaiPAMI2025",
+    "DLT",
     "FitzgibbonCVPR2001OneSided",
     "FitzgibbonCVPR2001TwoSidedEqual",
     "KukelovaCVPR2015TwoSidedEqual",
@@ -504,6 +534,7 @@ __all__ = [
     "Wadenback3DV2026OneSided",
     "Wadenback3DV2026TwoSidedEqual",
     "Wadenback3DV2026TwoSided",
+    "GuoPRL2019",
     # Affine-covariant solvers
     "BarathVISAPP2016Affine",
     "ValtonenOrnhagICPR2026AffineSingleSided",

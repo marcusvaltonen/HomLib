@@ -79,6 +79,9 @@ distortion on each image.
 
 All point-based solvers have ``feature_type == FeatureType.Points``.
 
+.. autoclass:: CaiPAMI2025
+.. autoclass:: DLT
+.. autoclass:: GuoPRL2019
 .. autoclass:: FitzgibbonCVPR2001OneSided
 .. autoclass:: FitzgibbonCVPR2001TwoSidedEqual
 .. autoclass:: KukelovaCVPR2015TwoSidedEqual
