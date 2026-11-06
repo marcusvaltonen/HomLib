@@ -3,6 +3,8 @@ import unittest
 import numpy as np
 import homlib
 
+from tests.helpers import normalize_H
+
 
 class Wadenback3DV2026OneSidedTestCase(unittest.TestCase):
     def setUp(self):
@@ -19,17 +21,15 @@ class Wadenback3DV2026OneSidedTestCase(unittest.TestCase):
         self.solver = homlib.Wadenback3DV2026OneSided(extra_check=False)
 
     def test_one_sided_length(self):
+        # The cubic has 3 real roots, but k = 5.11091 and k = 2.73767 are false roots: their
+        # homography puts some points behind a camera, so the solver drops them
         sols = self.solver.estimate(self.p1, self.p2)
-        self.assertEqual(len(sols), 3)
+        self.assertEqual(len(sols), 1)
 
     def test_one_sided_distortion(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertAlmostEqual(sols[0].distortion_parameter, 0.0, 12)
-        self.assertAlmostEqual(sols[0].distortion_parameter2, 5.11091, 4)
-        self.assertAlmostEqual(sols[1].distortion_parameter, 0.0, 12)
-        self.assertAlmostEqual(sols[1].distortion_parameter2, 2.73767, 4)
-        self.assertAlmostEqual(sols[2].distortion_parameter, 0.0, 12)
-        self.assertAlmostEqual(sols[2].distortion_parameter2, -0.3, 12)
+        self.assertAlmostEqual(sols[0].distortion_parameter2, -0.3, 12)
 
     def test_one_sided_homography(self):
         sols = self.solver.estimate(self.p1, self.p2)
@@ -38,7 +38,7 @@ class Wadenback3DV2026OneSidedTestCase(unittest.TestCase):
             [0.000429490139445578,  3.06112333501461e-05, -0.000156454396552730],
             [0.000133561563704977, -0.000486333541936380,  0.000545809522795618]
         ])
-        np.testing.assert_allclose(sols[2].homography, expected_2, atol=1e-7)
+        np.testing.assert_allclose(normalize_H(sols[0].homography), normalize_H(expected_2), atol=1e-7)
 
     def test_one_sided_dimensions(self):
         p1 = np.random.randn(2, 5)
@@ -83,7 +83,7 @@ class Wadenback3DV2026TwoSidedEqualTestCase(unittest.TestCase):
             [-5.32137209241095e-06, -4.87624482275744e-06,  3.51720726336518e-06],
             [1.80217660206107e-06,  2.74275008576624e-06,  7.02453977468668e-06]
         ])
-        np.testing.assert_allclose(sols[0].homography, expected, atol=1e-7)
+        np.testing.assert_allclose(normalize_H(sols[0].homography), normalize_H(expected), atol=1e-7)
 
 
 class Wadenback3DV2026TwoSidedTestCase(unittest.TestCase):
@@ -116,4 +116,4 @@ class Wadenback3DV2026TwoSidedTestCase(unittest.TestCase):
             [-5.32137209241095e-06, -4.87624482275744e-06,  3.51720726336518e-06],
             [1.80217660206107e-06,  2.74275008576624e-06,  7.02453977468668e-06]
         ])
-        np.testing.assert_allclose(sols[0].homography, expected, atol=1e-7)
+        np.testing.assert_allclose(normalize_H(sols[0].homography), normalize_H(expected), atol=1e-7)

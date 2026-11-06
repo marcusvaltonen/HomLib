@@ -167,18 +167,10 @@ std::vector<HomLib::PoseData> get_double_sided(
                 continue;
             }
 	    }
-        // Compute homography
+        // Compute homography (none for a false root)
         Eigen::Matrix3d H;
-
-        std::vector<Eigen::Vector2d> x_undist;
-        std::vector<Eigen::Vector2d> y_undist;
-        for (int i = 0; i < 4; i++) {
-	        Eigen::Vector2d tmp = x[i] / (1 + k1 * x[i].squaredNorm());
-	        x_undist.push_back(tmp);
-	        tmp = y[i] / (1 + k2 * y[i].squaredNorm());
-	        y_undist.push_back(tmp);
-        }
-        H = HomLib::Wadenback3DV2026::homography_4pt_guo(x_undist, y_undist);
+        if (!HomLib::Wadenback3DV2026::homography_of_root(x, y, k1, k2, &H))
+            continue;
 
         // Package
         HomLib::PoseData container;

@@ -28,6 +28,18 @@ Eigen::Matrix3d homography_4pt_guo(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y
 );
+// The homography of a root, from the first 5 points of x and y undistorted with k1 and k2: Guo's
+// method on the 4 of them in the best general position (see general_position.hpp). Returns false
+// for a root that can't be a solution: when a point has 1 + k r^2 <= 0 (no undistorted point),
+// when the 4 points don't determine a homography with every point in front of both cameras, or
+// when H isn't finite.
+bool homography_of_root(
+    const std::vector<Eigen::Vector2d> &x,
+    const std::vector<Eigen::Vector2d> &y,
+    double k1,
+    double k2,
+    Eigen::Matrix3d *H
+);
 } // namespace
 } // namespace
 #endif  // SRC_SOLVERS_WADENBACK_3DV_2026_WADENBACK_COMMON_HPP_
