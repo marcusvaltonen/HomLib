@@ -4,6 +4,8 @@ namespace HomLib {
 
 enum class SolverId {
     // Point-based (PoseEstimator<T>)
+    CaiPAMI2025,
+    DLT,
     FitzgibbonCVPR2001OneSided,
     FitzgibbonCVPR2001TwoSidedEqual,
     KukelovaCVPR2015TwoSidedEqual,
@@ -15,6 +17,7 @@ enum class SolverId {
     Wadenback3DV2026OneSided,
     Wadenback3DV2026TwoSidedEqual,
     Wadenback3DV2026TwoSided,
+    GuoPRL2019,
     // Affine-based (AffinePoseEstimator<T>)
     BarathVISAPP2016Affine,
     ValtonenOrnhagICPR2026AffineSingleSided,

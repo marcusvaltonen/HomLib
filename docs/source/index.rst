@@ -112,6 +112,7 @@ the :ref:`references` page. For the library itself:
    :hidden:
    :caption: User guides:
 
+   guides/homography.rst
    guides/solvers.rst
    guides/backends.rst
    guides/features.rst

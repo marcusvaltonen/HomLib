@@ -235,7 +235,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
       - name: Build python package
         run: |
@@ -321,7 +321,7 @@ jobs:
         uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_PROJECT_REQUIRES_PYTHON: ">=3.10"
-          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp310-*' || ''  }}
+          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp312-*' || ''  }}
           CIBW_BEFORE_ALL_LINUX: yum install -y eigen3-devel
           CIBW_ENVIRONMENT_LINUX: >-
             BUILD_SHARED_LIBS="OFF"

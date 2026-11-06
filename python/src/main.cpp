@@ -30,7 +30,7 @@ std::vector<HomLib::PoseData> dispatch_estimate_point(
 
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
         s.solve(x, y, &poses);
         return poses;
@@ -49,7 +49,7 @@ std::vector<HomLib::PoseData> dispatch_estimate_affine(
 
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
         s.solve(x, y, A, &poses);
         return poses;
@@ -67,7 +67,7 @@ std::vector<HomLib::PoseData> dispatch_estimate_orientation(
 
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         std::vector<HomLib::PoseData> poses;
         s.solve(x, y, ori, &poses);
         return poses;
@@ -87,7 +87,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_point(
 
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_lomsac_point(s, x, y, options);
     });
 }
@@ -105,7 +105,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_affine
 
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_lomsac_affine(s, x, y, A, options);
     });
 }
@@ -122,7 +122,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_orient
 
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
-        auto s = make_solver<Solver>(solver.extra_check);
+        auto s = make_solver<Solver>(solver);
         return HomLib::run_lomsac_orientation(s, x, y, ori, options);
     });
 }
@@ -145,6 +145,8 @@ PYBIND11_MODULE(_core, m) {
         R"pbdoc(
             Identifier for a specific minimal solver algorithm.
         )pbdoc")
+        .value("CaiPAMI2025", HomLib::SolverId::CaiPAMI2025)
+        .value("DLT", HomLib::SolverId::DLT)
         .value("FitzgibbonCVPR2001OneSided", HomLib::SolverId::FitzgibbonCVPR2001OneSided)
         .value("FitzgibbonCVPR2001TwoSidedEqual", HomLib::SolverId::FitzgibbonCVPR2001TwoSidedEqual)
         .value("KukelovaCVPR2015TwoSidedEqual", HomLib::SolverId::KukelovaCVPR2015TwoSidedEqual)
@@ -156,6 +158,7 @@ PYBIND11_MODULE(_core, m) {
         .value("Wadenback3DV2026OneSided", HomLib::SolverId::Wadenback3DV2026OneSided)
         .value("Wadenback3DV2026TwoSidedEqual", HomLib::SolverId::Wadenback3DV2026TwoSidedEqual)
         .value("Wadenback3DV2026TwoSided", HomLib::SolverId::Wadenback3DV2026TwoSided)
+        .value("GuoPRL2019", HomLib::SolverId::GuoPRL2019)
         .value("BarathVISAPP2016Affine", HomLib::SolverId::BarathVISAPP2016Affine)
         .value("ValtonenOrnhagICPR2026AffineSingleSided", HomLib::SolverId::ValtonenOrnhagICPR2026AffineSingleSided)
         .value("ValtonenOrnhagICPR2026OrientationSingleSided", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationSingleSided);
@@ -177,7 +180,7 @@ PYBIND11_MODULE(_core, m) {
             Wraps a specific solver algorithm identified by :class:`SolverId`.
             Solver-specific parameters (e.g. ``extra_check``) are set at construction.
         )pbdoc")
-        .def(py::init<HomLib::SolverId, bool>(),
+        .def(py::init<HomLib::SolverId, py::kwargs>(),
             R"pbdoc(
                 Construct a Solver.
 
@@ -185,18 +188,23 @@ PYBIND11_MODULE(_core, m) {
                 ----------
                 id : SolverId
                     Which solver algorithm to use.
-                extra_check : bool
-                    Whether to apply extra validation checks (only affects solvers that support it).
+                **kwargs
+                    Solver-specific options (e.g. ``extra_check=True``).
+                    Unknown options are silently ignored.
             )pbdoc",
-            "id"_a, "extra_check"_a = false)
+            "id"_a)
         .def_readonly("id", &PySolver::id, "Solver identifier (:class:`SolverId`).")
         .def_readonly("feature_type", &PySolver::feature_type, "Feature type (:class:`FeatureType`).")
-        .def_readonly("extra_check", &PySolver::extra_check, "Whether extra validation checks are enabled.")
+        .def_readonly("options", &PySolver::options, "Solver-specific options.")
         .def("__repr__", [](const PySolver& s) {
             auto py_id = py::cast(s.id);
             std::string name = py_id.attr("name").cast<std::string>();
-            return "Solver(SolverId." + name +
-                   ", extra_check=" + std::string(s.extra_check ? "True" : "False") + ")";
+            std::string opts;
+            for (auto item : s.options) {
+                opts += ", " + py::str(item.first).cast<std::string>() +
+                        "=" + py::str(item.second).cast<std::string>();
+            }
+            return "Solver(SolverId." + name + opts + ")";
         });
 
     // --- PoseData ---
