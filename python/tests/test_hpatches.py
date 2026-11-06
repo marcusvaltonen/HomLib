@@ -3,7 +3,7 @@
 The OpenCV SIFT matches of these pairs, and their ground-truth homographies, come from
 ``python/experiments/hpatches_sift.py --export_subset``. The test looks for them at
 ``$HOMLIB_TEST_DATA/hpatches_sift_subset.npz``, then downloads them from ``SUBSET_URL`` to a
-cache directory. Without them, it is skipped.
+cache directory (checking ``SUBSET_SHA256``). Without them, it is skipped.
 """
 
 import hashlib
@@ -17,8 +17,11 @@ import numpy as np
 import homlib
 
 SUBSET_NAME = "hpatches_sift_subset.npz"
-SUBSET_URL = os.environ.get("HOMLIB_TEST_DATA_URL", "")   # TODO: the release asset, once published
-SUBSET_SHA256 = ""   # TODO: with the URL
+# The release asset (see python/README.md, "Test data for the regression test")
+SUBSET_URL = os.environ.get(
+    "HOMLIB_TEST_DATA_URL",
+    "https://github.com/marcusvaltonen/HomLib/releases/download/test-data-v1/" + SUBSET_NAME)
+SUBSET_SHA256 = "699b605f421efedd1bba58eace3398cba645701c3a4a2492b0a949d5e6037138"
 
 THRESHOLD = 3.0   # inlier threshold in pixels
 SEEDS = (1, 2, 3)
@@ -41,7 +44,7 @@ def find_subset():
         try:
             cache.parent.mkdir(parents=True, exist_ok=True)
             urllib.request.urlretrieve(SUBSET_URL, cache)
-        except OSError:
+        except (OSError, ValueError):
             return None
     if SUBSET_SHA256 and hashlib.sha256(cache.read_bytes()).hexdigest() != SUBSET_SHA256:
         cache.unlink()
