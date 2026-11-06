@@ -18,8 +18,11 @@ The features and the matcher:
   Wadenbäck et al. (3DV 2026) evaluate on HPatches with SuperPoint and LightGlue, 1024 keypoints,
   and the shorter side of the images resized to 480 pixels: ``--features superpoint --matcher
   lightglue --num_features 1024 --resize 480``. The points are given in the original images.
+  LightGlue's SIFT is OpenCV SIFT without precise upscaling, which shifts its points by about
+  0.1 px: the script gives it the same SIFT with precise upscaling.
 - ``--features loma``: LoMa (Nordström et al., ECCV 2026), which detects, describes and matches the
-  points itself, as in hpatches_loma.py.
+  points itself, as in hpatches_loma.py. Its pixel origin is the top-left corner of the image: the
+  script shifts its points by -0.5 px, to OpenCV's convention.
 
 ``--export_subset`` writes the matches of 8 pairs (4 viewpoint, 4 illumination) for the regression
 test ``python/tests/test_hpatches.py``.
