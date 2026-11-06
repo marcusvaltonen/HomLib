@@ -1,7 +1,10 @@
 #ifndef SRC_SOLVERS_WADENBACK_3DV_2026_WADENBACK_COMMON_HPP_
 #define SRC_SOLVERS_WADENBACK_3DV_2026_WADENBACK_COMMON_HPP_
 #include <Eigen/Dense>
+#include <algorithm>
+#include <cmath>
 #include <vector>
+#include "PoseLib/misc/sturm.h"
 
 namespace HomLib {
 namespace Wadenback3DV2026 {
@@ -23,6 +26,45 @@ double compute_residual2(
 Eigen::Matrix<double, 12, 1> compute_coeffs(
     const std::vector<Eigen::Vector2d> &x
 );
+// Finds the real roots of p[0] + p[1] x + ... + p[N] x^N, writes them to roots (at most N), and
+// returns their number. It calls PoseLib's bisect_sturm on q(z) = p(s (z + c)).
+//
+// bisect_sturm stops on absolute thresholds. Ridders' method stops when the bracket is below 1e-3
+// or after 30 iterations. Newton's method stops when |p(x)| / |p_N| < tol (1e-10 by default). The
+// solvers' polynomials have small roots, close roots and large spurious roots. bisect_sturm finds
+// the small and close roots coarsely, and the large ones make its search interval huge. Three
+// changes fix this:
+// - s = max(|p[0] / p[N]|^(1/N), |p[1] / p[N]|^(1/(N-1))) brings the typical root near 1.
+// - tol = 1e-14 lets bisect_sturm's Newton steps reach the rounding level of q. This also makes
+//   the close roots accurate.
+// - Without distortion, p has a root at x = 0, which is bisect_sturm's first bisection point.
+//   There, p = 0 up to rounding, and bisect_sturm can lose the root. The offset c moves the root
+//   to z = -c.
+template <int N>
+int bisect_sturm_scaled(const double *p, double *roots) {
+    static_assert(N >= 2, "degree at least 2");
+    double s = std::max(std::pow(std::abs(p[0] / p[N]), 1.0 / N),
+                        std::pow(std::abs(p[1] / p[N]), 1.0 / (N - 1)));
+    if (!(s > 0) || !std::isfinite(s))
+        s = 1;
+    double q[N + 1];
+    double sk = 1;
+    for (int i = 0; i <= N; i++) {
+        q[i] = p[i] * sk;
+        sk *= s;
+    }
+    // Any small offset works, and 0.0123 has no special meaning. The offset only has to move a root
+    // at x = 0 off bisect_sturm's bisection points z = B n / 2^j. z = -c is one of them only if
+    // c 2^j / B is an integer.
+    const double c = 0.0123;
+    for (int i = 0; i < N; i++)   // Taylor shift: q(z) becomes q(z + c)
+        for (int j = N - 1; j >= i; j--)
+            q[j] += c * q[j + 1];
+    int nroots = poselib::sturm::bisect_sturm<N>(q, roots, 1e-14);
+    for (int i = 0; i < nroots; i++)
+        roots[i] = (roots[i] + c) * s;
+    return nroots;
+}
 // Guo's method (2019) for computing a homography from four points using an explicit method.
 Eigen::Matrix3d homography_4pt_guo(
     const std::vector<Eigen::Vector2d> &x,
