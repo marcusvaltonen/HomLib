@@ -18,7 +18,8 @@ namespace HomLib {
 			return static_cast<const Solver*>(this)->minimal_sample_size();
 		}
 
-	protected:
+		// Public, not protected: since C++20, Solver{} for a solver that declares no constructor
+		// (an aggregate) initializes this base from outside the solver
 		OrientationPoseEstimator() = default;
 	};
 };

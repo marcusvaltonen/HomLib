@@ -42,8 +42,26 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ftree-vectorize -funroll-loops")
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+# C++17 by default; configure with -DCMAKE_CXX_STANDARD=20 or 23 to build in a newer standard.
+if(NOT CMAKE_CXX_STANDARD)
+    set(CMAKE_CXX_STANDARD 17)
+elseif(CMAKE_CXX_STANDARD LESS 17 OR CMAKE_CXX_STANDARD EQUAL 98)
+    message(FATAL_ERROR "HomLib needs C++17 or later (CMAKE_CXX_STANDARD is ${CMAKE_CXX_STANDARD})")
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+option(HOMLIB_STRICT_STANDARD "GCC and clang: compile HomLib's own code as ISO C++ (no compiler extensions), with -pedantic-errors and deprecations as errors (MSVC ignores these flags)" OFF)
+
+# HomLib's own targets call this; the third-party code is included as system headers, so that it
+# isn't checked
+function(homlib_strict_standard target)
+    if(HOMLIB_STRICT_STANDARD)
+        set_target_properties(${target} PROPERTIES CXX_EXTENSIONS OFF)
+        target_compile_options(${target} PRIVATE -pedantic-errors -Werror=deprecated -Werror=deprecated-declarations
+            # GCC (11 and later knows these flags) keeps these C++20 deprecations out of -Wdeprecated
+            $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_GREATER_EQUAL:$<CXX_COMPILER_VERSION>,11>>:-Werror=volatile;-Werror=deprecated-enum-enum-conversion;-Werror=deprecated-enum-float-conversion;-Werror=deprecated-copy-dtor>)
+    endif()
+endfunction()
 
 option(HOMLIB_USE_SUPERANSAC "Enable SupeRANSAC backend (requires Boost, OpenCV)" ON)
 option(HOMLIB_USE_GCRANSAC "Enable GC-RANSAC backend (requires OpenCV)" ON)
