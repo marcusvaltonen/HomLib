@@ -260,10 +260,11 @@ combination of RANSAC components not available in the other backends.
 Confidence scores and sampler selection
 ---------------------------------------
 
-When correspondences have associated confidence scores (e.g. from a learned
-matcher like LoMa, SuperGlue, or LightGlue), they can be passed to the RANSAC
-backends to guide sampling towards more reliable matches. This is supported by
-GC-RANSAC, MAGSAC, and SupeRANSAC.
+When correspondences have associated confidence scores (e.g., from a learned
+matcher like `LightGlue <https://github.com/cvg/LightGlue>`_ or
+`LoFTR <https://github.com/zju3dv/LoFTR>`_), they can be passed to the
+RANSAC backends to guide sampling towards more reliable matches. This is
+supported by GC-RANSAC, MAGSAC, and SupeRANSAC.
 
 .. code-block:: python
 
