@@ -70,6 +70,10 @@ namespace NakanoICPR2025 {
         
         Eigen::GeneralizedEigenSolver<Eigen::Matrix3d> ges;
         ges.compute(A, B, true);
+        // Without convergence, the eigenvalues and eigenvectors are not computed
+        if (ges.info() != Eigen::Success) {
+            return {};
+        }
         Eigen::Vector3cd ks = ges.eigenvalues();
         Eigen::Matrix3d X = ges.eigenvectors().real();
         

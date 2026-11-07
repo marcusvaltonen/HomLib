@@ -67,6 +67,10 @@ namespace FitzgibbonCVPR2001 {
         // In the minimal case, we don't need to compute D0.transpose * D0, etc.
         Eigen::GeneralizedEigenSolver<Eigen::Matrix<double, 9, 9>> ges;
         ges.compute(D0, D1, true);
+        // Without convergence, the eigenvalues and eigenvectors are not computed
+        if (ges.info() != Eigen::Success) {
+            return {};
+        }
         Eigen::Matrix<std::complex<double>, 9, 1> ks = ges.eigenvalues();
         Eigen::Matrix<double, 9, 9> X = ges.eigenvectors().real();
 

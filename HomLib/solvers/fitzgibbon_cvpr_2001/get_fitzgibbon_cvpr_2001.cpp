@@ -112,6 +112,11 @@ namespace FitzgibbonCVPR2001 {
 
         Eigen::GeneralizedEigenSolver<Eigen::MatrixXd> ges;
         ges.compute(A, B, true);
+        // Without convergence, the eigenvalues and eigenvectors are not computed (with a
+        // dynamic-size solver, they stay empty)
+        if (ges.info() != Eigen::Success) {
+            return {};
+        }
         Eigen::VectorXcd l;
         Eigen::MatrixXd X;
         l = ges.eigenvalues();

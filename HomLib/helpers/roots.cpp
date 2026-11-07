@@ -40,9 +40,12 @@ namespace HomLib {
             }
         }
 
-        // Compute roots via eigenvalues of companion matrix
-        Eigen::VectorXcd eigvals = companion_mat.eigenvalues();
-
-        return eigvals;
+        // Compute roots via eigenvalues of companion matrix. Without convergence, the eigenvalues are
+        // not computed: return no root.
+        Eigen::EigenSolver<Eigen::MatrixXd> es(companion_mat, false);
+        if (es.info() != Eigen::Success) {
+            return Eigen::VectorXcd(0);
+        }
+        return es.eigenvalues();
     }
 }  // namespace HomLib

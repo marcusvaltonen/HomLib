@@ -173,6 +173,10 @@ namespace ValtonenOrnhagWACV2021 {
 
         // Solve eigenvalue problem
         Eigen::EigenSolver<Eigen::Matrix<double, 3, 3> > es(AM);
+        // Without convergence, the eigenvalues and eigenvectors are not computed: return no solution
+        if (es.info() != Eigen::Success) {
+            return Eigen::MatrixXcd(4, 0);
+        }
         Eigen::ArrayXcd D = es.eigenvalues();
         Eigen::ArrayXXcd V = es.eigenvectors();
 
