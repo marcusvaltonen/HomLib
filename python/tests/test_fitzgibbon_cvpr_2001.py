@@ -1,11 +1,7 @@
 import unittest
 
-from approvaltests import verify
-
 import numpy as np
 import homlib
-
-from tests.helpers import verify_numpy_array
 
 
 class FitzgibbonCVPR2001TestCase(unittest.TestCase):
@@ -28,7 +24,12 @@ class FitzgibbonCVPR2001TestCase(unittest.TestCase):
         self.assertEqual(len(sols), 1)
         self.assertAlmostEqual(sols[0].distortion_parameter, -0.6554778901775142, 12)
         self.assertAlmostEqual(sols[0].distortion_parameter2, -0.6554778901775142, 12)
-        verify(verify_numpy_array(sols[0].homography))
+        expected = np.array([
+            [ 0.07731617,  0.25714674, -0.13263548],
+            [-0.19494561,  0.39331832, -0.54704409],
+            [ 0.23663649, -0.11162851, -0.22216837]
+        ])
+        np.testing.assert_allclose(sols[0].homography, expected, atol=1e-7)
 
     def test_estimate_fitzgibbon_cvpr_2001_two_sided_equal_dimensions01(self):
         """Check that an exception is raised when dimensions are incorrect."""
