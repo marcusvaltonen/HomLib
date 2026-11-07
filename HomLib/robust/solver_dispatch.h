@@ -62,9 +62,9 @@ auto dispatch_affine_solver(SolverId id, Func&& func) {
         case SolverId::BarathVISAPP2016Affine:
             return func(BarathVISAPP2016::AffineSolver{});
         case SolverId::ValtonenOrnhagICPR2026AffineOneSided:
-            return func(ValtonenOrnhagICPR2026::AffineSolverSingleSided{});
-        case SolverId::ValtonenOrnhagICPR2026AffineOneSidedLeft:
             return func(FlippedAffineOneSidedSolver<ValtonenOrnhagICPR2026::AffineSolverSingleSided>{});
+        case SolverId::ValtonenOrnhagICPR2026AffineOneSidedRight:
+            return func(ValtonenOrnhagICPR2026::AffineSolverSingleSided{});
         default:
             throw std::invalid_argument("Not an affine-based solver");
     }
@@ -74,9 +74,9 @@ template <typename Func>
 auto dispatch_orientation_solver(SolverId id, Func&& func) {
     switch (id) {
         case SolverId::ValtonenOrnhagICPR2026OrientationOneSided:
-            return func(ValtonenOrnhagICPR2026::OrientationSolverSingleSided{});
-        case SolverId::ValtonenOrnhagICPR2026OrientationOneSidedLeft:
             return func(FlippedOrientationOneSidedSolver<ValtonenOrnhagICPR2026::OrientationSolverSingleSided>{});
+        case SolverId::ValtonenOrnhagICPR2026OrientationOneSidedRight:
+            return func(ValtonenOrnhagICPR2026::OrientationSolverSingleSided{});
         default:
             throw std::invalid_argument("Not an orientation-based solver");
     }

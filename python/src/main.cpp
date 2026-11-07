@@ -163,9 +163,9 @@ PYBIND11_MODULE(_core, m) {
         .value("GuoPRL2019", HomLib::SolverId::GuoPRL2019)
         .value("BarathVISAPP2016Affine", HomLib::SolverId::BarathVISAPP2016Affine)
         .value("ValtonenOrnhagICPR2026AffineOneSided", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSided)
-        .value("ValtonenOrnhagICPR2026AffineOneSidedLeft", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSidedLeft)
+        .value("ValtonenOrnhagICPR2026AffineOneSidedRight", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSidedRight)
         .value("ValtonenOrnhagICPR2026OrientationOneSided", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationOneSided)
-        .value("ValtonenOrnhagICPR2026OrientationOneSidedLeft", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationOneSidedLeft);
+        .value("ValtonenOrnhagICPR2026OrientationOneSidedRight", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationOneSidedRight);
 
     py::enum_<HomLib::FeatureType>(m, "FeatureType",
         R"pbdoc(

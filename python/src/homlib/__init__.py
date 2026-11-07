@@ -200,21 +200,25 @@ class BarathVISAPP2016Affine(Solver):
 
 
 class ValtonenOrnhagICPR2026AffineOneSided(Solver):
-    """Affine-covariant one-sided right radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point."""
+    """Affine-covariant one-sided radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point.
+
+    Distortion is on the left (y) side. Automatically derived from the native
+    right-sided solver by swapping the point arguments, inverting the affine
+    features and homography.
+    """
 
     def __init__(self, extra_check=False):
         super().__init__(SolverId.ValtonenOrnhagICPR2026AffineOneSided, extra_check=extra_check)
 
 
-class ValtonenOrnhagICPR2026AffineOneSidedLeft(Solver):
-    """Affine-covariant one-sided left radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point.
+class ValtonenOrnhagICPR2026AffineOneSidedRight(Solver):
+    """Affine-covariant one-sided right radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point.
 
-    Automatically derived from :class:`ValtonenOrnhagICPR2026AffineOneSided` by
-    swapping the point arguments, inverting the affine features and homography.
+    Distortion is on the right (x) side. This is the native solver direction.
     """
 
     def __init__(self, extra_check=False):
-        super().__init__(SolverId.ValtonenOrnhagICPR2026AffineOneSidedLeft, extra_check=extra_check)
+        super().__init__(SolverId.ValtonenOrnhagICPR2026AffineOneSidedRight, extra_check=extra_check)
 
 
 # ---------------------------------------------------------------------------
@@ -222,21 +226,25 @@ class ValtonenOrnhagICPR2026AffineOneSidedLeft(Solver):
 # ---------------------------------------------------------------------------
 
 class ValtonenOrnhagICPR2026OrientationOneSided(Solver):
-    """Orientation-covariant one-sided right radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point."""
+    """Orientation-covariant one-sided radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point.
+
+    Distortion is on the left (y) side. Automatically derived from the native
+    right-sided solver by swapping the point arguments, the orientation
+    components, and inverting the homography.
+    """
 
     def __init__(self):
         super().__init__(SolverId.ValtonenOrnhagICPR2026OrientationOneSided)
 
 
-class ValtonenOrnhagICPR2026OrientationOneSidedLeft(Solver):
-    """Orientation-covariant one-sided left radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point.
+class ValtonenOrnhagICPR2026OrientationOneSidedRight(Solver):
+    """Orientation-covariant one-sided right radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point.
 
-    Automatically derived from :class:`ValtonenOrnhagICPR2026OrientationOneSided` by
-    swapping the point arguments, the orientation components, and inverting the homography.
+    Distortion is on the right (x) side. This is the native solver direction.
     """
 
     def __init__(self):
-        super().__init__(SolverId.ValtonenOrnhagICPR2026OrientationOneSidedLeft)
+        super().__init__(SolverId.ValtonenOrnhagICPR2026OrientationOneSidedRight)
 
 
 # ---------------------------------------------------------------------------
@@ -632,10 +640,10 @@ __all__ = [
     # Affine-covariant solvers
     "BarathVISAPP2016Affine",
     "ValtonenOrnhagICPR2026AffineOneSided",
-    "ValtonenOrnhagICPR2026AffineOneSidedLeft",
+    "ValtonenOrnhagICPR2026AffineOneSidedRight",
     # Orientation-covariant solvers
     "ValtonenOrnhagICPR2026OrientationOneSided",
-    "ValtonenOrnhagICPR2026OrientationOneSidedLeft",
+    "ValtonenOrnhagICPR2026OrientationOneSidedRight",
     # RANSAC backends
     "RobustEstimator",
     "LOMSAC",
