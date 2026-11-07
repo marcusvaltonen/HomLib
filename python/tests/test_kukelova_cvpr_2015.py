@@ -19,69 +19,40 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
         self.tol = 7
         self.solver = homlib.KukelovaCVPR2015TwoSided()
 
-    def test_estimate_kukelova_cvpr_2015_two_sided_length(self):
+    def test_estimate_kukelova_cvpr_2015_two_sided(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
 
-    def test_estimate_kukelova_cvpr_2015_two_sided_sol0(self):
-        sols = self.solver.estimate(self.p1, self.p2)
-        self.assertEqual(len(sols), 5)
-        self.assertAlmostEqual(sols[0].distortion_parameter, -2.136402668559702, self.tol)
-        self.assertAlmostEqual(sols[0].distortion_parameter2, 0.6928831549874277, self.tol)
-        expected = np.array([
-            [0.34484818, 0.3490138,  0.35962541],
-            [0.57428832, 0.55155001, 0.5085264],
-            [0.99896668, 1.40954432, 1.14642718]
-        ])
-        np.testing.assert_allclose(sols[0].homography, expected, atol=1e-7)
+        expected_dp = [
+            -2.136402668559702, -1.7814746086320543, -1.1832137508476257,
+            -0.6554778901663096, 0.2537509800067429,
+        ]
+        expected_dp2 = [
+            0.6928831549874277, -2.079301697963583, -1.8809663034629764,
+            -0.655477890099121, -1.9785613160596773,
+        ]
+        expected_H = [
+            np.array([[0.34484818, 0.3490138, 0.35962541],
+                      [0.57428832, 0.55155001, 0.5085264],
+                      [0.99896668, 1.40954432, 1.14642718]]),
+            np.array([[ 0.16258481,  0.42614499,  0.33353189],
+                      [ 0.3407417,   0.54233918,  0.50396602],
+                      [-0.20919435, -0.52457951, -0.41537822]]),
+            np.array([[-0.07243639,  0.3803624,   0.27070322],
+                      [ 0.07137307,  0.35916405,  0.51141176],
+                      [ 0.04851674, -0.51620915, -0.47045627]]),
+            np.array([[-0.0807097,  -0.26843331,  0.13845705],
+                      [ 0.20350208, -0.41058168,  0.57105471],
+                      [-0.24702284,  0.11652806,  0.23191969]]),
+            np.array([[-1.84993859,  4.64801961,  0.72256438],
+                      [-2.97548333,  4.41549851,  0.14438585],
+                      [ 2.57097121, -6.03637522, -0.79542495]]),
+        ]
 
-    def test_estimate_kukelova_cvpr_2015_two_sided_sol1(self):
-        sols = self.solver.estimate(self.p1, self.p2)
-        self.assertEqual(len(sols), 5)
-        self.assertAlmostEqual(sols[1].distortion_parameter, -1.7814746086320543, self.tol)
-        self.assertAlmostEqual(sols[1].distortion_parameter2, -2.079301697963583, self.tol)
-        expected = np.array([
-            [ 0.16258481,  0.42614499,  0.33353189],
-            [ 0.3407417,   0.54233918,  0.50396602],
-            [-0.20919435, -0.52457951, -0.41537822]
-        ])
-        np.testing.assert_allclose(sols[1].homography, expected, atol=1e-7)
-
-    def test_estimate_kukelova_cvpr_2015_two_sided_sol2(self):
-        sols = self.solver.estimate(self.p1, self.p2)
-        self.assertEqual(len(sols), 5)
-        self.assertAlmostEqual(sols[2].distortion_parameter, -1.1832137508476257, self.tol)
-        self.assertAlmostEqual(sols[2].distortion_parameter2, -1.8809663034629764, self.tol)
-        expected = np.array([
-            [-0.07243639,  0.3803624,   0.27070322],
-            [ 0.07137307,  0.35916405,  0.51141176],
-            [ 0.04851674, -0.51620915, -0.47045627]
-        ])
-        np.testing.assert_allclose(sols[2].homography, expected, atol=1e-7)
-
-    def test_estimate_kukelova_cvpr_2015_two_sided_sol3(self):
-        sols = self.solver.estimate(self.p1, self.p2)
-        self.assertEqual(len(sols), 5)
-        self.assertAlmostEqual(sols[3].distortion_parameter, -0.6554778901663096, self.tol)
-        self.assertAlmostEqual(sols[3].distortion_parameter2, -0.655477890099121, self.tol)
-        expected = np.array([
-            [-0.0807097,  -0.26843331,  0.13845705],
-            [ 0.20350208, -0.41058168,  0.57105471],
-            [-0.24702284,  0.11652806,  0.23191969]
-        ])
-        np.testing.assert_allclose(sols[3].homography, expected, atol=1e-7)
-
-    def test_estimate_kukelova_cvpr_2015_two_sided_sol4(self):
-        sols = self.solver.estimate(self.p1, self.p2)
-        self.assertEqual(len(sols), 5)
-        self.assertAlmostEqual(sols[4].distortion_parameter, 0.2537509800067429, self.tol)
-        self.assertAlmostEqual(sols[4].distortion_parameter2, -1.9785613160596773, self.tol)
-        expected = np.array([
-            [-1.84993859,  4.64801961,  0.72256438],
-            [-2.97548333,  4.41549851,  0.14438585],
-            [ 2.57097121, -6.03637522, -0.79542495]
-        ])
-        np.testing.assert_allclose(sols[4].homography, expected, atol=1e-7)
+        for i in range(5):
+            self.assertAlmostEqual(sols[i].distortion_parameter, expected_dp[i], self.tol)
+            self.assertAlmostEqual(sols[i].distortion_parameter2, expected_dp2[i], self.tol)
+            np.testing.assert_allclose(sols[i].homography, expected_H[i], atol=1e-7)
 
     def test_estimate_kukelova_cvpr_2015_two_sided_dimensions01(self):
         """Check that an exception is raised when dimensions are incorrect."""
