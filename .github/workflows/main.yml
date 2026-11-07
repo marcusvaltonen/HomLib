@@ -261,7 +261,7 @@ jobs:
             echo "Did not find wheel in dist. Exiting.."
             exit 1
           fi
-          python -m pip install pytest pytest-approvaltests numpy
+          python -m pip install pytest numpy
           python -m pip install "$wheel_file"
           python -m pytest -s python/tests
         shell: bash
