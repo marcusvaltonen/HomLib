@@ -78,7 +78,11 @@ if(HOMLIB_USE_SUPERANSAC)
 
     target_link_libraries(_core PRIVATE bind_superansac_obj SupeRANSAC)
     target_compile_definitions(_core PRIVATE HOMLIB_HAS_SUPERANSAC)
-    if(NOT MSVC)
+    if(APPLE)
+        set_target_properties(_core PROPERTIES
+            INSTALL_RPATH "@loader_path"
+            BUILD_WITH_INSTALL_RPATH TRUE)
+    elseif(NOT MSVC)
         set_target_properties(_core PROPERTIES
             INSTALL_RPATH "$ORIGIN"
             BUILD_WITH_INSTALL_RPATH TRUE)

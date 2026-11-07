@@ -61,6 +61,12 @@ if(HOMLIB_USE_SUPERANSAC)
     # The submodule's src/CMakeLists.txt uses PROJECT_SOURCE_DIR/include which
     # resolves incorrectly when built as a subdirectory. Fix the include path.
     target_include_directories(SupeRANSAC PUBLIC ${SUPERANSAC_INCLUDE_DIR})
+    # SupeRANSAC and GC-RANSAC (also used by MAGSAC) each bundle a different version of
+    # Kolmogorov's max-flow classes Graph<> and Energy<> in the global namespace
+    # (SupeRANSAC's is index-based, GC-RANSAC's pointer-based). Both end up in the
+    # Python module, where the linker keeps only one definition of each inline member
+    # (an ODR violation): rename SupeRANSAC's, in every target that uses its headers.
+    target_compile_definitions(SupeRANSAC PUBLIC Graph=SuperansacGraph Energy=SuperansacEnergy)
 endif()
 
 if(HOMLIB_USE_GCRANSAC OR HOMLIB_USE_MAGSAC)
@@ -82,8 +88,46 @@ endif()
 
 if(HOMLIB_USE_MAGSAC)
     find_package(gflags REQUIRED)
+    # Apple clang has no OpenMP runtime of its own, and Homebrew doesn't link its libomp into
+    # Homebrew's prefix (keg-only): point FindOpenMP to it, unless OpenMP_ROOT is given.
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND NOT DEFINED OpenMP_ROOT AND NOT DEFINED ENV{OpenMP_ROOT})
+        foreach(_libomp $ENV{HOMEBREW_PREFIX}/opt/libomp /opt/homebrew/opt/libomp /usr/local/opt/libomp)
+            if(EXISTS ${_libomp}/include/omp.h)
+                set(OpenMP_ROOT ${_libomp})
+                break()
+            endif()
+        endforeach()
+    endif()
     find_package(OpenMP REQUIRED)
     set(MAGSAC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/magsac/src/pymagsac/include)
+    # magsac.h reads a static constexpr member function through a reference parameter
+    # (constexpr size_t sample_size = estimator_.sampleSize()). P2280 (C++23, adopted as a defect
+    # report) allows it; GCC applies it in every mode, Clang only in C++23 mode. If the compiler
+    # rejects it, use a copy of magsac.h that calls the function through the type, in a directory
+    # searched before the original one (unless magsac.h no longer has the construct).
+    include(CheckCXXSourceCompiles)
+    check_cxx_source_compiles("
+        struct E { static constexpr int n() { return 4; } };
+        template <class T> int f(const T &e) { constexpr int n = e.n(); return n; }
+        int main() { return f(E()) - 4; }" HOMLIB_CXX_CONSTEXPR_THROUGH_REFERENCE)
+    if(NOT HOMLIB_CXX_CONSTEXPR_THROUGH_REFERENCE)
+        set(_magsac_fixed_dir ${CMAKE_CURRENT_BINARY_DIR}/magsac_fixed)
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${MAGSAC_INCLUDE_DIR}/magsac.h)
+        file(READ ${MAGSAC_INCLUDE_DIR}/magsac.h _magsac)
+        string(REPLACE "estimator_.sampleSize()" "ModelEstimator::sampleSize()" _magsac_fixed "${_magsac}")
+        if(_magsac_fixed STREQUAL _magsac)
+            file(REMOVE_RECURSE ${_magsac_fixed_dir})
+            message(STATUS "MAGSAC: magsac.h has no estimator_.sampleSize() any more, using it as is "
+                "(the workaround in ${CMAKE_CURRENT_LIST_FILE} is no longer needed)")
+        else()
+            # configure_file only writes magsac.h when its content changes, so that a new
+            # configure doesn't recompile the files that include it.
+            file(WRITE ${_magsac_fixed_dir}/magsac.h.in "${_magsac_fixed}")
+            configure_file(${_magsac_fixed_dir}/magsac.h.in ${_magsac_fixed_dir}/magsac.h COPYONLY)
+            message(STATUS "MAGSAC: the compiler rejects magsac.h, using a fixed copy in ${_magsac_fixed_dir}")
+            set(MAGSAC_INCLUDE_DIR ${_magsac_fixed_dir} ${MAGSAC_INCLUDE_DIR})
+        endif()
+    endif()
 endif()
 
 
