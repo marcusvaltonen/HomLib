@@ -25,7 +25,7 @@
 
 namespace HomLib {
 namespace ValtonenOrnhagWACV2021 {
-Eigen::MatrixXcd solver_frHfr(const Eigen::VectorXd& data);
+int solver_frHfr(const Eigen::VectorXd& data, Eigen::Matrix<double, 4, 3>& sols);
 }
 }
 #endif  // SRC_SOLVERS_VALTONENORNHAG_WACV_2021_SOLVER_VALTONENORNHAG_WACV_2021_FRHFR_HPP_

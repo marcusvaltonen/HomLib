@@ -25,7 +25,7 @@
 
 namespace HomLib {
 namespace KukelovaCVPR2015 {
-Eigen::MatrixXcd solver_kukelova_cvpr_2015(const Eigen::VectorXd& data);
+int solver_kukelova_cvpr_2015(const Eigen::VectorXd& data, Eigen::Matrix<double, 3, 5>& sols);
 }
 }
 

@@ -20,10 +20,11 @@
 
 #include "solver_kukelova_cvpr_2015.hpp"
 #include <Eigen/Dense>
+#include "PoseLib/misc/sturm.h"
 
 namespace HomLib {
 namespace KukelovaCVPR2015 {
-    Eigen::MatrixXcd solver_kukelova_cvpr_2015(const Eigen::VectorXd& data) {
+    int solver_kukelova_cvpr_2015(const Eigen::VectorXd& data, Eigen::Matrix<double, 3, 5>& sols) {
         // Compute coefficients
         const double* d = data.data();
         Eigen::VectorXd coeffs(22);
@@ -74,24 +75,35 @@ namespace KukelovaCVPR2015 {
             AM.row(i) = RR.row(AM_ind[i]);
         }
 
-        Eigen::Matrix<std::complex<double>, 3, 5> sols;
-        sols.setZero();
+        // Find real eigenvalues via characteristic polynomial + Sturm bisection
+        double p[6];
+        Eigen::Matrix<double, 5, 5> AMp = AM;
+        poselib::sturm::charpoly_danilevsky_piv(AMp, p);
+        double roots[5];
+        int nroots = poselib::sturm::bisect_sturm<5>(p, roots);
 
-        // Solve eigenvalue problem
-        Eigen::EigenSolver<Eigen::Matrix<double, 5, 5> > es(AM);
-        // Without convergence, the eigenvalues and eigenvectors are not computed: return no solution
-        if (es.info() != Eigen::Success) {
-            return Eigen::MatrixXcd(3, 0);
+        // Fast eigenvector extraction for each real eigenvalue.
+        // AM.row(0) = [0,1,0,0,0], so v[1] = λ·v[0]; with v[0] = 1: v[1] = λ.
+        // Rows 2–4 of (AM − λI)v = 0 give a 3×3 system for v[2], v[3], v[4].
+        for (int i = 0; i < nroots; i++) {
+            const double lam = roots[i];
+            sols(0, i) = lam;
+
+            Eigen::Matrix3d B;
+            Eigen::Vector3d rhs;
+            for (int r = 0; r < 3; r++) {
+                B(r, 0) = AM(r + 2, 2);
+                B(r, 1) = AM(r + 2, 3);
+                B(r, 2) = AM(r + 2, 4);
+                B(r, r) -= lam;
+                rhs(r) = -(AM(r + 2, 0) + AM(r + 2, 1) * lam);
+            }
+            Eigen::Vector3d v = B.partialPivLu().solve(rhs);
+            sols(1, i) = v(0);
+            sols(2, i) = v(1);
         }
-        Eigen::ArrayXcd D = es.eigenvalues();
-        Eigen::ArrayXXcd V = es.eigenvectors();
-        V = (V / V.row(0).array().replicate(5, 1)).eval();
 
-        sols.row(0) = D.transpose().array();
-        sols.row(1) = V.row(2).array();
-        sols.row(2) = V.row(3).array();
-
-        return sols;
+        return nroots;
     }
 }  // namespace KukelovaCVPR2015
 }  // namespace HomLib

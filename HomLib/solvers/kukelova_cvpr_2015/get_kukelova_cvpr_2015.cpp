@@ -122,22 +122,17 @@ namespace KukelovaCVPR2015 {
                  Eigen::Map<Eigen::VectorXd>(M.rightCols(6).data(), 6*7);
 
         // Extract solution
-        Eigen::MatrixXcd sols = solver_kukelova_cvpr_2015(input);
-
-        // Pre-processing: Remove complex-valued solutions
-        double thresh = 1e-5;
+        Eigen::Matrix<double, 3, 5> sols;
+        int nroots = solver_kukelova_cvpr_2015(input, sols);
 
         // Create putative solutions
         Eigen::Matrix3d Htmp;
         std::vector<HomLib::PoseData> output;
         Eigen::Array3d xx;
 
-        for (int i = 0; i < sols.cols(); i++) {
-            if (sols.col(i).imag().squaredNorm() > thresh) {
-                continue;
-            }
+        for (int i = 0; i < nroots; i++) {
             // Get parameters.
-            xx = sols.col(i).real();
+            xx = sols.col(i);
             // The distortion parameters, back in the input's coordinates
             const double s2 = std::pow(scale, 2);
             const double k1 = dist_equal ? 0.5 * (xx(0) + xx(1)) * s2 : xx(0) * s2;
