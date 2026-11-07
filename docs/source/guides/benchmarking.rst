@@ -35,9 +35,12 @@ The HPatches images have no lens distortion. The benchmark therefore measures
 what each solver gets right on real matches, with their noise and outliers,
 and what the distortion solvers lose by estimating parameters that are zero.
 
-The benchmark runs a robust estimator (LOMSAC by default) with every point
-solver on every pair, 3 times per pair, and reports three metrics,
-separately for the viewpoint and the illumination pairs:
+The benchmark runs a robust estimator (:class:`~homlib.LOMSAC` by default,
+HomLib's LO-RANSAC: see :ref:`backend_guide`) with every *point solver* on
+every pair, 3 times per pair. The point solvers are the solvers that take point
+matches alone, as opposed to the solvers of affine or orientation features (see
+:ref:`feature_types_overview`). The benchmark reports three metrics, separately
+for the viewpoint and the illumination pairs:
 
 **Inliers found**
    The share of the true inliers that the estimator returns as inliers. The
@@ -53,10 +56,14 @@ separately for the viewpoint and the illumination pairs:
    and averages the distances between the two. The estimated model is the full
    one: the corners are undistorted with the estimated distortion of the first
    image, mapped with the estimated homography, and distorted with the
-   estimated distortion of the second image. A pair with an error of 0 scores
-   100; a pair with an error above the threshold scores 0. Wadenbäck et al.
-   [Wadenback2026]_ report the AUC at 1, 3 and 5 px on HPatches, as "mAA
-   (AUC)".
+   estimated distortion of the second image (division model, see
+   :ref:`solver_guide`). Each run with a corner error :math:`e` scores
+   :math:`\max(0, 1 - e / t)` at the threshold :math:`t`, and the AUC@t is the
+   mean of these scores over the pairs and the seeds, in percent: an error of 0
+   scores 100, an error above the threshold scores 0. A failed estimate,
+   whose model doesn't map the corners to finite points, counts as an infinite
+   error, and scores 0. Wadenbäck et al. [Wadenback2026]_ report the AUC at 1,
+   3 and 5 px on HPatches, as "mAA (AUC)".
 
 **Time**
    The median time of a run of the robust estimator, in milliseconds,
@@ -79,7 +86,9 @@ the same matches. The script has three matchers:
 ``--features sift`` (default)
    OpenCV SIFT, matched with Lowe's ratio test. It needs no learned model, and
    is easy to reproduce. With OpenCV 4.8 or later, it uses SIFT's precise
-   upscaling, which the accuracy of the keypoints needs.
+   upscaling, which the accuracy of the keypoints needs. By default, it detects
+   4000 keypoints per image (``--num_features``) and keeps the matches with a
+   ratio below 0.8 (``--ratio``): the `Results`_ below use these defaults.
 
 ``--matcher lightglue``, with ``--features superpoint``, ``disk``, ``aliked`` or ``sift``
    These features, matched with
@@ -98,7 +107,7 @@ on a GPU. SuperPoint's weights are for non-commercial use only.
 
 Wadenbäck et al. [Wadenback2026]_ evaluate on HPatches with SuperPoint and
 LightGlue, 1024 keypoints per image, and the shorter side of the images
-resized to 480 px. These settings give the same matches:
+resized to 480 px. These settings follow their setup:
 
 .. code-block:: bash
 
@@ -112,6 +121,13 @@ coordinates. OpenCV and LightGlue put the origin of the pixel coordinates at
 the centre of the top-left pixel, and LoMa at the top-left corner of the image:
 the script shifts LoMa's points by -0.5 px, to OpenCV's convention. Since the
 points are not normalised, the inlier thresholds of the benchmark are in pixels.
+
+With ``--resize``, the features are detected in the resized images, but the
+points, and therefore the inlier thresholds and the corner errors of the
+benchmark, stay in pixels of the original images. glue-factory's HPatches
+evaluation, which ``hpatches.py`` runs, measures them in pixels of the resized
+images, and so, probably, do Wadenbäck et al.: their thresholds and AUCs are
+then not directly comparable with the benchmark's.
 
 Step 2: run the solvers
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -150,16 +166,20 @@ Its options:
    function of the time, as in Fig. 6 of Wadenbäck et al. [Wadenback2026]_.
 
 ``--output FILE``
-   Saves the results of every pair and seed to a JSON file.
+   Saves the settings (the name of the matches file, ``--threshold``,
+   ``--backend``, ``--seeds`` and ``--iterations``) and the results of every
+   pair and seed to a JSON file.
 
 ``--compare A B``
    Prints the differences B - A between two saved runs, and exits. The
    differences are paired: for each solver and each pair present in both
    runs, the script takes the difference of the share of the true inliers
    found and of AUC@5, averaged over the seeds. It reports their mean, with
-   its standard error over the pairs, and the ratio of the median times.
-   A difference smaller than about twice its standard error is not
-   significant.
+   its standard error over the pairs, and the ratio of the median times,
+   which has no standard error. A difference smaller than about twice its
+   standard error is not significant. The script warns if the two runs have
+   different settings, or if a file has none (files saved by an older
+   version of the script).
 
 To measure the effect of a change in HomLib:
 
@@ -172,7 +192,13 @@ To measure the effect of a change in HomLib:
 
 Two other scripts evaluate on HPatches: ``hpatches.py`` with
 `glue-factory <https://github.com/cvg/glue-factory>`__, and
-``hpatches_loma.py`` with LoMa matches computed on the fly.
+``hpatches_loma.py`` with LoMa matches computed on the fly. ``hpatches.py``
+needs glue-factory:
+
+.. code-block:: bash
+
+   uv pip install gluefactory@git+https://github.com/cvg/glue-factory.git
+   python experiments/hpatches.py
 
 
 Synthetic benchmark
@@ -184,11 +210,19 @@ What it measures
 ``synthetic_benchmark.py`` solves problems from
 :func:`~homlib.generate_problem_instance`. Each problem is a random plane seen
 by two cameras with a random relative pose and a 70° field of view. The
-generator distorts the points of each image with the division model, with a
-random parameter between -0.2 and -0.01, on the side or sides that its
-:class:`~homlib.DistortionCase` sets, and returns the points, the
-ground-truth homography and the distortion parameters. The benchmark adds
+generator distorts the points of each image with the division model (see
+:ref:`solver_guide`), with a random parameter between -0.2 and -0.01, on the
+side or sides that its :class:`~homlib.DistortionCase` sets, and returns the
+points, the ground-truth homography and the distortion parameters. The benchmark adds
 Gaussian noise to the points, given in pixels for a focal length of 1000 px.
+
+The *error* of a solution is the larger of two errors, both in the
+coordinates of the generator, for a focal length of 1: the homography
+error, the Frobenius norm of the difference between the estimated and the
+true homography, each scaled to a Frobenius norm of 1 with a positive last
+element; and :math:`|k_1 - \hat k_1| + |k_2 - \hat k_2|`, the sum of the
+errors of the two distortion parameters. The *best solution* is the solution
+with the smallest error.
 
 Unlike HPatches, these problems have distortion and an exact solution. The
 benchmark measures each solver on the distortion cases it models (``NO_DISTORTION``
@@ -196,10 +230,8 @@ and the case it is made for, or all five for the general two-sided solvers),
 with the experiments of Wadenbäck et al. [Wadenback2026]_:
 
 **Numerical stability** (their Fig. 3)
-   Without noise, how often the solver misses the true solution: none of its
-   solutions is within 1e-6 of it, in homography error and in the sum of the
-   errors of the two distortion parameters. A stable solver misses almost
-   never.
+   Without noise, how often the solver misses the true solution: the error of
+   its best solution is above 1e-6. A stable solver misses almost never.
 
 **Sensitivity to noise** (their Fig. 4)
    With noise of 0.5, 1 and 2 px, the median error of the solver's best
@@ -228,8 +260,10 @@ LOMSAC with outliers
 
 ``--outliers`` runs another experiment, as in Fig. 5 of Wadenbäck et al.
 [Wadenback2026]_: LOMSAC on problems with 200 points, 0.5 px of noise and the
-given shares of outliers, with a 5 px inlier threshold. It reports the share of
-the true inliers that LOMSAC finds, and the median time of a run. Each solver
+given shares of outliers, with a 5 px inlier threshold. The outliers replace
+the points of the second image of some matches by random points; the *true
+inliers* are the other matches. The experiment reports the share of the true
+inliers that LOMSAC finds, and the median time of a run. Each solver
 solves problems of the distortion case it is made for, so the rows of solvers
 made for different cases don't compare.
 
@@ -245,11 +279,15 @@ solver and share of outliers.
 Comparing two runs
 ^^^^^^^^^^^^^^^^^^
 
-``--output`` and ``--compare A B`` work as in the HPatches benchmark. Here the
-two runs don't solve the same problems, since
+``--output`` and ``--compare A B`` work as in the HPatches benchmark; the saved
+settings are ``--problems``, ``--noise``, ``--iterations`` and ``--outliers``.
+Here the two runs don't solve the same problems, since
 :func:`~homlib.generate_problem_instance` seeds itself with the time: the
-differences are statistical, and the script reports them with their standard
-errors.
+differences are statistical. The differences of the rates (no solution,
+missed, inliers found) come with their standard errors. The ratios of the
+median errors and of the median times have none: take them as indications.
+Without noise, the median errors are close to the machine precision, and
+their ratio is not given (``n/a``).
 
 
 Regression test
@@ -258,10 +296,11 @@ Regression test
 ``python/tests/test_hpatches.py`` runs every point solver in LOMSAC on 8 HPatches
 pairs (4 viewpoint, 4 illumination), with OpenCV SIFT matches, a 3 px inlier
 threshold and 3 seeds. It checks that each solver finds, on average, at least
-95% of the true inliers. The two-sided solvers have lower bounds, from 75% to
-85%: they are weaker on the illumination pairs, whose homography is the
-identity, which any equal distortion parameters fit. The test runs in a few
-seconds, with the other tests:
+95% of the true inliers. The two-sided solvers of Kukelova et al. and of
+Wadenbäck et al. have lower bounds, from 75% to 85%: they are weaker on the
+illumination pairs, whose homography is the identity, which any equal
+distortion parameters fit. The test is part of the test suite, and takes a few
+seconds. To run it alone:
 
 .. code-block:: bash
 
@@ -271,15 +310,18 @@ Test data
 ^^^^^^^^^
 
 The matches of the 8 pairs are not in the repository. They are the asset
-``hpatches_sift_subset.npz`` of the GitHub release ``test-data-v1``, published
-next to ``hpatches_sift_subset.npz.sha256``, its SHA-256 checksum. The test
-looks for the file, in this order:
+``hpatches_sift_subset.npz`` of the GitHub release ``test-data-v1``. The test
+expects the file with the SHA-256 checksum ``SUBSET_SHA256``, and looks for it,
+in this order:
 
 1. ``$HOMLIB_TEST_DATA/hpatches_sift_subset.npz``, if the environment variable
-   ``HOMLIB_TEST_DATA`` names a directory that contains it;
-2. a cached copy in ``~/.cache/homlib/`` (or ``$XDG_CACHE_HOME/homlib/``);
-3. a download from the release, checked against the SHA-256 file, then
-   cached. ``HOMLIB_TEST_DATA_URL`` replaces the URL of the release asset, for
+   ``HOMLIB_TEST_DATA`` names a directory that contains it. If this file has
+   another checksum, the test fails;
+2. a cached copy in ``~/.cache/homlib/`` (or ``$XDG_CACHE_HOME/homlib/``), if it
+   has the checksum. A cached file with another checksum, such as an older
+   version of the data, is downloaded again;
+3. a download of ``SUBSET_URL``, the release asset, checked against the
+   checksum, then cached. ``HOMLIB_TEST_DATA_URL`` replaces this URL, for
    example to test a fork.
 
 Without the file, the test is skipped. If ``HOMLIB_REQUIRE_TEST_DATA`` is
@@ -290,20 +332,24 @@ Publishing the test data (maintainers)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The release must exist before CI runs the test. To write the file from the
-full SIFT matches and publish it with its checksum:
+full SIFT matches, publish it, and print its checksum:
 
 .. code-block:: bash
 
    python experiments/hpatches_features.py --matches data/hpatches_sift.npz \
        --export_subset hpatches_sift_subset.npz
-   shasum -a 256 hpatches_sift_subset.npz > hpatches_sift_subset.npz.sha256
-   gh release create test-data-v1 hpatches_sift_subset.npz hpatches_sift_subset.npz.sha256 \
+   gh release create test-data-v1 hpatches_sift_subset.npz \
        -R marcusvaltonen/HomLib --latest=false \
        --title "Test data" --notes "Data files for the tests (not a HomLib release)"
+   shasum -a 256 hpatches_sift_subset.npz
 
-To change the data, publish it under a new tag (``test-data-v2``) and update
-``SUBSET_URL`` in the test: existing checkouts and caches keep the old file.
-HPatches is under the MIT license, which allows publishing these matches.
+To change the data, publish it under a new tag (``test-data-v2``), and update
+``SUBSET_URL`` and ``SUBSET_SHA256`` in the test: each checkout tests the file
+that its test expects, and downloads it again if the cache has another
+version. For now, CI downloads the file from a fork: ``HOMLIB_TEST_DATA_URL`` in ``.github/workflows/main.yml``
+overrides ``SUBSET_URL``. As long as this override exists, changing the data
+means updating it too. HPatches is under the MIT license, which allows
+publishing these matches.
 
 
 Results

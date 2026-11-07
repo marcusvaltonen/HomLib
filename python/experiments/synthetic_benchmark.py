@@ -20,7 +20,10 @@ LOMSAC stops when it is confident or after 10000 iterations. ``--iterations N`` 
 iterations, so that every solver gets the same budget.
 
 ``generate_problem_instance`` seeds itself with the time, so two runs don't solve the same
-problems: ``--compare`` reports statistical differences, with their standard errors.
+problems: ``--compare`` reports statistical differences. The differences of the rates (no solution,
+missed, inliers found) come with their standard errors; the ratios of the median errors and times
+have none. Without noise, the median errors are close to the machine precision, so their ratio is
+not given. ``--compare`` also warns about the settings that differ.
 
 Usage
 -----
@@ -39,6 +42,7 @@ import numpy as np
 from tqdm import tqdm
 
 import homlib
+from hpatches_benchmark import point_solvers, warn_settings
 
 FOCAL = 1000.0   # pixels: the noise is given in pixels for this focal length
 
@@ -64,6 +68,10 @@ SOLVERS = {
     "Wadenback3DV2026TwoSided": (5, _ALL),
     "Wadenback3DV2026TwoSidedEqual": (5, [_C.NO_DISTORTION, _C.TWO_SIDED_EQUAL]),
 }
+_POINT_SOLVERS = {s.name for s in point_solvers()}
+assert set(SOLVERS) == _POINT_SOLVERS, ("SOLVERS must list the point solvers of homlib.SolverId: missing "
+                                        f"{sorted(_POINT_SOLVERS - set(SOLVERS))}, "
+                                        f"unknown {sorted(set(SOLVERS) - _POINT_SOLVERS)}")
 
 
 def best_error(instance, solutions):
@@ -80,12 +88,12 @@ def main():
                         help="Problems per solver, case and noise (default: 2000; with --outliers, 200)")
     parser.add_argument("--noise", type=float, nargs="+", default=None,
                         help="Noise levels in pixels, for a focal length of 1000 px (default: 0 0.5 1 2)")
-    parser.add_argument("--solvers", nargs="*", choices=sorted(SOLVERS), default=sorted(SOLVERS))
+    parser.add_argument("--solvers", nargs="+", choices=sorted(SOLVERS), default=sorted(SOLVERS))
     parser.add_argument("--outliers", type=float, nargs="+", default=None,
                         help="Shares of outliers: run LOMSAC on problems with outliers instead")
     parser.add_argument("--iterations", type=int, default=None,
                         help="With --outliers: run LOMSAC for exactly this many iterations")
-    parser.add_argument("--output", type=str, default=None, help="Save the results to this JSON file")
+    parser.add_argument("--output", type=str, default=None, help="Save the settings and the results to this JSON file")
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
                         help="Print the differences B - A between two saved runs, and exit")
     args = parser.parse_args()
@@ -102,22 +110,26 @@ def main():
             parser.error("the shares of outliers must be in [0, 1)")
         results = run_outliers(args.solvers, args.outliers, args.problems or 200, args.iterations)
         if args.output:
+            settings = dict(problems=args.problems or 200, noise=None, iterations=args.iterations,
+                            outliers=args.outliers)
             with open(args.output, "w") as f:
-                json.dump({"outliers": results}, f)
+                json.dump(dict(settings=settings, outliers=results), f)
         print_outliers(results)
         return
 
     # results[solver][case][noise] = per problem: (best error, number of solutions, time)
     results = {}
+    problems = args.problems or 2000
+    noises = args.noise or [0.0, 0.5, 1.0, 2.0]
     for name in tqdm(args.solvers, desc="Solvers"):
         solver = homlib.Solver(homlib.SolverId.__members__[name])
         sample_size, cases = SOLVERS[name]
         results[name] = {}
         for case in cases:
             results[name][case.name] = {}
-            for noise in args.noise or [0.0, 0.5, 1.0, 2.0]:
+            for noise in noises:
                 runs = []
-                for _ in range(args.problems or 2000):
+                for _ in range(problems):
                     config = homlib.ProblemConfig(case, noise / FOCAL, sample_size)
                     instance = homlib.generate_problem_instance(config)
                     x, y = np.array(instance.x1).T, np.array(instance.x2).T
@@ -127,9 +139,19 @@ def main():
                     runs.append((best_error(instance, solutions), len(solutions), elapsed))
                 results[name][case.name][str(noise)] = runs
     if args.output:
+        settings = dict(problems=problems, noise=noises, iterations=None, outliers=None)
         with open(args.output, "w") as f:
-            json.dump(results, f)
+            json.dump(dict(settings=settings, results=results), f)
     print_results(results)
+
+
+def load_results(path):
+    """(settings, results) of a file saved with --output, results being {"outliers": results} with
+    --outliers. The files saved before the settings have none: their settings are None."""
+    with open(path) as f:
+        data = json.load(f)
+    settings = data.pop("settings", None)
+    return settings, data.get("results", data)
 
 
 def run_outliers(solvers, shares, problems, iterations, n_points=200, noise=0.5, threshold=5.0):
@@ -198,13 +220,12 @@ def difference(pa, pb, na, nb):
 def compare(path_a, path_b):
     """The differences between two runs, b - a: the rates of no solution and (without noise) of
     missed true solutions, in percentage points with their standard errors, and the ratios of the
-    median errors and times."""
-    with open(path_a) as f:
-        a = json.load(f)
-    with open(path_b) as f:
-        b = json.load(f)
+    median errors (with noise) and times, which have no standard error."""
+    settings_a, a = load_results(path_a)
+    settings_b, b = load_results(path_b)
     if ("outliers" in a) != ("outliers" in b):
         raise SystemExit("can't compare a run with --outliers and a run without it")
+    warn_settings(settings_a, settings_b)
     if "outliers" in a:
         compare_outliers(a["outliers"], b["outliers"])
         return
@@ -218,7 +239,8 @@ def compare(path_a, path_b):
                 ra, rb = summary(runs), summary(b[name][case][noise])
                 none = difference(ra["none"], rb["none"], ra["n"], rb["n"])
                 missed = difference(ra["missed"], rb["missed"], ra["n"], rb["n"]) if float(noise) == 0 else ""
-                finite = np.isfinite(ra["median_error"]) and np.isfinite(rb["median_error"])
+                # Without noise, the median errors are close to the machine precision: no ratio
+                finite = float(noise) > 0 and np.isfinite(ra["median_error"]) and np.isfinite(rb["median_error"])
                 error = f"{rb['median_error'] / ra['median_error']:5.2f}x" if finite else "  n/a"
                 print(f"{name:<34s} {case:<16s} {float(noise):5.1f} {none:>13s} {missed:>13s} {error:>6s} "
                       f"{rb['time'] / ra['time']:5.2f}x")
