@@ -20,7 +20,7 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
             [-0.340077827788294,  -0.680480654905349,   0.410935343442919,   0.882649958739618,   0.738720655679304]
         ])
 
-        self.tol = 9
+        self.tol = 7
         self.solver = homlib.KukelovaCVPR2015TwoSided()
 
     def test_estimate_kukelova_cvpr_2015_two_sided_length(self):
