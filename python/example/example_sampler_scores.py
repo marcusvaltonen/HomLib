@@ -66,26 +66,13 @@ print(f"{x.shape[1]} matches after ratio test")
 
 solver = homlib.CaiPAMI2025()
 
-if homlib._HAS_GCRANSAC:
-    for sampler, label in [
-        (homlib.GCSamplerType.Uniform, "Uniform"),
-        (homlib.GCSamplerType.PROSAC, "PROSAC"),
-    ]:
-        gc = homlib.GCRANSAC(
-            solver, threshold=3.0, sampler=sampler)
-        est, stats = gc.estimate(x, y, scores=scores)
-        print(f"GC-RANSAC {label:<8s}  "
-              f"inliers={len(stats.inliers):>4d}  "
-              f"iters={stats.num_iterations}")
-
-###############################################################################
-# PROSAC with SupeRANSAC
-
-if homlib._HAS_SUPERANSAC:
-    sa = homlib.SupeRANSAC(
-        solver, inlier_threshold=3.0,
-        sampler=homlib.SuperansacSamplerType.PROSAC)
-    est, stats = sa.estimate(x, y, scores=scores)
-    print(f"SupeRANSAC PROSAC     "
+for sampler, label in [
+    (homlib.GCSamplerType.Uniform, "Uniform"),
+    (homlib.GCSamplerType.PROSAC, "PROSAC"),
+]:
+    gc = homlib.GCRANSAC(
+        solver, threshold=3.0, sampler=sampler)
+    est, stats = gc.estimate(x, y, scores=scores)
+    print(f"GC-RANSAC {label:<8s}  "
           f"inliers={len(stats.inliers):>4d}  "
           f"iters={stats.num_iterations}")

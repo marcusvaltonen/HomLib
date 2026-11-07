@@ -214,7 +214,7 @@ class RobustEstimator(ABC):
         return self._solver
 
     @abstractmethod
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scores=None):
         """Run robust estimation.
 
         Parameters
@@ -227,6 +227,11 @@ class RobustEstimator(ABC):
             4xN local affine transformations (required for affine solvers).
         ori : numpy.ndarray, optional
             2xN orientation vectors (required for orientation solvers).
+        scores : numpy.ndarray, optional
+            1-D array of per-match confidence scores in [0, 1],
+            sorted in descending order.  Used by score-aware
+            samplers (PROSAC, ARSampler, ImportanceSampler).
+            Supported by GC-RANSAC, MAGSAC, and SupeRANSAC.
 
         Returns
         -------
@@ -274,7 +279,7 @@ class LOMSAC(RobustEstimator):
         """The LOMSAC options."""
         return self._options
 
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scores=None):
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
             return _dispatch_lomsac_point(self._solver, x, y, self._options)

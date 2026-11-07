@@ -261,7 +261,8 @@ Confidence scores and sampler selection
 ---------------------------------------
 
 When correspondences have associated confidence scores (e.g., from a learned
-matcher like `LightGlue <https://github.com/cvg/LightGlue>`_ or
+matcher like `LoMa <https://github.com/davnords/loma>`_,
+`LightGlue <https://github.com/cvg/LightGlue>`_, or
 `LoFTR <https://github.com/zju3dv/LoFTR>`_), they can be passed to the
 RANSAC backends to guide sampling towards more reliable matches. This is
 supported by GC-RANSAC, MAGSAC, and SupeRANSAC.
