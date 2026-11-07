@@ -25,9 +25,9 @@ class FitzgibbonCVPR2001TestCase(unittest.TestCase):
         self.assertAlmostEqual(sols[0].distortion_parameter, -0.6554778901775142, 12)
         self.assertAlmostEqual(sols[0].distortion_parameter2, -0.6554778901775142, 12)
         expected = np.array([
-            [ 0.07731617,  0.25714674, -0.13263548],
-            [-0.19494561,  0.39331832, -0.54704409],
-            [ 0.23663649, -0.11162851, -0.22216837]
+            [0.07731617, 0.25714674, -0.13263548],
+            [-0.19494561, 0.39331832, -0.54704409],
+            [0.23663649, -0.11162851, -0.22216837]
         ])
         np.testing.assert_allclose(sols[0].homography, expected, atol=1e-7)
 
