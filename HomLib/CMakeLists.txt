@@ -33,7 +33,7 @@ add_library(HomLib STATIC ${SRCS})
 target_link_libraries(HomLib PRIVATE Eigen3::Eigen)
 target_link_libraries(HomLib PRIVATE PoseLib::PoseLib)
 target_include_directories(HomLib PRIVATE ${HOMLIB_INCLUDE_DIRS})
-target_compile_options(HomLib PRIVATE -fPIC)
+set_target_properties(HomLib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if(HOMLIB_USE_SUPERANSAC)
     target_link_libraries(HomLib PRIVATE SupeRANSAC)
