@@ -50,7 +50,6 @@ def _assert_good(tc, est, stats, H_gt, N, n_out,
 # GC-RANSAC
 # ---------------------------------------------------------------
 
-@unittest.skipUnless(homlib._HAS_GCRANSAC, "GC-RANSAC not built")
 class GCRANSACSamplerTestCase(unittest.TestCase):
     def setUp(self):
         scene = _make_scene()
@@ -228,12 +227,6 @@ class GCRANSACSamplerTestCase(unittest.TestCase):
 # MAGSAC
 # ---------------------------------------------------------------
 
-_SKIP_MAGSAC = "MAGSAC not built"
-_SKIP_GC = "GCSamplerType requires GC-RANSAC build"
-
-
-@unittest.skipUnless(homlib._HAS_MAGSAC, _SKIP_MAGSAC)
-@unittest.skipUnless(homlib._HAS_GCRANSAC, _SKIP_GC)
 class MAGSACSamplerTestCase(unittest.TestCase):
     def setUp(self):
         scene = _make_scene()
@@ -379,13 +372,11 @@ class MAGSACSamplerTestCase(unittest.TestCase):
 # SupeRANSAC
 # ---------------------------------------------------------------
 
-_SKIP_SA = "SupeRANSAC not built"
-SA_Sampler = getattr(homlib, 'SuperansacSamplerType', None)
-SA_Score = getattr(homlib, 'SuperansacScoringType', None)
-SA_LO = getattr(homlib, 'SuperansacLocalOptType', None)
+SA_Sampler = homlib.SuperansacSamplerType
+SA_Score = homlib.SuperansacScoringType
+SA_LO = homlib.SuperansacLocalOptType
 
 
-@unittest.skipUnless(homlib._HAS_SUPERANSAC, _SKIP_SA)
 class SuperansacSamplerTestCase(unittest.TestCase):
     def setUp(self):
         scene = _make_scene()

@@ -306,23 +306,49 @@ raised (GC-RANSAC, MAGSAC) or the sampler falls back to uniform weights
 approaches:
 
 - **Real scores** — min-max normalization of the raw matcher confidences.
+  Preserves the relative magnitudes between matches, which benefits
+  samplers that use the actual values (ARSampler, ImportanceSampler).
 - **Linear scores** — replace the values with
-  ``np.linspace(1.0, 0.01, N)``, preserving the sorted order but discarding
-  the actual values. This is the approach typically used by Barath et al. in
-  SupeRANSAC and GC-RANSAC.
+  ``np.linspace(1.0, 0.01, N)``, preserving the sorted order but
+  discarding the actual values.  This is the approach used by Barath
+  et al. in the SupeRANSAC and GC-RANSAC codebases: because PROSAC
+  only uses the rank order (not the magnitudes), the linear ramp is
+  sufficient and avoids sensitivity to the matcher's score distribution.
 
 .. code-block:: python
 
    import numpy as np
 
-   # Real scores (from a matcher, already sorted descending)
-   scores_raw = pair["scores"]  # e.g. from AffineLoMa
+   # Real scores (from a learned matcher, already sorted descending)
+   scores_raw = pair["scores"]
    s_min, s_max = scores_raw.min(), scores_raw.max()
    scores_real = (scores_raw - s_min) / (s_max - s_min)
 
-   # Linear scores (Barath et al.)
+   # Linear scores (Barath et al. convention)
+   # Works well with PROSAC, which only cares about ordering.
    N = x.shape[1]
    scores_linear = np.linspace(1.0, 0.01, N)
+
+
+**Sampler trade-offs.**
+
+- **Uniform** is the fastest sampler (no overhead), but ignores match
+  quality entirely — convergence depends on the inlier ratio.
+- **PROSAC** adds minimal overhead and converges faster than Uniform
+  when good matches are at the front of the sorted list, because it
+  draws early samples from the top-ranked correspondences.  It is
+  generally the best default when scores are available.
+- **ARSampler** and **ImportanceSampler** use the actual score values
+  to weight the sampling distribution.  They can outperform PROSAC
+  when the score magnitudes are informative (e.g. learned matcher
+  confidences), but add more computational overhead per iteration.
+
+On real-world data (e.g. HPatches), PROSAC with real scores typically
+matches or slightly improves Uniform accuracy while needing fewer
+iterations to converge.  The wall-clock difference is small because
+the per-iteration cost dominates, but PROSAC is particularly helpful
+at low inlier ratios where Uniform needs many more iterations to find
+a good sample.
 
 See the :ref:`sampler_scores_example` for a runnable example.
 
