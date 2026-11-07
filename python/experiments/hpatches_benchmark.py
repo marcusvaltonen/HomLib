@@ -8,7 +8,9 @@ reports, for the viewpoint and the illumination sequences:
   error accounts for them;
 - the AUC of the corner error, which maps the image corners with the estimated model (distortion
   included) and with the ground-truth homography. Wadenbäck et al. (3DV 2026) report the AUC at
-  1, 3 and 5 px on HPatches, as "mAA (AUC)";
+  1, 3 and 5 px on HPatches, as "mAA (AUC)", probably in pixels of images resized to 480 px
+  (shorter side), as glue-factory's evaluation, while the matches files are in pixels of the
+  original images: the numbers are then not directly comparable;
 - the median time of a run.
 
 Pairs with no true inlier are left out, since no solver can find any.
@@ -19,9 +21,9 @@ built with it (see BACKENDS for the settings that it gets).
 ``--iterations N`` runs the estimator for exactly N iterations, instead of stopping when it is
 confident. Several runs give the accuracy as a function of the time, as in Fig. 6 of Wadenbäck et al.
 
-``--output`` saves the results of every pair to a JSON file, and ``--compare a.json b.json``
-prints the differences between two such runs (e.g. two versions of HomLib), with their standard
-errors over the pairs.
+``--output`` saves the settings and the results of every pair to a JSON file, and ``--compare
+a.json b.json`` prints the differences between two such runs (e.g. two versions of HomLib), with their
+standard errors over the pairs, and warns about the settings that differ.
 
 Usage
 -----
@@ -116,9 +118,9 @@ def main():
     parser.add_argument("--seeds", type=int, default=3, help="Runs per pair (random seeds, for LOMSAC)")
     parser.add_argument("--iterations", type=int, default=None,
                         help="Run the estimator for exactly this many iterations")
-    parser.add_argument("--solvers", nargs="*", choices=[s.name for s in point_solvers()], default=None,
+    parser.add_argument("--solvers", nargs="+", choices=[s.name for s in point_solvers()], default=None,
                         help="SolverId names (default: every point solver)")
-    parser.add_argument("--output", type=str, default=None, help="Save the results to this JSON file")
+    parser.add_argument("--output", type=str, default=None, help="Save the settings and the results to this JSON file")
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
                         help="Print the differences B - A between two saved runs, and exit")
     args = parser.parse_args()
@@ -150,9 +152,30 @@ def main():
                              corner_error(pose, pair), elapsed))
             results[s.name][key] = runs
     if args.output:
+        settings = dict(matches=Path(args.matches).name, threshold=args.threshold, backend=args.backend,
+                        seeds=args.seeds, iterations=args.iterations)
         with open(args.output, "w") as f:
-            json.dump(results, f)
+            json.dump(dict(settings=settings, results=results), f)
     print_results(results)
+
+
+def load_results(path):
+    """(settings, results) of a file saved with --output. The files saved before the settings were
+    the results alone: their settings are None."""
+    with open(path) as f:
+        data = json.load(f)
+    return (data["settings"], data["results"]) if "settings" in data else (None, data)
+
+
+def warn_settings(settings_a, settings_b):
+    """Prints a warning if two runs have different settings, or if one of them has none."""
+    if settings_a is None or settings_b is None:
+        print("Warning: a file has no settings (saved by an older version of the script): can't check "
+              "that the runs have the same settings")
+    elif settings_a != settings_b:
+        differ = [f"{k} ({settings_a.get(k)} vs {settings_b.get(k)})"
+                  for k in sorted(set(settings_a) | set(settings_b)) if settings_a.get(k) != settings_b.get(k)]
+        print("Warning: the runs have different settings: " + ", ".join(differ))
 
 
 def kind(key):
@@ -177,11 +200,10 @@ def print_results(results):
 def compare(path_a, path_b):
     """The differences between two runs, b - a, for the pairs and solvers of both: share of the
     true inliers found and AUC@5, averaged over the seeds of each pair, with their standard errors
-    over the pairs; and the ratio of the median times."""
-    with open(path_a) as f:
-        a = json.load(f)
-    with open(path_b) as f:
-        b = json.load(f)
+    over the pairs; and the ratio of the median times, which has no standard error."""
+    settings_a, a = load_results(path_a)
+    settings_b, b = load_results(path_b)
+    warn_settings(settings_a, settings_b)
     print(f"{'Solver':<46s} {'Sequences':<13s} {'Inliers found':>18s} {'AUC@5':>18s} {'Time':>7s}")
     for name in sorted(set(a) & set(b)):
         for k in ("illumination", "viewpoint"):
@@ -203,7 +225,8 @@ def per_pair(results, name, keys, i):
 
 
 def standard_error(d):
-    return d.std(ddof=1) / np.sqrt(len(d))
+    """The standard error of the mean of d: nan with fewer than 2 values"""
+    return d.std(ddof=1) / np.sqrt(len(d)) if len(d) > 1 else np.nan
 
 
 if __name__ == "__main__":

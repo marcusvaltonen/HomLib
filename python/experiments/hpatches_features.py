@@ -17,7 +17,10 @@ The features and the matcher:
   features matched with LightGlue (Lindenberger et al., ICCV 2023), with its own extractors.
   Wadenbäck et al. (3DV 2026) evaluate on HPatches with SuperPoint and LightGlue, 1024 keypoints,
   and the shorter side of the images resized to 480 pixels: ``--features superpoint --matcher
-  lightglue --num_features 1024 --resize 480``. The points are given in the original images.
+  lightglue --num_features 1024 --resize 480`` follows their setup. The points are given in the
+  original images, so the thresholds and the corner errors of hpatches_benchmark.py are in pixels of
+  the original images, while glue-factory's evaluation (hpatches.py), and probably Wadenbäck et
+  al., measure them in the resized images: the numbers are then not directly comparable.
   LightGlue's SIFT is OpenCV SIFT without precise upscaling, which shifts its points by about
   0.1 px: the script gives it the same SIFT with precise upscaling.
 - ``--features loma``: LoMa (Nordström et al., ECCV 2026), which detects, describes and matches the
@@ -62,7 +65,9 @@ def sift_matcher(num_features, ratio):
     # enable_precise_upscale (OpenCV >= 4.8) removes a shift of the keypoints of the upscaled octave
     try:
         sift = cv2.SIFT_create(num_features, enable_precise_upscale=True)
-    except TypeError:
+    except (TypeError, cv2.error):
+        print(f"Warning: OpenCV {cv2.__version__} has no SIFT precise upscaling (OpenCV >= 4.8): "
+              "the keypoints of the upscaled octave are shifted")
         sift = cv2.SIFT_create(num_features)
     bf = cv2.BFMatcher()
     cache = {}
@@ -87,7 +92,11 @@ def loma_matcher(num_keypoints):
     model = LoMa(LoMaB(num_keypoints=num_keypoints))
 
     def match(path1, path2):
-        kpts1, kpts2 = model.match(path1, path2)
+        try:
+            kpts1, kpts2 = model.match(path1, path2)
+        except Exception as e:   # as in hpatches_loma.py: report the pair, and save it with no match
+            print(f"LoMa failed on {path1} and {path2}: {e}")
+            kpts1 = kpts2 = np.zeros((0, 2))
         # LoMa's (0, 0) is the top-left corner of the image: shift to OpenCV's convention
         return (np.asarray(kpts1, dtype=float).reshape(-1, 2) - 0.5,
                 np.asarray(kpts2, dtype=float).reshape(-1, 2) - 0.5)

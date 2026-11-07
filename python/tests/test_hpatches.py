@@ -2,8 +2,9 @@
 
 The OpenCV SIFT matches of these pairs, and their ground-truth homographies, come from
 ``python/experiments/hpatches_features.py --export_subset``. The test gets them with
-``tests.helpers.fetch_test_data``: from ``$HOMLIB_TEST_DATA``, or downloaded from ``SUBSET_URL``.
-Without them, it is skipped, except in CI (``HOMLIB_REQUIRE_TEST_DATA``), where it fails.
+``tests.helpers.fetch_test_data``: from ``$HOMLIB_TEST_DATA``, or downloaded from ``SUBSET_URL``, and
+checked against ``SUBSET_SHA256``. Without them, it is skipped, except in CI
+(``HOMLIB_REQUIRE_TEST_DATA``), where it fails.
 """
 
 import os
@@ -15,10 +16,12 @@ import homlib
 from tests.helpers import fetch_test_data
 
 SUBSET_NAME = "hpatches_sift_subset.npz"
-# The release asset and its checksum (see docs/source/guides/benchmarking.rst, "Test data")
+# The release asset, and the SHA-256 of the file that the test expects: a new version of the data
+# changes both (see docs/source/guides/benchmarking.rst, "Test data")
 SUBSET_URL = os.environ.get(
     "HOMLIB_TEST_DATA_URL",
     "https://github.com/marcusvaltonen/HomLib/releases/download/test-data-v1/" + SUBSET_NAME)
+SUBSET_SHA256 = "699b605f421efedd1bba58eace3398cba645701c3a4a2492b0a949d5e6037138"
 
 THRESHOLD = 3.0   # inlier threshold in pixels
 SEEDS = (1, 2, 3)
@@ -59,7 +62,7 @@ def recall(solver_id, x, y, H):
 class HPatchesTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.pairs = load_pairs(fetch_test_data(SUBSET_NAME, SUBSET_URL))
+        cls.pairs = load_pairs(fetch_test_data(SUBSET_NAME, SUBSET_URL, SUBSET_SHA256))
 
     def test_point_solvers(self):
         for solver_id in homlib.SolverId.__members__.values():

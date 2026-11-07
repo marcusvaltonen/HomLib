@@ -14,24 +14,37 @@ def download_hpatches(data_dir: Path) -> Path:
     if seq_dir.exists():
         return seq_dir
     import tarfile
+    import tempfile
     import urllib.request
     archive = data_dir / "hpatches-sequences-release.tar.gz"
     if not archive.exists():
         print(f"Downloading HPatches to {archive} ...")
         data_dir.mkdir(parents=True, exist_ok=True)
-        urllib.request.urlretrieve(HPATCHES_URL, archive)
+        part = archive.with_name(archive.name + ".part")
+        urllib.request.urlretrieve(HPATCHES_URL, part)
+        part.replace(archive)   # an interrupted download leaves only the .part file
     print("Extracting ...")
-    with tarfile.open(archive, "r:gz") as tar:
-        tar.extractall(data_dir, filter="data")
+    # Into a temporary directory, renamed when complete: an interrupted extraction isn't reused
+    with tempfile.TemporaryDirectory(dir=data_dir) as tmp, tarfile.open(archive, "r:gz") as tar:
+        if hasattr(tarfile, "data_filter"):
+            tar.extractall(tmp, filter="data")
+        else:
+            # Pythons without extraction filters (before 3.10.12): check the members ourselves
+            for m in tar.getmembers():
+                if Path(m.name).is_absolute() or ".." in Path(m.name).parts or not (m.isfile() or m.isdir()):
+                    raise RuntimeError(f"{archive}: unexpected member {m.name}")
+            tar.extractall(tmp)
+        (Path(tmp) / HPATCHES_DIRNAME).replace(seq_dir)
     return seq_dir
 
 
 def load_hpatches_pairs(seq_dir: Path, max_sequences: int | None = None):
-    """Yield (sequence name, image index i, path of image 1, path of image i, H from image 1 to
-    image i)."""
+    """The list of (sequence name, image index i, path of image 1, path of image i, H from image 1 to
+    image i). Warns if the full dataset doesn't have its 116 sequences and 580 pairs."""
     sequences = sorted(p for p in seq_dir.iterdir() if p.is_dir())
     if max_sequences is not None:
         sequences = sequences[:max_sequences]
+    pairs = []
     for seq in sequences:
         ref_path = seq / "1.ppm"
         if not ref_path.exists():
@@ -42,7 +55,11 @@ def load_hpatches_pairs(seq_dir: Path, max_sequences: int | None = None):
             if not img_path.exists() or not h_path.exists():
                 continue
             H_gt = np.loadtxt(h_path).reshape(3, 3)
-            yield seq.name, i, str(ref_path), str(img_path), H_gt
+            pairs.append((seq.name, i, str(ref_path), str(img_path), H_gt))
+    if max_sequences is None and (len(sequences), len(pairs)) != (116, 580):
+        print(f"Warning: {seq_dir} has {len(sequences)} sequences and {len(pairs)} pairs, instead of "
+              "116 and 580: the dataset is incomplete or modified")
+    return pairs
 
 
 def save_matches(path: Path, pairs):
