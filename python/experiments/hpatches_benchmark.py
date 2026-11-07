@@ -21,6 +21,9 @@ compare with those measured with it:
 - each image is resized to 480 px on its shorter side, the other side rounded down (as glue-factory's
   ImagePreprocessor): the points, the ground truth and the image corners are scaled to the resized
   images, so that the inlier threshold, the true inliers and the corner error are in their pixels;
+- the ground truth follows glue-factory's convention, which applies the homographies of HPatches to
+  coordinates with their origin at the top-left corner of the image, where hpatches_features.py
+  applies them with the origin at the center of the top-left pixel (see resize_pair);
 - the 8 sequences of large images that glue-factory leaves out (GLUEFACTORY_IGNORED_SCENES) are left
   out: 540 pairs;
 - every pair counts in the AUC: a pair with no true inlier counts in the AUC but not in the share of
@@ -28,10 +31,11 @@ compare with those measured with it:
 - the table has a row for all the pairs, as glue-factory's AUCs, besides the rows for the
   illumination and the viewpoint pairs.
 glue-factory integrates the AUC with the trapezoidal rule, which adds less than 50 / n points to it
-(n: pairs times seeds), so less than 0.1 points on 540 pairs. Its configurations of LightGlue use
-a 0.5 px threshold for OpenCV's RANSAC (``--threshold 0.5``). The matches files written before
-the sizes of the second images were saved lack them: ``--data_dir`` then gives the directory of
-HPatches, which has them.
+(n: pairs times seeds), so less than 0.1 points on 540 pairs. The robust estimator stays HomLib's,
+whereas glue-factory runs OpenCV's findHomography, with a 0.5 px threshold in its configurations of
+LightGlue (``--threshold 0.5``). Older matches files, such as the regression test's subset, lack the
+sizes of the second images: ``--data_dir`` then gives the directory of HPatches, whose images have
+them.
 
 ``--backend gcransac|magsac|superansac`` replaces LOMSAC with another robust estimator, if HomLib was
 built with it (see BACKENDS for the settings that it gets).
@@ -88,13 +92,28 @@ def resize_pair(pair):
     """The pair in pixels of its two images resized as in glue-factory's evaluation. Resizing an
     image of width w to w' maps x to (x + 0.5) w' / w - 0.5 (pixel centers at integer coordinates),
     and the image center (w - 1) / 2 to (w' - 1) / 2: the points, centered on the image center,
-    scale by w' / w, and likewise in y."""
+    scale by w' / w, and likewise in y.
+
+    The ground truth follows glue-factory's convention: glue-factory applies the homographies of
+    HPatches to coordinates with their origin at the top-left corner of the image, whereas
+    hpatches_features.py applies them to coordinates with their origin at the center of the
+    top-left pixel, as OpenCV. Which convention HPatches itself uses is undetermined. In the
+    centered coordinates, glue-factory's ground truth is T(-1/2) H T(1/2), where H is the pair's
+    and T(a) the translation by (a, a). The ground truths of the two conventions map the image
+    corners 0.08 px apart (median over the 540 pairs, in the resized images), but more than 1 px
+    apart on 1.7% of the pairs (5 px on v_charing/3)."""
     w1, h1 = gluefactory_size(pair["width"], pair["height"])
     w2, h2 = gluefactory_size(pair["width2"], pair["height2"])
     S1 = np.diag([w1 / pair["width"], h1 / pair["height"], 1.0])
     S2 = np.diag([w2 / pair["width2"], h2 / pair["height2"], 1.0])
-    return dict(x=S1[:2, :2] @ pair["x"], y=S2[:2, :2] @ pair["y"], H=S2 @ pair["H"] @ np.linalg.inv(S1),
+    H = translation(-0.5) @ pair["H"] @ translation(0.5)
+    return dict(x=S1[:2, :2] @ pair["x"], y=S2[:2, :2] @ pair["y"], H=S2 @ H @ np.linalg.inv(S1),
                 width=w1, height=h1, width2=w2, height2=h2)
+
+
+def translation(a):
+    """The homography of the translation by (a, a)"""
+    return np.array([[1.0, 0, a], [0, 1, a], [0, 0, 1]])
 
 
 def gluefactory_pairs(pairs, data_dir):
@@ -225,19 +244,29 @@ def main():
         settings = dict(matches=Path(args.matches).name, threshold=args.threshold, backend=args.backend,
                         seeds=args.seeds, iterations=args.iterations, protocol=args.protocol)
         with open(args.output, "w") as f:
-            json.dump(dict(settings=settings, results=results), f)
+            # Strict JSON: null for the share of the true inliers found of a pair with none (NaN), and
+            # for the corner error of a failure (infinite); load_results maps them back
+            strict = {name: {key: [[v if np.isfinite(v) else None for v in run] for run in runs]
+                             for key, runs in per_pair.items()} for name, per_pair in results.items()}
+            json.dump(dict(settings=settings, results=strict), f, allow_nan=False)
     print_results(results, overall=args.protocol == "gluefactory")
 
 
 def load_results(path):
     """(settings, results) of a file saved with --output. The files saved before the settings were
     the results alone: their settings are None. The files saved before --protocol used the original
-    protocol."""
+    protocol. A null share of the true inliers found is NaN, and a null corner error is infinite
+    (older files have NaN and Infinity instead)."""
     with open(path) as f:
         data = json.load(f)
-    if "settings" not in data:
-        return None, data
-    return {"protocol": "original", **data["settings"]}, data["results"]
+    settings, results = ((None, data) if "settings" not in data
+                         else ({"protocol": "original", **data["settings"]}, data["results"]))
+    for per_pair in results.values():
+        for runs in per_pair.values():
+            for run in runs:
+                run[0] = np.nan if run[0] is None else run[0]
+                run[1] = np.inf if run[1] is None else run[1]
+    return settings, results
 
 
 def warn_settings(settings_a, settings_b):
@@ -286,10 +315,12 @@ def compare(path_a, path_b):
     settings_a, a = load_results(path_a)
     settings_b, b = load_results(path_b)
     warn_settings(settings_a, settings_b)
+    # With two runs of glue-factory's protocol, also all the pairs together, as its AUCs
+    overall = all(s is not None and s["protocol"] == "gluefactory" for s in (settings_a, settings_b))
     print(f"{'Solver':<46s} {'Sequences':<13s} {'Inliers found':>18s} {'AUC@5':>18s} {'Time':>7s}")
     for name in sorted(set(a) & set(b)):
-        for k in ("illumination", "viewpoint"):
-            keys = [key for key in a[name] if key in b[name] and kind(key) == k]
+        for k in ("illumination", "viewpoint") + (("all",) if overall else ()):
+            keys = [key for key in a[name] if key in b[name] and k in ("all", kind(key))]
             if not keys:
                 continue
             d_recall = (per_pair(b, name, keys, 0) - per_pair(a, name, keys, 0)) * 100

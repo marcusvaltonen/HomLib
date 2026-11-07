@@ -130,9 +130,10 @@ Wadenbäck et al.: ``--protocol gluefactory`` (see `glue-factory's protocol`_)
 measures them as it does, so that the AUCs compare with theirs.
 
 The matches files also store the sizes of the two images of each pair: the
-images of a viewpoint sequence don't all have the same size. The files
-written before the second image's size was stored lack it;
-``--protocol gluefactory`` then reads it from HPatches (``--data_dir``).
+images of a viewpoint sequence don't all have the same size. Older matches
+files, such as the regression test's subset, lack the second image's size;
+``--protocol gluefactory`` then reads it from the HPatches images
+(``--data_dir``).
 
 Step 2: run the solvers
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -169,8 +170,13 @@ Its options:
 
 ``--seeds N``
    The number of runs per pair (default: 3). LOMSAC gets a different random
-   seed for each run, so that its runs are reproducible; the other estimators
-   draw their seeds themselves.
+   seed for each run, so that its runs are reproducible on the same platform;
+   the other estimators draw their seeds themselves. Across platforms, the
+   results differ slightly, because the standard library's
+   ``std::uniform_int_distribution`` is implementation-defined: libc++ (macOS)
+   and libstdc++ (Linux) draw different samples from the same seed. For
+   example, ``DLT`` finds 93.35% of the true inliers of the viewpoint pairs
+   of the SIFT matches on Linux, and 93.14% on macOS.
 
 ``--iterations N``
    Runs the robust estimator for exactly N iterations, instead of stopping
@@ -181,8 +187,8 @@ Its options:
 ``--output FILE``
    Saves the settings (the name of the matches file, ``--threshold``,
    ``--backend``, ``--seeds``, ``--iterations`` and ``--protocol``) and the
-   results of every pair and seed to a JSON file. The files saved before
-   ``--protocol`` existed count as ``original``.
+   results of every pair and seed to a JSON file. Files without
+   ``--protocol`` in their settings count as ``original``.
 
 ``--compare A B``
    Prints the differences B - A between two saved runs, and exits. The
@@ -193,7 +199,8 @@ Its options:
    which has no standard error. A difference smaller than about twice its
    standard error is not significant. The script warns if the two runs have
    different settings, or if a file has none (files saved by an older
-   version of the script).
+   version of the script). For two runs with ``--protocol gluefactory``, it
+   also compares all the pairs together.
 
 To measure the effect of a change in HomLib:
 
@@ -220,16 +227,27 @@ in glue-factory's README. ``--protocol gluefactory`` follows it:
   640 × 480. The two images of a pair are resized separately. The benchmark
   scales the points, the ground-truth homography and the image corners
   accordingly, so that the inlier threshold, the true inliers and the corner
-  error are in pixels of the resized images. The points don't change
-  otherwise: the matches still come from ``hpatches_features.py``, on the
-  original images or with its ``--resize``.
+  error are in pixels of the resized images. The features aren't detected
+  again: the matches are those of ``hpatches_features.py``, detected in the
+  original images (or in resized ones, with its ``--resize 480``), and only
+  rescaled. Resizing can also enlarge an image: the first images of 65 of the
+  580 pairs have a shorter side under 480 px, and the scale factors range
+  from 0.23 to 1.26.
+- **Ground truth.** glue-factory applies the homographies of HPatches to
+  coordinates with their origin at the top-left corner of the image, whereas
+  ``hpatches_features.py`` applies them with the origin at the centre of the
+  top-left pixel, as OpenCV does. Which convention HPatches itself uses is
+  undetermined. ``--protocol gluefactory`` follows glue-factory's: the two
+  ground truths map the corners 0.08 px apart on the median pair, but more
+  than 1 px apart on 1.7% of the pairs, and up to 5 px (``v_charing/3``).
 - **540 pairs.** glue-factory leaves out 8 sequences of large images
   (``i_contruction``, ``i_crownnight``, ``i_dc``, ``i_pencils``,
   ``i_whitebuilding``, ``v_artisans``, ``v_astronautis``, ``v_talent``), which
   leaves 52 illumination and 56 viewpoint sequences.
-- **Every pair counts.** The pairs with no true inlier count in the AUC (they
-  have no share of true inliers found), and an estimate with no inlier is a
-  failure, with an infinite corner error.
+- **Every pair counts.** The pairs with no true inlier count in the AUC, but
+  not in the share of the true inliers found, which is undefined for them. An
+  estimate with no inlier is a failure, with an infinite corner error: this
+  stands in for glue-factory's failure, when its estimator returns no model.
 - **Corner error and AUC.** Its corner error is the benchmark's: the mean
   distance between the four outer corners of the first image mapped with the
   estimated and with the ground-truth homography (the benchmark maps them with
@@ -238,10 +256,16 @@ in glue-factory's README. ``--protocol gluefactory`` follows it:
   the illumination and the viewpoint pairs. It integrates the AUC with the
   trapezoidal rule, which adds less than :math:`50 / n` points to the
   benchmark's AUC, for :math:`n` runs: less than 0.1 points on 540 pairs.
-- **Threshold.** glue-factory's configurations of LightGlue run OpenCV's
-  RANSAC with a 0.5 px threshold (``--threshold 0.5``). With
-  ``eval.ransac_th=-1``, it runs 0.5, 1, 1.5, 2, 2.5 and 3 px, and reports
-  the threshold with the best mean AUC.
+- **Robust estimator and threshold.** The robust estimator stays HomLib's
+  (LOMSAC by default, or ``--backend``), whereas glue-factory runs a
+  homography RANSAC of its own: OpenCV's ``findHomography`` with a 0.5 px
+  threshold in its official configurations of LightGlue, or PoseLib with a
+  1 px threshold in the pipeline's default, without a configuration.
+  ``--threshold`` sets the threshold, in pixels of the resized images. There
+  is no threshold sweep: glue-factory's ``eval.ransac_th=-1`` runs 0.5, 1,
+  1.5, 2, 2.5 and 3 px and reports the threshold with the best mean of
+  AUC@1, AUC@3 and AUC@5; to do the same, run the benchmark once per
+  threshold and keep the best.
 
 For example, with the matches of SuperPoint and LightGlue above:
 
@@ -405,7 +429,9 @@ Results
 
 The table gives the HPatches results of five solvers with OpenCV SIFT matches,
 LOMSAC, a 3 px threshold and 3 seeds per pair, on an AWS g4dn.xlarge host
-(Ubuntu 24.04). The times depend on the host: compare them within a run.
+(Linux, Ubuntu 24.04): on macOS, the shares of the true inliers found differ
+slightly (see ``--seeds``). The times depend on the host: compare them within
+a run.
 
 .. list-table::
    :header-rows: 1
