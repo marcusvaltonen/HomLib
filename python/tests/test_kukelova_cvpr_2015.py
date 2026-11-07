@@ -30,36 +30,36 @@ class KukelovaCVPR2015TestCase(unittest.TestCase):
     def test_estimate_kukelova_cvpr_2015_two_sided_sol0(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
-        self.assertAlmostEqual(sols[0].distortion_parameter, -2.136402668559706, self.tol)
-        self.assertAlmostEqual(sols[0].distortion_parameter2, 0.6928831549898077, self.tol)
+        self.assertAlmostEqual(sols[0].distortion_parameter, -2.136402668559702, self.tol)
+        self.assertAlmostEqual(sols[0].distortion_parameter2, 0.6928831549874277, self.tol)
         verify(verify_numpy_array(sols[0].homography))
 
     def test_estimate_kukelova_cvpr_2015_two_sided_sol1(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
-        self.assertAlmostEqual(sols[1].distortion_parameter, -1.7814746086320201, self.tol)
-        self.assertAlmostEqual(sols[1].distortion_parameter2, -2.079301697963529, self.tol)
+        self.assertAlmostEqual(sols[1].distortion_parameter, -1.7814746086320543, self.tol)
+        self.assertAlmostEqual(sols[1].distortion_parameter2, -2.079301697963583, self.tol)
         verify(verify_numpy_array(sols[1].homography))
 
     def test_estimate_kukelova_cvpr_2015_two_sided_sol2(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
-        self.assertAlmostEqual(sols[2].distortion_parameter, -1.1832137508476386, self.tol)
-        self.assertAlmostEqual(sols[2].distortion_parameter2, -1.8809663034629707, self.tol)
+        self.assertAlmostEqual(sols[2].distortion_parameter, -1.1832137508476257, self.tol)
+        self.assertAlmostEqual(sols[2].distortion_parameter2, -1.8809663034629764, self.tol)
         verify(verify_numpy_array(sols[2].homography))
 
     def test_estimate_kukelova_cvpr_2015_two_sided_sol3(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
-        self.assertAlmostEqual(sols[3].distortion_parameter, -0.6554778901775545, self.tol)
-        self.assertAlmostEqual(sols[3].distortion_parameter2, -0.6554778900991210, self.tol)
+        self.assertAlmostEqual(sols[3].distortion_parameter, -0.6554778901663096, self.tol)
+        self.assertAlmostEqual(sols[3].distortion_parameter2, -0.655477890099121, self.tol)
         verify(verify_numpy_array(sols[3].homography))
 
     def test_estimate_kukelova_cvpr_2015_two_sided_sol4(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertEqual(len(sols), 5)
-        self.assertAlmostEqual(sols[4].distortion_parameter, 0.2537509800067458, self.tol)
-        self.assertAlmostEqual(sols[4].distortion_parameter2, -1.9785613160596929, self.tol)
+        self.assertAlmostEqual(sols[4].distortion_parameter, 0.2537509800067429, self.tol)
+        self.assertAlmostEqual(sols[4].distortion_parameter2, -1.9785613160596773, self.tol)
         verify(verify_numpy_array(sols[4].homography))
 
     def test_estimate_kukelova_cvpr_2015_two_sided_dimensions01(self):
