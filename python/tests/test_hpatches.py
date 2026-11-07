@@ -15,7 +15,7 @@ import homlib
 from tests.helpers import fetch_test_data
 
 SUBSET_NAME = "hpatches_sift_subset.npz"
-# The release asset and its checksum (see python/README.md, "Test data for the regression test")
+# The release asset and its checksum (see docs/source/guides/benchmarking.rst, "Test data")
 SUBSET_URL = os.environ.get(
     "HOMLIB_TEST_DATA_URL",
     "https://github.com/marcusvaltonen/HomLib/releases/download/test-data-v1/" + SUBSET_NAME)

@@ -116,6 +116,7 @@ the :ref:`references` page. For the library itself:
    guides/solvers.rst
    guides/backends.rst
    guides/features.rst
+   guides/benchmarking.rst
 
 .. toctree::
    :maxdepth: 1

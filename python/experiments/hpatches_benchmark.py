@@ -1,20 +1,23 @@
 """
 HPatches benchmark of HomLib's point solvers, on precomputed matches (hpatches_features.py).
 
-For each pair, the script runs LOMSAC with every point solver, and reports, for the viewpoint and
-the illumination sequences:
-- the share of the true inliers that LOMSAC finds, the true inliers being the matches within the
-  inlier threshold of the ground-truth homography. This share ignores false inliers: the corner
+For each pair, the script runs a robust estimator (LOMSAC by default) with every point solver, and
+reports, for the viewpoint and the illumination sequences:
+- the share of the true inliers that the estimator finds, the true inliers being the matches within
+  the inlier threshold of the ground-truth homography. This share ignores false inliers: the corner
   error accounts for them;
 - the AUC of the corner error, which maps the image corners with the estimated model (distortion
   included) and with the ground-truth homography. Wadenbäck et al. (3DV 2026) report the AUC at
   1, 3 and 5 px on HPatches, as "mAA (AUC)";
-- the median time of a LOMSAC run.
+- the median time of a run.
 
 Pairs with no true inlier are left out, since no solver can find any.
 
-``--iterations N`` runs LOMSAC for exactly N iterations, instead of stopping when it is confident. Several
-runs give the accuracy as a function of the time, as in Fig. 6 of Wadenbäck et al.
+``--backend gcransac|magsac|superansac`` replaces LOMSAC with another robust estimator, if HomLib was
+built with it (see BACKENDS for the settings that it gets).
+
+``--iterations N`` runs the estimator for exactly N iterations, instead of stopping when it is
+confident. Several runs give the accuracy as a function of the time, as in Fig. 6 of Wadenbäck et al.
 
 ``--output`` saves the results of every pair to a JSON file, and ``--compare a.json b.json``
 prints the differences between two such runs (e.g. two versions of HomLib), with their standard
@@ -24,7 +27,7 @@ Usage
 -----
     python hpatches_features.py --data_dir data --output data/hpatches_sift.npz
     python hpatches_benchmark.py data/hpatches_sift.npz [--solvers Wadenback3DV2026TwoSided DLT]
-                                 [--seeds 3] [--output results.json]
+                                 [--backend lomsac] [--seeds 3] [--output results.json]
     python hpatches_benchmark.py --compare before.json after.json
 """
 
@@ -70,6 +73,35 @@ def corner_error(pose, pair):
     return err if np.isfinite(err) else np.inf
 
 
+# The robust estimators: their names in HomLib, and the names of their inlier threshold and of their
+# iteration bounds. MAGSAC++ has no threshold, but a largest noise level, sigma_max, which also
+# selects its final inliers (the matches within sigma_max). Only LOMSAC takes a random seed: the
+# others draw theirs at random, so their runs are not reproducible.
+BACKENDS = {
+    "lomsac": ("LOMSAC", "inlier_threshold", "min_num_iterations", "max_num_iterations"),
+    "gcransac": ("GCRANSAC", "threshold", "min_iterations", "max_iterations"),
+    "magsac": ("MAGSAC", "sigma_max", "min_iterations", "max_iterations"),
+    "superansac": ("SupeRANSAC", "inlier_threshold", "min_iterations", "max_iterations"),
+}
+
+
+def make_estimator(backend, solver, threshold, iterations, seed):
+    """The robust estimator, with the inlier threshold, and exactly this many iterations if
+    iterations isn't None"""
+    cls, threshold_name, min_name, max_name = BACKENDS[backend]
+    options = {threshold_name: threshold}
+    if iterations is not None:
+        options.update({min_name: iterations, max_name: iterations})
+    if backend == "lomsac":
+        options["random_seed"] = seed
+    return getattr(homlib, cls)(solver, **options)
+
+
+def inlier_indices(stats):
+    """The indices of the inliers that the estimator found"""
+    return stats.inlier_indices if hasattr(stats, "inlier_indices") else stats.inliers
+
+
 def point_solvers():
     return [s for s in homlib.SolverId.__members__.values()
             if homlib.Solver(s).feature_type == homlib.FeatureType.Points]
@@ -79,8 +111,11 @@ def main():
     parser = argparse.ArgumentParser(description="HPatches benchmark of HomLib's point solvers")
     parser.add_argument("matches", nargs="?", help="The matches file (hpatches_features.py)")
     parser.add_argument("--threshold", type=float, default=3.0, help="Inlier threshold in pixels")
-    parser.add_argument("--seeds", type=int, default=3, help="LOMSAC runs per pair (random seeds)")
-    parser.add_argument("--iterations", type=int, default=None, help="Run LOMSAC for exactly this many iterations")
+    parser.add_argument("--backend", choices=sorted(BACKENDS), default="lomsac",
+                        help="Robust estimator (default: lomsac). The others need HomLib built with them")
+    parser.add_argument("--seeds", type=int, default=3, help="Runs per pair (random seeds, for LOMSAC)")
+    parser.add_argument("--iterations", type=int, default=None,
+                        help="Run the estimator for exactly this many iterations")
     parser.add_argument("--solvers", nargs="*", choices=[s.name for s in point_solvers()], default=None,
                         help="SolverId names (default: every point solver)")
     parser.add_argument("--output", type=str, default=None, help="Save the results to this JSON file")
@@ -99,8 +134,6 @@ def main():
                else point_solvers())
     # results[solver][pair] = per seed: (share of the true inliers found, corner error, time)
     results = {s.name: {} for s in solvers}
-    options = {} if args.iterations is None else dict(
-        min_num_iterations=args.iterations, max_num_iterations=args.iterations)
     for key, pair in tqdm(pairs.items(), desc="Pairs"):
         gt = set(true_inliers(pair, args.threshold).tolist())
         if not gt:
@@ -109,11 +142,11 @@ def main():
         for s in solvers:
             runs = []
             for seed in range(1, args.seeds + 1):
-                lomsac = homlib.LOMSAC(homlib.Solver(s), inlier_threshold=args.threshold, random_seed=seed, **options)
+                estimator = make_estimator(args.backend, homlib.Solver(s), args.threshold, args.iterations, seed)
                 t0 = time.perf_counter()
-                pose, stats = lomsac.estimate(x, y)
+                pose, stats = estimator.estimate(x, y)
                 elapsed = time.perf_counter() - t0
-                runs.append((len(gt & set(stats.inlier_indices)) / len(gt),
+                runs.append((len(gt & set(inlier_indices(stats))) / len(gt),
                              corner_error(pose, pair), elapsed))
             results[s.name][key] = runs
     if args.output:
