@@ -318,7 +318,7 @@ def verify_homlib_ori(kps1, kps2, tentatives, H_gt,
     src_centered, T1, _ = center_points_and_get_transforms(src_pts, width1, height1)
     dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts, width2, height2)
 
-    solver = homlib.ValtonenOrnhagICPR2026OrientationSingleSided()
+    solver = homlib.ValtonenOrnhagICPR2026OrientationOneSided()
     lomsac = homlib.LOMSAC(solver, **lomsac_kwargs)
     estimate, stats = lomsac.estimate(src_centered, dst_centered, ori=ori)
 
@@ -362,7 +362,7 @@ def verify_homlib_affine(src_pts, dst_pts, A, tentatives, H_gt,
     src_centered, T1, _ = center_points_and_get_transforms(src_pts.T, width1, height1)
     dst_centered, _, T2_inv = center_points_and_get_transforms(dst_pts.T, width2, height2)
 
-    solver = homlib.ValtonenOrnhagICPR2026AffineSingleSided()
+    solver = homlib.ValtonenOrnhagICPR2026AffineOneSided()
     lomsac = homlib.LOMSAC(solver, **lomsac_kwargs)
     estimate, stats = lomsac.estimate(src_centered, dst_centered, A=A.T)
 

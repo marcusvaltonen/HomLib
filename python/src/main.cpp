@@ -162,10 +162,10 @@ PYBIND11_MODULE(_core, m) {
         .value("Wadenback3DV2026TwoSided", HomLib::SolverId::Wadenback3DV2026TwoSided)
         .value("GuoPRL2019", HomLib::SolverId::GuoPRL2019)
         .value("BarathVISAPP2016Affine", HomLib::SolverId::BarathVISAPP2016Affine)
-        .value("ValtonenOrnhagICPR2026AffineSingleSided", HomLib::SolverId::ValtonenOrnhagICPR2026AffineSingleSided)
-        .value("ValtonenOrnhagICPR2026AffineSingleSidedLeft", HomLib::SolverId::ValtonenOrnhagICPR2026AffineSingleSidedLeft)
-        .value("ValtonenOrnhagICPR2026OrientationSingleSided", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationSingleSided)
-        .value("ValtonenOrnhagICPR2026OrientationSingleSidedLeft", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationSingleSidedLeft);
+        .value("ValtonenOrnhagICPR2026AffineOneSided", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSided)
+        .value("ValtonenOrnhagICPR2026AffineOneSidedLeft", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSidedLeft)
+        .value("ValtonenOrnhagICPR2026OrientationOneSided", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationOneSided)
+        .value("ValtonenOrnhagICPR2026OrientationOneSidedLeft", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationOneSidedLeft);
 
     py::enum_<HomLib::FeatureType>(m, "FeatureType",
         R"pbdoc(

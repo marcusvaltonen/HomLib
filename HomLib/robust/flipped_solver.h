@@ -2,6 +2,7 @@
 
 #include <Eigen/Dense>
 #include <algorithm>
+#include <cmath>
 #include <type_traits>
 #include <vector>
 #include "posedata.hpp"
@@ -17,17 +18,43 @@ namespace HomLib {
 
 namespace detail {
 
-// The opposite one-sided distortion case.
 constexpr DistortionCase flipped_case(DistortionCase c) {
     return c == ONE_SIDED_LEFT ? ONE_SIDED_RIGHT : ONE_SIDED_LEFT;
 }
 
-// Shared post-processing: invert H, swap distortion parameters.
 inline void flip_poses(std::vector<PoseData>& poses) {
+    auto it = std::remove_if(poses.begin(), poses.end(),
+        [](const PoseData& p) { return std::abs(p.homography.determinant()) < 1e-15; });
+    poses.erase(it, poses.end());
     for (auto& p : poses) {
         p.homography = p.homography.inverse();
         std::swap(p.distortion_parameter, p.distortion_parameter2);
     }
+}
+
+template <DistortionCase DC>
+inline Eigen::Vector2d flipped_undistort(const PoseData& pose, const Eigen::Vector2d& xd) {
+    if constexpr (DC == ONE_SIDED_RIGHT)
+        return radialundistort(xd, pose.distortion_parameter);
+    else
+        return xd;
+}
+
+template <DistortionCase DC>
+inline Eigen::Vector2d flipped_distort(const PoseData& pose, const Eigen::Vector2d& yu) {
+    if constexpr (DC == ONE_SIDED_LEFT)
+        return radialdistort(yu, pose.distortion_parameter2);
+    else
+        return yu;
+}
+
+template <DistortionCase DC>
+inline void flipped_refine(PoseData& pose, const std::vector<Eigen::Vector2d>& x,
+                           const std::vector<Eigen::Vector2d>& y) {
+    if constexpr (DC == ONE_SIDED_RIGHT)
+        refinement_onesided_right(x, y, pose);
+    else
+        refinement_onesided(x, y, pose);
 }
 
 } // namespace detail
@@ -59,25 +86,14 @@ public:
     int minimal_sample_size() const { return minimal_sample_size_value; }
 
     inline Eigen::Vector2d undistort(const PoseData pose, const Eigen::Vector2d& xd) const {
-        if constexpr (DISTORTION_CASE == ONE_SIDED_RIGHT)
-            return radialundistort(xd, pose.distortion_parameter);
-        else
-            return xd;
+        return detail::flipped_undistort<DISTORTION_CASE>(pose, xd);
     }
-
     inline Eigen::Vector2d distort(const PoseData pose, const Eigen::Vector2d& yu) const {
-        if constexpr (DISTORTION_CASE == ONE_SIDED_LEFT)
-            return radialdistort(yu, pose.distortion_parameter2);
-        else
-            return yu;
+        return detail::flipped_distort<DISTORTION_CASE>(pose, yu);
     }
-
     inline void refine(PoseData& pose, const std::vector<Eigen::Vector2d>& x,
                        const std::vector<Eigen::Vector2d>& y) const {
-        if constexpr (DISTORTION_CASE == ONE_SIDED_RIGHT)
-            refinement_onesided_right(x, y, pose);
-        else
-            refinement_onesided(x, y, pose);
+        detail::flipped_refine<DISTORTION_CASE>(pose, x, y);
     }
 
     InnerSolver inner_;
@@ -113,25 +129,14 @@ public:
     int minimal_sample_size() const { return minimal_sample_size_value; }
 
     inline Eigen::Vector2d undistort(const PoseData pose, const Eigen::Vector2d& xd) const {
-        if constexpr (DISTORTION_CASE == ONE_SIDED_RIGHT)
-            return radialundistort(xd, pose.distortion_parameter);
-        else
-            return xd;
+        return detail::flipped_undistort<DISTORTION_CASE>(pose, xd);
     }
-
     inline Eigen::Vector2d distort(const PoseData pose, const Eigen::Vector2d& yu) const {
-        if constexpr (DISTORTION_CASE == ONE_SIDED_LEFT)
-            return radialdistort(yu, pose.distortion_parameter2);
-        else
-            return yu;
+        return detail::flipped_distort<DISTORTION_CASE>(pose, yu);
     }
-
     inline void refine(PoseData& pose, const std::vector<Eigen::Vector2d>& x,
                        const std::vector<Eigen::Vector2d>& y) const {
-        if constexpr (DISTORTION_CASE == ONE_SIDED_RIGHT)
-            refinement_onesided_right(x, y, pose);
-        else
-            refinement_onesided(x, y, pose);
+        detail::flipped_refine<DISTORTION_CASE>(pose, x, y);
     }
 
     InnerSolver inner_;
@@ -167,25 +172,14 @@ public:
     int minimal_sample_size() const { return minimal_sample_size_value; }
 
     inline Eigen::Vector2d undistort(const PoseData pose, const Eigen::Vector2d& xd) const {
-        if constexpr (DISTORTION_CASE == ONE_SIDED_RIGHT)
-            return radialundistort(xd, pose.distortion_parameter);
-        else
-            return xd;
+        return detail::flipped_undistort<DISTORTION_CASE>(pose, xd);
     }
-
     inline Eigen::Vector2d distort(const PoseData pose, const Eigen::Vector2d& yu) const {
-        if constexpr (DISTORTION_CASE == ONE_SIDED_LEFT)
-            return radialdistort(yu, pose.distortion_parameter2);
-        else
-            return yu;
+        return detail::flipped_distort<DISTORTION_CASE>(pose, yu);
     }
-
     inline void refine(PoseData& pose, const std::vector<Eigen::Vector2d>& x,
                        const std::vector<Eigen::Vector2d>& y) const {
-        if constexpr (DISTORTION_CASE == ONE_SIDED_RIGHT)
-            refinement_onesided_right(x, y, pose);
-        else
-            refinement_onesided(x, y, pose);
+        detail::flipped_refine<DISTORTION_CASE>(pose, x, y);
     }
 
     InnerSolver inner_;

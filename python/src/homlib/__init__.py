@@ -199,44 +199,44 @@ class BarathVISAPP2016Affine(Solver):
         super().__init__(SolverId.BarathVISAPP2016Affine)
 
 
-class ValtonenOrnhagICPR2026AffineSingleSided(Solver):
+class ValtonenOrnhagICPR2026AffineOneSided(Solver):
     """Affine-covariant one-sided right radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point."""
 
     def __init__(self, extra_check=False):
-        super().__init__(SolverId.ValtonenOrnhagICPR2026AffineSingleSided, extra_check=extra_check)
+        super().__init__(SolverId.ValtonenOrnhagICPR2026AffineOneSided, extra_check=extra_check)
 
 
-class ValtonenOrnhagICPR2026AffineSingleSidedLeft(Solver):
+class ValtonenOrnhagICPR2026AffineOneSidedLeft(Solver):
     """Affine-covariant one-sided left radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point.
 
-    Automatically derived from :class:`ValtonenOrnhagICPR2026AffineSingleSided` by
+    Automatically derived from :class:`ValtonenOrnhagICPR2026AffineOneSided` by
     swapping the point arguments, inverting the affine features and homography.
     """
 
     def __init__(self, extra_check=False):
-        super().__init__(SolverId.ValtonenOrnhagICPR2026AffineSingleSidedLeft, extra_check=extra_check)
+        super().__init__(SolverId.ValtonenOrnhagICPR2026AffineOneSidedLeft, extra_check=extra_check)
 
 
 # ---------------------------------------------------------------------------
 # Orientation-covariant solvers
 # ---------------------------------------------------------------------------
 
-class ValtonenOrnhagICPR2026OrientationSingleSided(Solver):
+class ValtonenOrnhagICPR2026OrientationOneSided(Solver):
     """Orientation-covariant one-sided right radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point."""
 
     def __init__(self):
-        super().__init__(SolverId.ValtonenOrnhagICPR2026OrientationSingleSided)
+        super().__init__(SolverId.ValtonenOrnhagICPR2026OrientationOneSided)
 
 
-class ValtonenOrnhagICPR2026OrientationSingleSidedLeft(Solver):
+class ValtonenOrnhagICPR2026OrientationOneSidedLeft(Solver):
     """Orientation-covariant one-sided left radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point.
 
-    Automatically derived from :class:`ValtonenOrnhagICPR2026OrientationSingleSided` by
+    Automatically derived from :class:`ValtonenOrnhagICPR2026OrientationOneSided` by
     swapping the point arguments, the orientation components, and inverting the homography.
     """
 
     def __init__(self):
-        super().__init__(SolverId.ValtonenOrnhagICPR2026OrientationSingleSidedLeft)
+        super().__init__(SolverId.ValtonenOrnhagICPR2026OrientationOneSidedLeft)
 
 
 # ---------------------------------------------------------------------------
@@ -631,11 +631,11 @@ __all__ = [
     "GuoPRL2019",
     # Affine-covariant solvers
     "BarathVISAPP2016Affine",
-    "ValtonenOrnhagICPR2026AffineSingleSided",
-    "ValtonenOrnhagICPR2026AffineSingleSidedLeft",
+    "ValtonenOrnhagICPR2026AffineOneSided",
+    "ValtonenOrnhagICPR2026AffineOneSidedLeft",
     # Orientation-covariant solvers
-    "ValtonenOrnhagICPR2026OrientationSingleSided",
-    "ValtonenOrnhagICPR2026OrientationSingleSidedLeft",
+    "ValtonenOrnhagICPR2026OrientationOneSided",
+    "ValtonenOrnhagICPR2026OrientationOneSidedLeft",
     # RANSAC backends
     "RobustEstimator",
     "LOMSAC",

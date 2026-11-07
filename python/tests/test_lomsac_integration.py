@@ -96,7 +96,7 @@ class LomsacIntegrationTestCase(unittest.TestCase):
 
         # A range in the normalized coordinates (each sample divided by mean(|x|)/sqrt(2)),
         # including the true distortion
-        solver = homlib.ValtonenOrnhagICPR2026AffineSingleSided()
+        solver = homlib.ValtonenOrnhagICPR2026AffineOneSided()
         solver.set_k_range(-1.0, 0.1)
         estimate, stats = homlib.LOMSAC(solver, squared_inlier_threshold=1e-6).estimate(x, y, A=A)
         self.assertAlmostEqual(estimate.distortion_parameter, k, places=6)
