@@ -133,12 +133,21 @@ inline HomLib::DistortionRange user_range(const PySolver& py_solver) {
 
 HOMLIB_DEFINE_OPTION(extra_check)
 
+// Detect flipped solver wrappers (they have a public inner_ member).
+template <typename T, typename = void>
+struct has_inner : std::false_type {};
+template <typename T>
+struct has_inner<T, std::void_t<decltype(std::declval<T&>().inner_)>> : std::true_type {};
+
 // The C++ solver of a PySolver: its options (extra_check), normalize_image_coord and, if set, its
 // range on the distortion
 template <typename Solver>
 Solver make_solver(const PySolver& py_solver) {
     Solver s{};
     HOMLIB_COPY_OPTION(s, py_solver.options, extra_check, bool)
+    if constexpr (has_inner<Solver>::value) {
+        HOMLIB_COPY_OPTION(s.inner_, py_solver.options, extra_check, bool)
+    }
     s.normalize_image_coord = py_solver.normalize_image_coord;
     if (py_solver.has_k_range) {
         s.k_range = user_range(py_solver);

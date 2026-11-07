@@ -38,6 +38,7 @@ std::vector<HomLib::PoseData> get_one_sided(
 class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
+        static constexpr DistortionCase DISTORTION_CASE = ONE_SIDED_LEFT;
         bool extra_check = true;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -57,6 +58,7 @@ class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
 class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
     public:
         static constexpr int minimal_sample_size_value = 5;
+        static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED_EQUAL;
         bool extra_check = true;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -76,6 +78,7 @@ class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
 class SolverTwoSided : public PoseEstimator<SolverTwoSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
+        static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED;
         bool extra_check = false;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
