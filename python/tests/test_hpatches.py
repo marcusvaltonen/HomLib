@@ -65,9 +65,7 @@ class HPatchesTestCase(unittest.TestCase):
         cls.pairs = load_pairs(fetch_test_data(SUBSET_NAME, SUBSET_URL, SUBSET_SHA256))
 
     def test_point_solvers(self):
-        for solver_id in homlib.SolverId.__members__.values():
-            if homlib.Solver(solver_id).feature_type != homlib.FeatureType.Points:
-                continue
+        for solver_id in homlib.solver_ids(homlib.FeatureType.Points):
             with self.subTest(solver=solver_id.name):
                 mean = np.mean([recall(solver_id, *p) for p in self.pairs.values()])
                 self.assertGreater(mean, MIN_RECALL_OF.get(solver_id.name, MIN_RECALL))

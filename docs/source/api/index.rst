@@ -58,6 +58,14 @@ Enums
     SolverId
     FeatureType
 
+:func:`solver_ids` lists the solvers of a feature type, e.g. every point
+solver:
+
+.. autosummary::
+   :toctree: generated/
+
+    solver_ids
+
 Base classes
 ------------
 

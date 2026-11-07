@@ -123,11 +123,16 @@ the script shifts LoMa's points by -0.5 px, to OpenCV's convention. Since the
 points are not normalised, the inlier thresholds of the benchmark are in pixels.
 
 With ``--resize``, the features are detected in the resized images, but the
-points, and therefore the inlier thresholds and the corner errors of the
-benchmark, stay in pixels of the original images. glue-factory's HPatches
-evaluation, which ``hpatches.py`` runs, measures them in pixels of the resized
-images, and so, probably, do Wadenbäck et al.: their thresholds and AUCs are
-then not directly comparable with the benchmark's.
+points stay in pixels of the original images, and so do the inlier thresholds
+and the corner errors of the benchmark by default. glue-factory's HPatches
+evaluation measures them in pixels of the resized images, and so, probably, do
+Wadenbäck et al.: ``--protocol gluefactory`` (see `glue-factory's protocol`_)
+measures them as it does, so that the AUCs compare with theirs.
+
+The matches files also store the sizes of the two images of each pair: the
+images of a viewpoint sequence don't all have the same size. The files
+written before the second image's size was stored lack it;
+``--protocol gluefactory`` then reads it from HPatches (``--data_dir``).
 
 Step 2: run the solvers
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -152,7 +157,15 @@ Its options:
    it gets ``--threshold`` as its largest noise level, ``sigma_max``.
 
 ``--threshold PX``
-   The inlier threshold, in pixels (default: 3).
+   The inlier threshold, in pixels (default: 3): of the original images, or of
+   the resized images with ``--protocol gluefactory``.
+
+``--protocol original|gluefactory``
+   ``original`` (default) measures in pixels of the original images, on the
+   580 pairs. ``gluefactory`` follows glue-factory's HPatches evaluation (see
+   `glue-factory's protocol`_). With matches files that lack the sizes of the
+   second images, it needs ``--data_dir``, the directory that contains
+   ``hpatches-sequences-release``, as for ``hpatches_features.py``.
 
 ``--seeds N``
    The number of runs per pair (default: 3). LOMSAC gets a different random
@@ -167,8 +180,9 @@ Its options:
 
 ``--output FILE``
    Saves the settings (the name of the matches file, ``--threshold``,
-   ``--backend``, ``--seeds`` and ``--iterations``) and the results of every
-   pair and seed to a JSON file.
+   ``--backend``, ``--seeds``, ``--iterations`` and ``--protocol``) and the
+   results of every pair and seed to a JSON file. The files saved before
+   ``--protocol`` existed count as ``original``.
 
 ``--compare A B``
    Prints the differences B - A between two saved runs, and exits. The
@@ -190,15 +204,51 @@ To measure the effect of a change in HomLib:
    python experiments/hpatches_benchmark.py data/hpatches_sift.npz --output after.json
    python experiments/hpatches_benchmark.py --compare before.json after.json
 
-Two other scripts evaluate on HPatches: ``hpatches.py`` with
-`glue-factory <https://github.com/cvg/glue-factory>`__, and
-``hpatches_loma.py`` with LoMa matches computed on the fly. ``hpatches.py``
-needs glue-factory:
+Another script, ``hpatches_loma.py``, evaluates on HPatches with LoMa matches
+computed on the fly.
+
+glue-factory's protocol
+^^^^^^^^^^^^^^^^^^^^^^^
+
+`glue-factory <https://github.com/cvg/glue-factory>`__'s HPatches evaluation
+(``gluefactory/eval/hpatches.py``, with the dataset of
+``gluefactory/datasets/hpatches.py``) is the protocol of the HPatches results
+in glue-factory's README. ``--protocol gluefactory`` follows it:
+
+- **Resized images.** glue-factory resizes each image so that its shorter side
+  is 480 px, the other side rounded down: a 1000 × 750 image becomes
+  640 × 480. The two images of a pair are resized separately. The benchmark
+  scales the points, the ground-truth homography and the image corners
+  accordingly, so that the inlier threshold, the true inliers and the corner
+  error are in pixels of the resized images. The points don't change
+  otherwise: the matches still come from ``hpatches_features.py``, on the
+  original images or with its ``--resize``.
+- **540 pairs.** glue-factory leaves out 8 sequences of large images
+  (``i_contruction``, ``i_crownnight``, ``i_dc``, ``i_pencils``,
+  ``i_whitebuilding``, ``v_artisans``, ``v_astronautis``, ``v_talent``), which
+  leaves 52 illumination and 56 viewpoint sequences.
+- **Every pair counts.** The pairs with no true inlier count in the AUC (they
+  have no share of true inliers found), and an estimate with no inlier is a
+  failure, with an infinite corner error.
+- **Corner error and AUC.** Its corner error is the benchmark's: the mean
+  distance between the four outer corners of the first image mapped with the
+  estimated and with the ground-truth homography (the benchmark maps them with
+  the full estimated model, distortion included). It reports the AUC at 1, 3
+  and 5 px over all the pairs: the table gets a row for all the pairs, besides
+  the illumination and the viewpoint pairs. It integrates the AUC with the
+  trapezoidal rule, which adds less than :math:`50 / n` points to the
+  benchmark's AUC, for :math:`n` runs: less than 0.1 points on 540 pairs.
+- **Threshold.** glue-factory's configurations of LightGlue run OpenCV's
+  RANSAC with a 0.5 px threshold (``--threshold 0.5``). With
+  ``eval.ransac_th=-1``, it runs 0.5, 1, 1.5, 2, 2.5 and 3 px, and reports
+  the threshold with the best mean AUC.
+
+For example, with the matches of SuperPoint and LightGlue above:
 
 .. code-block:: bash
 
-   uv pip install gluefactory@git+https://github.com/cvg/glue-factory.git
-   python experiments/hpatches.py
+   python experiments/hpatches_benchmark.py data/hpatches_superpoint_lightglue.npz \
+       --protocol gluefactory --threshold 0.5 --output superpoint_lightglue_gf.json
 
 
 Synthetic benchmark
@@ -322,7 +372,7 @@ in this order:
    version of the data, is downloaded again;
 3. a download of ``SUBSET_URL``, the release asset, checked against the
    checksum, then cached. ``HOMLIB_TEST_DATA_URL`` replaces this URL, for
-   example to test a fork.
+   example to test new data from a fork's release before it is published.
 
 Without the file, the test is skipped. If ``HOMLIB_REQUIRE_TEST_DATA`` is
 set, as in CI, the test fails instead, so that a missing file doesn't go
@@ -346,10 +396,8 @@ full SIFT matches, publish it, and print its checksum:
 To change the data, publish it under a new tag (``test-data-v2``), and update
 ``SUBSET_URL`` and ``SUBSET_SHA256`` in the test: each checkout tests the file
 that its test expects, and downloads it again if the cache has another
-version. For now, CI downloads the file from a fork: ``HOMLIB_TEST_DATA_URL`` in ``.github/workflows/main.yml``
-overrides ``SUBSET_URL``. As long as this override exists, changing the data
-means updating it too. HPatches is under the MIT license, which allows
-publishing these matches.
+version. HPatches is under the MIT license, which allows publishing these
+matches.
 
 
 Results

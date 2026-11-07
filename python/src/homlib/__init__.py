@@ -53,6 +53,24 @@ class Solver(_CppSolver):
             raise ValueError(f"Unknown feature type: {ft}")
 
 
+def solver_ids(feature_type=None):
+    """The solvers of HomLib, as a list of :class:`SolverId`, in the order of the enum.
+
+    Parameters
+    ----------
+    feature_type : FeatureType, optional
+        Only the solvers of this feature type, e.g. ``FeatureType.Points`` for the solvers
+        that take point matches alone. Default: every solver.
+
+    Examples
+    --------
+    >>> for solver_id in homlib.solver_ids(homlib.FeatureType.Points):
+    ...     lomsac = homlib.LOMSAC(homlib.Solver(solver_id), inlier_threshold=3.0)
+    """
+    return [s for s in SolverId.__members__.values()
+            if feature_type is None or Solver(s).feature_type == feature_type]
+
+
 # ---------------------------------------------------------------------------
 # Point-based solvers
 # ---------------------------------------------------------------------------
@@ -516,6 +534,7 @@ __all__ = [
     "DistortionCase",
     # Base class
     "Solver",
+    "solver_ids",
     # Problem generation
     "ProblemConfig",
     "ProblemInstance",

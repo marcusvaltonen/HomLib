@@ -9,6 +9,10 @@ Pixel coordinates: OpenCV and LightGlue put (0, 0) at the center of the top-left
 image center is ((w - 1) / 2, (h - 1) / 2). LoMa puts (0, 0) at the top-left corner of the image
 (the center of the top-left pixel is (0.5, 0.5)): the script shifts its points by -0.5 px.
 
+The matches files also store the sizes of the two images of each pair. The second image's is
+new: ``hpatches_benchmark.py --protocol gluefactory`` needs it, and reads it from HPatches for the
+older files, which lack it.
+
 The features and the matcher:
 - ``--features sift`` (default): OpenCV SIFT, matched with Lowe's ratio test. Easy to reproduce,
   with no learned model. With OpenCV 4.8 or later, it uses SIFT's precise upscaling, which keypoint
@@ -19,8 +23,8 @@ The features and the matcher:
   and the shorter side of the images resized to 480 pixels: ``--features superpoint --matcher
   lightglue --num_features 1024 --resize 480`` follows their setup. The points are given in the
   original images, so the thresholds and the corner errors of hpatches_benchmark.py are in pixels of
-  the original images, while glue-factory's evaluation (hpatches.py), and probably Wadenbäck et
-  al., measure them in the resized images: the numbers are then not directly comparable.
+  the original images, while glue-factory's evaluation, and probably Wadenbäck et al., measure them
+  in the resized images: ``hpatches_benchmark.py --protocol gluefactory`` measures them as it does.
   LightGlue's SIFT is OpenCV SIFT without precise upscaling, which shifts its points by about
   0.1 px: the script gives it the same SIFT with precise upscaling.
 - ``--features loma``: LoMa (Nordström et al., ECCV 2026), which detects, describes and matches the
@@ -151,7 +155,8 @@ def compute_matches(seq_dir: Path, match):
         T1 = np.array([[1, 0, -c1[0]], [0, 1, -c1[1]], [0, 0, 1.0]])
         T2 = np.array([[1, 0, -c2[0]], [0, 1, -c2[1]], [0, 0, 1.0]])
         H_centered = T2 @ H @ np.linalg.inv(T1)
-        pairs[f"{seq_name}/{i}"] = dict(x=(p1 - c1).T, y=(p2 - c2).T, H=H_centered, width=w1, height=h1)
+        pairs[f"{seq_name}/{i}"] = dict(x=(p1 - c1).T, y=(p2 - c2).T, H=H_centered,
+                                        width=w1, height=h1, width2=w2, height2=h2)
     return pairs
 
 

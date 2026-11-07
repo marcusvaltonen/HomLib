@@ -64,17 +64,53 @@ def load_hpatches_pairs(seq_dir: Path, max_sequences: int | None = None):
 
 def save_matches(path: Path, pairs):
     """Save the matches to a .npz file. pairs maps "seq/i" to dict(x, y: 2xN points centered on
-    their image; H: the ground truth in these coordinates; width, height: of image 1)."""
+    their image; H: the ground truth in these coordinates; width, height: of image 1; width2,
+    height2: of image i, or None if unknown)."""
     flat = {}
     for k, p in pairs.items():
         flat[k + ":x"], flat[k + ":y"], flat[k + ":H"] = p["x"], p["y"], p["H"]
         flat[k + ":size"] = np.array([p["width"], p["height"]])
+        if p.get("width2") is not None:
+            flat[k + ":size2"] = np.array([p["width2"], p["height2"]])
     np.savez_compressed(path, **flat)
 
 
 def load_matches(path: Path):
-    """The matches saved by save_matches."""
+    """The matches saved by save_matches. The files written before the size of image i was saved
+    (":size2") give None for width2 and height2: add_image_sizes reads them from HPatches."""
     flat = np.load(path)
     keys = sorted({k.rsplit(":", 1)[0] for k in flat.files})
-    return {k: dict(x=flat[k + ":x"], y=flat[k + ":y"], H=flat[k + ":H"],
-                    width=int(flat[k + ":size"][0]), height=int(flat[k + ":size"][1])) for k in keys}
+    pairs = {}
+    for k in keys:
+        w1, h1 = (int(v) for v in flat[k + ":size"])
+        w2, h2 = (int(v) for v in flat[k + ":size2"]) if k + ":size2" in flat.files else (None, None)
+        pairs[k] = dict(x=flat[k + ":x"], y=flat[k + ":y"], H=flat[k + ":H"],
+                        width=w1, height=h1, width2=w2, height2=h2)
+    return pairs
+
+
+def ppm_size(path: Path):
+    """(width, height) of a PPM image (the format of HPatches), from its header."""
+    with open(path, "rb") as f:
+        tokens = []
+        while len(tokens) < 3:   # the magic number, the width and the height
+            line = f.readline()
+            if not line:
+                break
+            tokens += line.split(b"#")[0].split()
+    if len(tokens) < 3 or tokens[0] not in (b"P3", b"P6"):
+        raise ValueError(f"{path} isn't a PPM image")
+    return int(tokens[1]), int(tokens[2])
+
+
+def add_image_sizes(pairs, seq_dir: Path):
+    """Fill in the missing sizes of image i (width2, height2) of the pairs "seq/i", from the images
+    of HPatches in seq_dir. Checks the size of image 1 against the matches file."""
+    for k, p in pairs.items():
+        if p["width2"] is not None:
+            continue
+        seq, i = k.split("/")
+        if ppm_size(seq_dir / seq / "1.ppm") != (p["width"], p["height"]):
+            raise RuntimeError(f"{k}: image 1 in {seq_dir} isn't {p['width']}x{p['height']}, as in the matches "
+                               "file")
+        p["width2"], p["height2"] = ppm_size(seq_dir / seq / f"{i}.ppm")

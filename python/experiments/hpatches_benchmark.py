@@ -8,12 +8,30 @@ reports, for the viewpoint and the illumination sequences:
   error accounts for them;
 - the AUC of the corner error, which maps the image corners with the estimated model (distortion
   included) and with the ground-truth homography. Wadenbäck et al. (3DV 2026) report the AUC at
-  1, 3 and 5 px on HPatches, as "mAA (AUC)", probably in pixels of images resized to 480 px
-  (shorter side), as glue-factory's evaluation, while the matches files are in pixels of the
-  original images: the numbers are then not directly comparable;
+  1, 3 and 5 px on HPatches, as "mAA (AUC)";
 - the median time of a run.
 
-Pairs with no true inlier are left out, since no solver can find any.
+By default (``--protocol original``), the thresholds and the errors are in pixels of the original
+images, on the 580 pairs, and the pairs with no true inlier are left out, since no solver can find
+any.
+
+``--protocol gluefactory`` follows glue-factory's HPatches evaluation (gluefactory/eval/hpatches.py
+and gluefactory/datasets/hpatches.py in https://github.com/cvg/glue-factory), so that the results
+compare with those measured with it:
+- each image is resized to 480 px on its shorter side, the other side rounded down (as glue-factory's
+  ImagePreprocessor): the points, the ground truth and the image corners are scaled to the resized
+  images, so that the inlier threshold, the true inliers and the corner error are in their pixels;
+- the 8 sequences of large images that glue-factory leaves out (GLUEFACTORY_IGNORED_SCENES) are left
+  out: 540 pairs;
+- every pair counts in the AUC: a pair with no true inlier counts in the AUC but not in the share of
+  the true inliers found, and an estimate with no inlier is a failure, with an infinite corner error;
+- the table has a row for all the pairs, as glue-factory's AUCs, besides the rows for the
+  illumination and the viewpoint pairs.
+glue-factory integrates the AUC with the trapezoidal rule, which adds less than 50 / n points to it
+(n: pairs times seeds), so less than 0.1 points on 540 pairs. Its configurations of LightGlue use
+a 0.5 px threshold for OpenCV's RANSAC (``--threshold 0.5``). The matches files written before
+the sizes of the second images were saved lack them: ``--data_dir`` then gives the directory of
+HPatches, which has them.
 
 ``--backend gcransac|magsac|superansac`` replaces LOMSAC with another robust estimator, if HomLib was
 built with it (see BACKENDS for the settings that it gets).
@@ -30,6 +48,7 @@ Usage
     python hpatches_features.py --data_dir data --output data/hpatches_sift.npz
     python hpatches_benchmark.py data/hpatches_sift.npz [--solvers Wadenback3DV2026TwoSided DLT]
                                  [--backend lomsac] [--seeds 3] [--output results.json]
+                                 [--protocol gluefactory [--data_dir data]]
     python hpatches_benchmark.py --compare before.json after.json
 """
 
@@ -42,7 +61,13 @@ import numpy as np
 from tqdm import tqdm
 
 import homlib
-from hpatches_data import load_matches
+from hpatches_data import HPATCHES_DIRNAME, add_image_sizes, load_matches
+
+# glue-factory's HPatches evaluation: the shorter side of the resized images, and the sequences of
+# large images that it leaves out (HPatches.ignored_scenes in gluefactory/datasets/hpatches.py)
+GLUEFACTORY_RESIZE = 480
+GLUEFACTORY_IGNORED_SCENES = ("i_contruction", "i_crownnight", "i_dc", "i_pencils", "i_whitebuilding",
+                              "v_artisans", "v_astronautis", "v_talent")
 
 
 def true_inliers(pair, threshold):
@@ -50,6 +75,39 @@ def true_inliers(pair, threshold):
     x, y, H = pair["x"], pair["y"], pair["H"]
     p = H @ np.vstack([x, np.ones(x.shape[1])])
     return np.flatnonzero(np.linalg.norm(p[:2] / p[2] - y, axis=0) < threshold)
+
+
+def gluefactory_size(width, height, side=GLUEFACTORY_RESIZE):
+    """(width, height) of an image resized as in glue-factory's evaluation (ImagePreprocessor with
+    resize=side, side="short"): the shorter side becomes side, and the other is rounded down."""
+    aspect_ratio = width / height
+    return (int(side * aspect_ratio), side) if aspect_ratio >= 1.0 else (side, int(side / aspect_ratio))
+
+
+def resize_pair(pair):
+    """The pair in pixels of its two images resized as in glue-factory's evaluation. Resizing an
+    image of width w to w' maps x to (x + 0.5) w' / w - 0.5 (pixel centers at integer coordinates),
+    and the image center (w - 1) / 2 to (w' - 1) / 2: the points, centered on the image center,
+    scale by w' / w, and likewise in y."""
+    w1, h1 = gluefactory_size(pair["width"], pair["height"])
+    w2, h2 = gluefactory_size(pair["width2"], pair["height2"])
+    S1 = np.diag([w1 / pair["width"], h1 / pair["height"], 1.0])
+    S2 = np.diag([w2 / pair["width2"], h2 / pair["height2"], 1.0])
+    return dict(x=S1[:2, :2] @ pair["x"], y=S2[:2, :2] @ pair["y"], H=S2 @ pair["H"] @ np.linalg.inv(S1),
+                width=w1, height=h1, width2=w2, height2=h2)
+
+
+def gluefactory_pairs(pairs, data_dir):
+    """The pairs of glue-factory's evaluation, resized as in it. data_dir: the directory of HPatches
+    (with hpatches-sequences-release), for the sizes of the second images, if the matches file
+    lacks them; None if it has them."""
+    pairs = {k: p for k, p in pairs.items() if k.split("/")[0] not in GLUEFACTORY_IGNORED_SCENES}
+    if any(p["width2"] is None for p in pairs.values()):
+        if data_dir is None:
+            raise ValueError("the matches file lacks the sizes of the second images, which --protocol "
+                             "gluefactory needs: give the directory of HPatches with --data_dir")
+        add_image_sizes(pairs, Path(data_dir) / HPATCHES_DIRNAME)
+    return {k: resize_pair(p) for k, p in pairs.items()}
 
 
 def map_points(pose, p):
@@ -104,21 +162,25 @@ def inlier_indices(stats):
     return stats.inlier_indices if hasattr(stats, "inlier_indices") else stats.inliers
 
 
-def point_solvers():
-    return [s for s in homlib.SolverId.__members__.values()
-            if homlib.Solver(s).feature_type == homlib.FeatureType.Points]
-
-
 def main():
     parser = argparse.ArgumentParser(description="HPatches benchmark of HomLib's point solvers")
     parser.add_argument("matches", nargs="?", help="The matches file (hpatches_features.py)")
-    parser.add_argument("--threshold", type=float, default=3.0, help="Inlier threshold in pixels")
+    parser.add_argument("--threshold", type=float, default=3.0,
+                        help="Inlier threshold in pixels (of the resized images with --protocol gluefactory)")
+    parser.add_argument("--protocol", choices=["original", "gluefactory"], default="original",
+                        help="original (default): in pixels of the original images, on the 580 pairs; "
+                             "gluefactory: glue-factory's HPatches evaluation, in images resized to 480 px "
+                             "(shorter side), on 540 pairs")
+    parser.add_argument("--data_dir", type=str, default=None,
+                        help="With --protocol gluefactory, for matches files that lack the sizes of the second "
+                             "images: the directory of HPatches (with hpatches-sequences-release)")
     parser.add_argument("--backend", choices=sorted(BACKENDS), default="lomsac",
                         help="Robust estimator (default: lomsac). The others need HomLib built with them")
     parser.add_argument("--seeds", type=int, default=3, help="Runs per pair (random seeds, for LOMSAC)")
     parser.add_argument("--iterations", type=int, default=None,
                         help="Run the estimator for exactly this many iterations")
-    parser.add_argument("--solvers", nargs="+", choices=[s.name for s in point_solvers()], default=None,
+    point_solvers = homlib.solver_ids(homlib.FeatureType.Points)
+    parser.add_argument("--solvers", nargs="+", choices=[s.name for s in point_solvers], default=None,
                         help="SolverId names (default: every point solver)")
     parser.add_argument("--output", type=str, default=None, help="Save the settings and the results to this JSON file")
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
@@ -131,14 +193,19 @@ def main():
     if not args.matches:
         parser.error("the matches file is required")
     pairs = load_matches(Path(args.matches))
+    if args.protocol == "gluefactory":
+        try:
+            pairs = gluefactory_pairs(pairs, args.data_dir)
+        except ValueError as e:
+            parser.error(str(e))
 
     solvers = ([homlib.SolverId.__members__[s] for s in args.solvers] if args.solvers
-               else point_solvers())
+               else point_solvers)
     # results[solver][pair] = per seed: (share of the true inliers found, corner error, time)
     results = {s.name: {} for s in solvers}
     for key, pair in tqdm(pairs.items(), desc="Pairs"):
         gt = set(true_inliers(pair, args.threshold).tolist())
-        if not gt:
+        if not gt and args.protocol == "original":
             continue
         x, y = np.ascontiguousarray(pair["x"]), np.ascontiguousarray(pair["y"])
         for s in solvers:
@@ -148,23 +215,29 @@ def main():
                 t0 = time.perf_counter()
                 pose, stats = estimator.estimate(x, y)
                 elapsed = time.perf_counter() - t0
-                runs.append((len(gt & set(inlier_indices(stats))) / len(gt),
-                             corner_error(pose, pair), elapsed))
+                found = set(inlier_indices(stats))
+                # glue-factory counts a failed estimate (no inlier) as an infinite error
+                failed = not found and args.protocol == "gluefactory"
+                runs.append((len(gt & found) / len(gt) if gt else np.nan,
+                             np.inf if failed else corner_error(pose, pair), elapsed))
             results[s.name][key] = runs
     if args.output:
         settings = dict(matches=Path(args.matches).name, threshold=args.threshold, backend=args.backend,
-                        seeds=args.seeds, iterations=args.iterations)
+                        seeds=args.seeds, iterations=args.iterations, protocol=args.protocol)
         with open(args.output, "w") as f:
             json.dump(dict(settings=settings, results=results), f)
-    print_results(results)
+    print_results(results, overall=args.protocol == "gluefactory")
 
 
 def load_results(path):
     """(settings, results) of a file saved with --output. The files saved before the settings were
-    the results alone: their settings are None."""
+    the results alone: their settings are None. The files saved before --protocol used the original
+    protocol."""
     with open(path) as f:
         data = json.load(f)
-    return (data["settings"], data["results"]) if "settings" in data else (None, data)
+    if "settings" not in data:
+        return None, data
+    return {"protocol": "original", **data["settings"]}, data["results"]
 
 
 def warn_settings(settings_a, settings_b):
@@ -182,25 +255,34 @@ def kind(key):
     return "viewpoint" if key.startswith("v_") else "illumination"
 
 
-def print_results(results):
-    print(f"\n{'Solver':<46s} {'Sequences':<13s} {'Inliers found':>13s}  AUC@1  AUC@3  AUC@5 AUC@10  "
+def print_results(results, overall=False):
+    """The table of the results, for the illumination and the viewpoint pairs, and with overall, for
+    all the pairs (as glue-factory's evaluation)."""
+    keys = next(iter(results.values()), {})
+    print(f"\n{sum(kind(k) == 'viewpoint' for k in keys)} viewpoint and "
+          f"{sum(kind(k) == 'illumination' for k in keys)} illumination pairs")
+    print(f"{'Solver':<46s} {'Sequences':<13s} {'Inliers found':>13s}  AUC@1  AUC@3  AUC@5 AUC@10  "
           f"{'Time (ms)':>9s}")
     for name, per_pair in sorted(results.items()):
-        for k in ("illumination", "viewpoint"):
-            runs = [r for key, rs in per_pair.items() if kind(key) == k for r in rs]
+        for k in ("illumination", "viewpoint") + (("all",) if overall else ()):
+            runs = [r for key, rs in per_pair.items() if k in ("all", kind(key)) for r in rs]
             if not runs:
                 continue
-            recall, err, t = (np.array(v) for v in zip(*runs))
+            recall, err, t = (np.array(v, dtype=float) for v in zip(*runs))
+            # The pairs with no true inlier (--protocol gluefactory) have no share of them found
+            recall = recall[np.isfinite(recall)]
             # AUC of the cumulative error curve up to each threshold
             aucs = [np.mean(np.maximum(0, 1 - err / th)) * 100 for th in (1, 3, 5, 10)]
-            print(f"{name:<46s} {k:<13s} {np.mean(recall) * 100:12.2f}%"
+            recall = f"{np.mean(recall) * 100:12.2f}%" if len(recall) else f"{'n/a':>13s}"
+            print(f"{name:<46s} {k:<13s} {recall}"
                   + "".join(f" {a:6.2f}" for a in aucs) + f"  {np.median(t) * 1e3:9.2f}")
 
 
 def compare(path_a, path_b):
     """The differences between two runs, b - a, for the pairs and solvers of both: share of the
     true inliers found and AUC@5, averaged over the seeds of each pair, with their standard errors
-    over the pairs; and the ratio of the median times, which has no standard error."""
+    over the pairs (the share of the true inliers found, over the pairs with true inliers in both);
+    and the ratio of the median times, which has no standard error."""
     settings_a, a = load_results(path_a)
     settings_b, b = load_results(path_b)
     warn_settings(settings_a, settings_b)
@@ -211,9 +293,11 @@ def compare(path_a, path_b):
             if not keys:
                 continue
             d_recall = (per_pair(b, name, keys, 0) - per_pair(a, name, keys, 0)) * 100
+            d_recall = d_recall[np.isfinite(d_recall)]   # without the pairs with no true inlier
             d_auc = (per_pair(b, name, keys, 1) - per_pair(a, name, keys, 1)) * 100
             ratio = np.median(per_pair(b, name, keys, 2)) / np.median(per_pair(a, name, keys, 2))
-            print(f"{name:<46s} {k:<13s} {d_recall.mean():+8.2f} ±{standard_error(d_recall):5.2f} pts"
+            mean_recall = d_recall.mean() if len(d_recall) else np.nan
+            print(f"{name:<46s} {k:<13s} {mean_recall:+8.2f} ±{standard_error(d_recall):5.2f} pts"
                   f" {d_auc.mean():+8.2f} ±{standard_error(d_auc):5.2f} pts {ratio:6.2f}x")
 
 

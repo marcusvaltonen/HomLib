@@ -42,7 +42,7 @@ import numpy as np
 from tqdm import tqdm
 
 import homlib
-from hpatches_benchmark import point_solvers, warn_settings
+from hpatches_benchmark import warn_settings
 
 FOCAL = 1000.0   # pixels: the noise is given in pixels for this focal length
 
@@ -68,7 +68,7 @@ SOLVERS = {
     "Wadenback3DV2026TwoSided": (5, _ALL),
     "Wadenback3DV2026TwoSidedEqual": (5, [_C.NO_DISTORTION, _C.TWO_SIDED_EQUAL]),
 }
-_POINT_SOLVERS = {s.name for s in point_solvers()}
+_POINT_SOLVERS = {s.name for s in homlib.solver_ids(homlib.FeatureType.Points)}
 assert set(SOLVERS) == _POINT_SOLVERS, ("SOLVERS must list the point solvers of homlib.SolverId: missing "
                                         f"{sorted(_POINT_SOLVERS - set(SOLVERS))}, "
                                         f"unknown {sorted(set(SOLVERS) - _POINT_SOLVERS)}")
