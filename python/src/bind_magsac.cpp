@@ -9,6 +9,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_poi
     const PySolver& solver,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const std::vector<double>& probabilities,
     const HomLib::MAGSACSettings& settings)
 {
     std::vector<Eigen::Vector2d> x, y;
@@ -17,7 +18,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_poi
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_magsac_point(s, x, y, settings);
+        return HomLib::run_magsac_point(s, x, y, probabilities, settings);
     });
 }
 
@@ -26,6 +27,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_aff
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const Eigen::Matrix<double, 4, Eigen::Dynamic>& A_,
+    const std::vector<double>& probabilities,
     const HomLib::MAGSACSettings& settings)
 {
     std::vector<Eigen::Vector2d> x, y;
@@ -35,7 +37,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_aff
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_magsac_affine(s, x, y, A, settings);
+        return HomLib::run_magsac_affine(s, x, y, A, probabilities, settings);
     });
 }
 
@@ -44,6 +46,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_ori
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& ori_,
+    const std::vector<double>& probabilities,
     const HomLib::MAGSACSettings& settings)
 {
     std::vector<Eigen::Vector2d> x, y, ori;
@@ -52,7 +55,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_ori
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_magsac_orientation(s, x, y, ori, settings);
+        return HomLib::run_magsac_orientation(s, x, y, ori, probabilities, settings);
     });
 }
 
@@ -84,6 +87,8 @@ void bind_magsac(py::module_& m) {
         .def_readwrite("min_iterations", &HomLib::MAGSACSettings::min_iterations)
         .def_readwrite("partition_number", &HomLib::MAGSACSettings::partition_number)
         .def_readwrite("use_magsac_plus_plus", &HomLib::MAGSACSettings::use_magsac_plus_plus)
+        .def_readwrite("sampler", &HomLib::MAGSACSettings::sampler)
+        .def_readwrite("non_minimal_strategy", &HomLib::MAGSACSettings::non_minimal_strategy)
         .def("__repr__",
             [](const HomLib::MAGSACSettings& s) {
                 return "MAGSACSettings("
@@ -94,11 +99,11 @@ void bind_magsac(py::module_& m) {
 
     m.def("dispatch_magsac_point", &dispatch_magsac_point,
         "Run a point-based solver within the MAGSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
     m.def("dispatch_magsac_affine", &dispatch_magsac_affine,
         "Run an affine-covariant solver within the MAGSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "A"_a, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "A"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
     m.def("dispatch_magsac_orientation", &dispatch_magsac_orientation,
         "Run an orientation-covariant solver within the MAGSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "ori"_a, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "ori"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
 }
