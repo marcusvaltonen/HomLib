@@ -217,6 +217,17 @@ print(estimate.distortion_parameter)
 print(f"{len(stats.inlier_indices)} inliers")
 ```
 
+### Robust estimation with GC-RANSAC
+Requires building with `-DHOMLIB_USE_GCRANSAC=ON`.
+
+```python
+solver = homlib.Wadenback3DV2026OneSided()
+gc = homlib.GCRANSAC(solver, threshold=3.0)
+estimate, stats = gc.estimate(x, y)
+
+print(f"{len(stats.inliers)} inliers, {stats.num_iterations} iterations")
+```
+
 ### Robust estimation with SupeRANSAC
 Requires building with `-DHOMLIB_USE_SUPERANSAC=ON`.
 
@@ -235,6 +246,89 @@ for solver in [homlib.FitzgibbonCVPR2001OneSided(),
                homlib.Wadenback3DV2026OneSided()]:
     lomsac = homlib.LOMSAC(solver, squared_inlier_threshold=0.005)
     estimate, stats = lomsac.estimate(x, y)
+```
+
+### Confidence scores and sampler selection
+
+When correspondences have associated confidence scores (e.g. from a learned
+matcher), they can be passed to the RANSAC backends to guide sampling towards
+more reliable matches. This is supported by GC-RANSAC, MAGSAC, and SupeRANSAC.
+
+```python
+# scores is a 1-D array of per-match confidences in [0, 1], length N,
+# sorted in descending order (highest confidence first).
+gc = homlib.GCRANSAC(solver, threshold=3.0,
+                     sampler=homlib.GCSamplerType.PROSAC)
+estimate, stats = gc.estimate(x, y, scores=scores)
+```
+
+**Available samplers for GC-RANSAC and MAGSAC** (`homlib.GCSamplerType`):
+- `Uniform` — standard uniform random sampling (default, ignores scores)
+- `PROSAC` — progressively expands the sampling pool from the highest-scored
+  matches outward; requires input sorted by confidence but does not use the
+  score values directly
+- `ARSampler` — adaptive reordering sampler; uses the actual score values to
+  weight the sampling distribution
+- `ImportanceSampler` — samples proportionally to the score values
+
+**Available samplers for SupeRANSAC** (`homlib.SuperansacSamplerType`):
+same set, plus `NAPSAC` and `ProgressiveNAPSAC` (neighbourhood-based).
+
+Scores are **optional**: omitting them uses Uniform sampling. If a sampler that
+needs scores is selected without providing them, a `RuntimeError` is raised.
+
+**Score normalization:** Scores should be normalized to [0, 1]. Two common
+approaches are:
+- **Real scores** — min-max normalization of the raw matcher confidences.
+- **Linear scores** — replace the values with `np.linspace(1.0, 0.01, N)`,
+  preserving the sorted order but discarding the actual values. This is the
+  approach typically used by Barath et al. in SupeRANSAC and GC-RANSAC.
+
+```python
+import numpy as np
+
+# Real scores (from a matcher, already sorted descending)
+scores_raw = pair["scores"]  # e.g. from AffineLoMa
+s_min, s_max = scores_raw.min(), scores_raw.max()
+scores_real = (scores_raw - s_min) / (s_max - s_min)
+
+# Linear scores (Barath et al.)
+N = x.shape[1]
+scores_linear = np.linspace(1.0, 0.01, N)
+```
+
+### Backend settings
+
+Each backend exposes its full set of configurable parameters. Settings are
+accessible via namespace aliases for clarity:
+
+```python
+# GC-RANSAC
+gc = homlib.GCRANSAC(solver,
+    threshold=3.0,
+    confidence=0.99,
+    max_iterations=5000,
+    min_iterations=50,
+    do_local_optimization=True,
+    sampler=homlib.GCRANSAC.SamplerType.PROSAC,
+    non_minimal_strategy=homlib.GCRANSAC.NonMinimalStrategy.SelectAndRefine,
+)
+
+# MAGSAC (shares GCSamplerType)
+mg = homlib.MAGSAC(solver,
+    sigma_max=3.0,
+    sampler=homlib.MAGSAC.SamplerType.ARSampler,
+)
+
+# SupeRANSAC — all sub-settings are exposed
+sa = homlib.SupeRANSAC(solver, inlier_threshold=3.0,
+    sampler=homlib.SupeRANSAC.SamplerType.ARSampler,
+    scoring=homlib.SuperansacScoringType.MSAC,
+    local_optimization=homlib.SuperansacLocalOptType.GCRANSAC,
+)
+settings = homlib.SupeRANSAC.Settings()
+settings.ar_sampler_settings.estimator_variance = 0.5
+settings.lo_settings.spatial_coherence_weight = 0.14
 ```
 
 ## About the solvers
