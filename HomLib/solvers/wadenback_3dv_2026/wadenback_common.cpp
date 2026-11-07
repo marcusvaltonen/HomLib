@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <Eigen/Dense>
 #include <vector>
+#include "general_position.hpp"
 namespace HomLib {
 namespace Wadenback3DV2026 {
 double compute_residual1(
@@ -173,6 +174,33 @@ Eigen::Matrix3d homography_4pt_guo(
     H << t1*y[0](0), t2*y[1](0), t3*y[2](0), t1*y[0](1), t2*y[1](1), t3*y[2](1), t1, t2, t3;
     H = H * xadj;  
     return H;
+}
+
+bool homography_of_root(
+    const std::vector<Eigen::Vector2d> &x,
+    const std::vector<Eigen::Vector2d> &y,
+    double k1,
+    double k2,
+    Eigen::Matrix3d *H
+) {
+    const int n = std::min<int>(x.size(), 5);
+    if (n < 4)
+        return false;
+    Eigen::Vector2d xu[5], yu[5];
+    for (int i = 0; i < n; i++) {
+        const double wx = 1 + k1 * x[i].squaredNorm(), wy = 1 + k2 * y[i].squaredNorm();
+        if (!(wx > 0 && wy > 0))
+            return false;
+        xu[i] = x[i] / wx;
+        yu[i] = y[i] / wy;
+    }
+    const bool ok = n == 5 ? HomLib::select_4_in_general_position(xu, yu)
+                           : HomLib::in_general_position(xu, yu);
+    if (!ok)
+        return false;
+    *H = homography_4pt_guo(std::vector<Eigen::Vector2d>(xu, xu + 4),
+                            std::vector<Eigen::Vector2d>(yu, yu + 4));
+    return H->allFinite();
 }
 
 } // namespace

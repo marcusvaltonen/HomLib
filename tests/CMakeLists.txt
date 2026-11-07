@@ -22,6 +22,7 @@ add_executable(HomLibTests
     test_cai_pami_2025.cpp
     test_distortion_range.cpp
     test_fitzgibbon_cvpr_2001.cpp
+    test_general_position.cpp
     test_helpers.cpp
     test_kukelova_cvpr_2015.cpp
     test_nakano_icpr_2025.cpp

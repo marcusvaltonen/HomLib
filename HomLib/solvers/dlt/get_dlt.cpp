@@ -27,6 +27,7 @@
 #include <cmath>
 #include "posedata.hpp"
 #include "get_dlt.hpp"
+#include "general_position.hpp"
 
 namespace HomLib {
 namespace DLT {
@@ -39,6 +40,12 @@ std::vector<HomLib::PoseData> get(
     std::vector<HomLib::PoseData> output;
 
     const int n = static_cast<int>(x.size());
+    // A minimal sample: no solution if three points are collinear, or if the points would be on
+    // both sides of the vanishing line of H (see general_position.hpp). Larger samples aren't
+    // checked.
+    if (n < 4 || (n == 4 && !HomLib::in_general_position(x.data(), y.data()))) {
+        return output;
+    }
     Eigen::Matrix<double, Eigen::Dynamic, 9> A(2 * n, 9);
     for (int i = 0; i < n; i++) {
         const double x0 = x[i](0), x1 = x[i](1);
@@ -59,7 +66,7 @@ std::vector<HomLib::PoseData> get(
     Eigen::Matrix3d H = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(h.data());
 
     H.normalize();
-    if (std::abs(H.determinant()) < 1e-8) {
+    if (!H.allFinite() || std::abs(H.determinant()) < 1e-8) {
         return output;
     }
 
