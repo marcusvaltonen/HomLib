@@ -265,6 +265,11 @@ jobs:
           python -m pip install "$wheel_file"
           python -m pytest -s python/tests
         shell: bash
+        env:
+          # Fail, rather than skip, when a test's data can't be downloaded
+          HOMLIB_REQUIRE_TEST_DATA: 1
+          # Until test-data-v1 is published on marcusvaltonen/HomLib: the same files on the fork
+          HOMLIB_TEST_DATA_URL: https://github.com/f-dy/HomLib/releases/download/test-data-v1/hpatches_sift_subset.npz
 
   lint:
     name: Lint Python
