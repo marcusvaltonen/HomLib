@@ -65,6 +65,7 @@ SOLVERS = {
     "DLT": (4, [_C.NO_DISTORTION]),
     "GuoPRL2019": (4, [_C.NO_DISTORTION]),
     "FitzgibbonCVPR2001OneSided": (5, [_C.NO_DISTORTION, _C.ONE_SIDED_LEFT]),
+    "FitzgibbonCVPR2001OneSidedRight": (5, [_C.NO_DISTORTION, _C.ONE_SIDED_RIGHT]),
     "FitzgibbonCVPR2001TwoSidedEqual": (5, [_C.NO_DISTORTION, _C.TWO_SIDED_EQUAL]),
     "KukelovaCVPR2015TwoSided": (5, _ALL),
     "KukelovaCVPR2015TwoSided6Pt": (6, _ALL),
@@ -73,6 +74,7 @@ SOLVERS = {
     "NakanoICPR2025OneSided": (5, [_C.NO_DISTORTION, _C.ONE_SIDED_LEFT]),
     "NakanoICPR2025OneSidedRight": (5, [_C.NO_DISTORTION, _C.ONE_SIDED_RIGHT]),
     "Wadenback3DV2026OneSided": (5, [_C.NO_DISTORTION, _C.ONE_SIDED_LEFT]),
+    "Wadenback3DV2026OneSidedRight": (5, [_C.NO_DISTORTION, _C.ONE_SIDED_RIGHT]),
     "Wadenback3DV2026TwoSided": (5, _ALL),
     "Wadenback3DV2026TwoSidedEqual": (5, [_C.NO_DISTORTION, _C.TWO_SIDED_EQUAL]),
 }
