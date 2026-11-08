@@ -33,7 +33,6 @@ def normalize_H(H):
     return H
 
 
-
 def fetch_test_data(name, url, sha256):
     """The path of a test data file with this SHA-256: ``$HOMLIB_TEST_DATA/<name>`` if it exists, else a
     cached download of ``url``. A cached file with another SHA-256 (e.g. an older version of the data)

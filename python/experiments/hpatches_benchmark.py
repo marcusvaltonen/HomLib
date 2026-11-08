@@ -131,24 +131,33 @@ def gluefactory_pairs(pairs, data_dir):
 
 def map_points(pose, p):
     """The points p of image 1 mapped to image 2 with an estimated model: undistorted with k1,
-    mapped with H, distorted with k2 (division model)."""
+    mapped with H, distorted with k2 (division model); and whether each point has an image. It
+    hasn't if H maps it to infinity, or if k2 has no distorted point for it (1 - 4 k2 |u|^2 < 0).
+    Both are tested before the division and the square root, so that no NaN or infinity is
+    created."""
     k1, k2 = pose.distortion_parameter, pose.distortion_parameter2
+    # Undistorted with k1 in homogeneous coordinates (w = 1 + k1 |p|^2 as third coordinate): no
+    # division by w
     q = np.array(pose.homography) @ np.vstack([p, 1 + k1 * np.sum(p**2, 0)])
-    u = q[:2] / q[2]
+    ok = q[2] != 0
+    u = np.divide(q[:2], q[2], out=np.zeros_like(q[:2]), where=ok)
     disc = 1 - 4 * k2 * np.sum(u**2, 0)
-    with np.errstate(invalid="ignore"):
-        return np.where(disc >= 0, u * 2 / (1 + np.sqrt(np.maximum(disc, 0))), np.nan)
+    ok &= disc >= 0
+    return u * 2 / (1 + np.sqrt(np.where(ok, disc, 0))), ok
 
 
 def corner_error(pose, pair):
     """The mean distance between the image corners mapped by the estimated model and by the
-    ground truth, in pixels."""
+    ground truth, in pixels; infinite if the model doesn't map every corner."""
     # The points are centered on the image center, ((w - 1) / 2, (h - 1) / 2) with OpenCV's pixel
     # centers at integer coordinates: the outer corners of the image are at (±w / 2, ±h / 2).
     w, h = pair["width"] / 2, pair["height"] / 2
     corners = np.array([[-w, w, w, -w], [-h, -h, h, h]])
     g = pair["H"] @ np.vstack([corners, np.ones(4)])
-    err = np.mean(np.linalg.norm(map_points(pose, corners) - g[:2] / g[2], axis=0))
+    mapped, ok = map_points(pose, corners)
+    if not ok.all():
+        return np.inf
+    err = np.mean(np.linalg.norm(mapped - g[:2] / g[2], axis=0))
     return err if np.isfinite(err) else np.inf
 
 
