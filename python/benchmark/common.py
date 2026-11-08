@@ -27,13 +27,16 @@ BACKENDS = {
 }
 
 
-def make_estimator(backend, solver, threshold, iterations, seed):
+def make_estimator(backend, solver, threshold, iterations, seed, min_iterations=None, **extra):
     """The robust estimator, with the inlier threshold, and exactly this many iterations if
-    iterations isn't None"""
+    iterations isn't None, or at least min_iterations if it isn't None. extra: other settings of the
+    backend, by their names in HomLib."""
     cls, threshold_name, min_name, max_name = BACKENDS[backend]
-    options = {threshold_name: threshold}
+    options = {threshold_name: threshold, **extra}
     if iterations is not None:
         options.update({min_name: iterations, max_name: iterations})
+    elif min_iterations is not None:
+        options[min_name] = min_iterations
     if backend == "lomsac":
         options["random_seed"] = seed
     return getattr(homlib, cls)(solver, **options)
