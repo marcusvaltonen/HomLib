@@ -125,37 +125,26 @@ namespace KukelovaCVPR2015 {
             }
             Eigen::Vector3d v = B.partialPivLu().solve(rhs);
 
-            // lam is accurate only up to the conditioning of the characteristic polynomial: up to 2
-            // steps of Newton's method on (AM - lam I) w = 0, w = (1, lam, v), rows 1-4 (row 0 holds
-            // by construction), with unknowns lam and v, each kept only if it reduces the residual
+            // lam is only as accurate as the characteristic polynomial allows: 2 steps of Newton's
+            // method on rows 1-4 of (AM - lam I) w = 0, w = (1, lam, v) (row 0 holds by construction),
+            // with unknowns lam and v
             double l = lam;
-            Eigen::Vector4d F;
-            Eigen::Matrix4d J;
-            const auto residual = [&AM](double ll, const Eigen::Vector3d &vv, Eigen::Vector4d &FF,
-                                        Eigen::Matrix4d &JJ) {
-                const Eigen::Matrix<double, 5, 1> w(1.0, ll, vv(0), vv(1), vv(2));
-                for (int r = 1; r < 5; r++) {
-                    FF(r - 1) = AM.row(r).dot(w) - ll * w(r);
-                    JJ(r - 1, 0) = AM(r, 1) - w(r) - (r == 1 ? ll : 0.0);
-                    for (int k = 2; k < 5; k++)
-                        JJ(r - 1, k - 1) = AM(r, k) - (r == k ? ll : 0.0);
-                }
-            };
-            residual(l, v, F, J);
             for (int it = 0; it < 2; it++) {
+                const Eigen::Matrix<double, 5, 1> w(1.0, l, v(0), v(1), v(2));
+                Eigen::Vector4d F;
+                Eigen::Matrix4d J;
+                for (int r = 1; r < 5; r++) {
+                    F(r - 1) = AM.row(r).dot(w) - l * w(r);
+                    J(r - 1, 0) = AM(r, 1) - w(r) - (r == 1 ? l : 0.0);
+                    for (int k = 2; k < 5; k++)
+                        J(r - 1, k - 1) = AM(r, k) - (r == k ? l : 0.0);
+                }
                 const Eigen::Vector4d du = J.partialPivLu().solve(-F);
-                const double l1 = l + du(0);
-                const Eigen::Vector3d v1 = v + du.tail<3>();
-                Eigen::Vector4d F1;
-                Eigen::Matrix4d J1;
-                residual(l1, v1, F1, J1);
-                if (!(F1.norm() < F.norm())) {
+                if (!du.allFinite()) {
                     break;
                 }
-                l = l1;
-                v = v1;
-                F = F1;
-                J = J1;
+                l += du(0);
+                v += du.tail<3>();
             }
             sols(0, i) = l;
             sols(1, i) = v(0);
