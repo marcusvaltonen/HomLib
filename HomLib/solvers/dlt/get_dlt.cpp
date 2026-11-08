@@ -43,7 +43,7 @@ std::vector<HomLib::PoseData> get(
     // A minimal sample: no solution if three points are collinear, or if the points would be on
     // both sides of the vanishing line of H (see general_position.hpp). Larger samples aren't
     // checked.
-    if (n < 4 || (n == 4 && !HomLib::in_general_position(x.data(), y.data()))) {
+    if (n < 4 || (n == 4 && !HomLib::is_valid_sample(x.data(), y.data()))) {
         return output;
     }
     Eigen::Matrix<double, Eigen::Dynamic, 9> A(2 * n, 9);

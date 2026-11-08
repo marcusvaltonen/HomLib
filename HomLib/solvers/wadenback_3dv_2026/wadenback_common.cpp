@@ -194,8 +194,8 @@ bool homography_of_root(
         xu[i] = x[i] / wx;
         yu[i] = y[i] / wy;
     }
-    const bool ok = n == 5 ? HomLib::select_4_in_general_position(xu, yu)
-                           : HomLib::in_general_position(xu, yu);
+    const bool ok = n == 5 ? HomLib::select_valid_sample(xu, yu)
+                           : HomLib::is_valid_sample(xu, yu);
     if (!ok)
         return false;
     *H = homography_4pt_guo(std::vector<Eigen::Vector2d>(xu, xu + 4),

@@ -44,10 +44,11 @@ inline double signed_area(const Eigen::Vector2d &a, const Eigen::Vector2d &b,
 // same points: this only catches exact collinearity, up to rounding
 constexpr double kCollinearTolerance = 1e-10;
 
-// Whether the four points x[0..3] and y[0..3] determine a homography with every point in front of
-// both cameras: no three of the points are collinear in either image, and the four triangles all
+// Whether the four points x[0..3] and y[0..3] are a valid sample for a 4-point homography: they
+// determine a homography with every point in front of both cameras. That is, no three of the points
+// are collinear in either image (the points are in general position), and the four triangles all
 // keep their orientation or all flip it. False for NaN points.
-inline bool in_general_position(const Eigen::Vector2d *x, const Eigen::Vector2d *y) {
+inline bool is_valid_sample(const Eigen::Vector2d *x, const Eigen::Vector2d *y) {
     const double ax[4] = {signed_area(x[0], x[1], x[2]), signed_area(x[0], x[1], x[3]),
                           signed_area(x[0], x[2], x[3]), signed_area(x[1], x[2], x[3])};
     const double ay[4] = {signed_area(y[0], y[1], y[2]), signed_area(y[0], y[1], y[3]),
@@ -58,8 +59,10 @@ inline bool in_general_position(const Eigen::Vector2d *x, const Eigen::Vector2d 
         std::max({std::abs(ay[0]), std::abs(ay[1]), std::abs(ay[2]), std::abs(ay[3])});
     bool ok = mx > 0 && my > 0;
     for (int t = 0; t < 4; t++) {
+        // Check collinearity: the triangle isn't flat, in either image
         ok = ok && std::abs(ax[t]) > kCollinearTolerance * mx;
         ok = ok && std::abs(ay[t]) > kCollinearTolerance * my;
+        // Check orientation: the four triangles all keep their orientation, or all flip it
         ok = ok && (ax[t] * ay[t] > 0) == (ax[0] * ay[0] > 0);
     }
     return ok;
@@ -67,8 +70,8 @@ inline bool in_general_position(const Eigen::Vector2d *x, const Eigen::Vector2d 
 
 // Chooses 4 of the 5 points x[0..4] and y[0..4] for a 4-point homography, and moves them to
 // x[0..3] and y[0..3]: the 4 points whose most collinear triangle is the least collinear, in both
-// images. Then checks them with in_general_position.
-inline bool select_4_in_general_position(Eigen::Vector2d *x, Eigen::Vector2d *y) {
+// images. Returns whether they are a valid sample (is_valid_sample).
+inline bool select_valid_sample(Eigen::Vector2d *x, Eigen::Vector2d *y) {
     // The 10 triangles of the 5 points
     static constexpr int tri[10][3] = {{0, 1, 2}, {0, 1, 3}, {0, 1, 4}, {0, 2, 3}, {0, 2, 4},
                                        {0, 3, 4}, {1, 2, 3}, {1, 2, 4}, {1, 3, 4}, {2, 3, 4}};
@@ -94,7 +97,7 @@ inline bool select_4_in_general_position(Eigen::Vector2d *x, Eigen::Vector2d *y)
             drop = d;
     std::swap(x[drop], x[4]);
     std::swap(y[drop], y[4]);
-    return in_general_position(x, y);
+    return is_valid_sample(x, y);
 }
 
 }  // namespace HomLib

@@ -41,7 +41,7 @@ std::vector<HomLib::PoseData> get(
     std::vector<HomLib::PoseData> output;
     // No solution if three points are collinear, or if the points would be on both sides of the
     // vanishing line of H (see general_position.hpp)
-    if (x.size() < 4 || !HomLib::in_general_position(x.data(), y.data())) {
+    if (x.size() < 4 || !HomLib::is_valid_sample(x.data(), y.data())) {
         return output;
     }
 

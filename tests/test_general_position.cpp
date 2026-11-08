@@ -51,7 +51,7 @@ TEST_CASE("General position - four points") {
     Eigen::Vector2d y[4];
     for (int i = 0; i < 4; i++)
         y[i] = apply(kH, x[i]);
-    REQUIRE(HomLib::in_general_position(x, y));
+    REQUIRE(HomLib::is_valid_sample(x, y));
 
     // A projective homography with det H < 0 flips every triangle
     const Eigen::Matrix3d F =
@@ -59,7 +59,7 @@ TEST_CASE("General position - four points") {
     REQUIRE(F.determinant() < 0);
     for (int i = 0; i < 4; i++)
         y[i] = apply(F, x[i]);
-    REQUIRE(HomLib::in_general_position(x, y));
+    REQUIRE(HomLib::is_valid_sample(x, y));
 
     // H maps these points exactly, but its vanishing line (u = -1/2) separates them: some points
     // would be behind a camera
@@ -67,18 +67,18 @@ TEST_CASE("General position - four points") {
     Eigen::Vector2d u[4] = {{0, 0}, {1, 0}, {-1, 1}, {0, 1}};
     for (int i = 0; i < 4; i++)
         y[i] = apply(V, u[i]);
-    REQUIRE_FALSE(HomLib::in_general_position(u, y));
+    REQUIRE_FALSE(HomLib::is_valid_sample(u, y));
 
     // Three collinear points, two equal ones, or a NaN
     for (int i = 0; i < 4; i++)
         y[i] = apply(kH, x[i]);
     Eigen::Vector2d c[4] = {{0, 0}, {1, 1}, {2, 2}, {0, 1}};
-    REQUIRE_FALSE(HomLib::in_general_position(c, y));
-    REQUIRE_FALSE(HomLib::in_general_position(y, c));
+    REQUIRE_FALSE(HomLib::is_valid_sample(c, y));
+    REQUIRE_FALSE(HomLib::is_valid_sample(y, c));
     Eigen::Vector2d d[4] = {{0, 0}, {1, 0}, {1, 0}, {0, 1}};
-    REQUIRE_FALSE(HomLib::in_general_position(d, y));
+    REQUIRE_FALSE(HomLib::is_valid_sample(d, y));
     Eigen::Vector2d e[4] = {{0, 0}, {1, 0}, {NAN, 1}, {0, 1}};
-    REQUIRE_FALSE(HomLib::in_general_position(e, y));
+    REQUIRE_FALSE(HomLib::is_valid_sample(e, y));
 }
 
 TEST_CASE("General position - choosing four of five points") {
@@ -87,8 +87,8 @@ TEST_CASE("General position - choosing four of five points") {
     Eigen::Vector2d y[5];
     for (int i = 0; i < 5; i++)
         y[i] = apply(kH, x[i]);
-    REQUIRE(HomLib::select_4_in_general_position(x, y));
-    REQUIRE(HomLib::in_general_position(x, y));
+    REQUIRE(HomLib::select_valid_sample(x, y));
+    REQUIRE(HomLib::is_valid_sample(x, y));
     for (int i = 0; i < 5; i++)
         REQUIRE((apply(kH, x[i]) - y[i]).norm() < 1e-12);   // still matched after the reordering
 
@@ -96,7 +96,7 @@ TEST_CASE("General position - choosing four of five points") {
     Eigen::Vector2d c[5] = {{0, 0}, {1, 0}, {2, 0}, {3, 0}, {0, 1}};
     for (int i = 0; i < 5; i++)
         y[i] = apply(kH, c[i]);
-    REQUIRE_FALSE(HomLib::select_4_in_general_position(c, y));
+    REQUIRE_FALSE(HomLib::select_valid_sample(c, y));
 }
 
 TEST_CASE("General position - the 4-point solvers return nothing for three collinear points") {
