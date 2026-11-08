@@ -37,6 +37,8 @@ set_target_properties(HomLib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if(HOMLIB_USE_SUPERANSAC)
     target_link_libraries(HomLib PRIVATE SupeRANSAC)
-    target_include_directories(HomLib PRIVATE ${SUPERANSAC_INCLUDE_DIR})
+    target_include_directories(HomLib SYSTEM PRIVATE ${SUPERANSAC_INCLUDE_DIR})
     target_compile_definitions(HomLib PUBLIC HOMLIB_HAS_SUPERANSAC)
 endif()
+
+homlib_strict_standard(HomLib)

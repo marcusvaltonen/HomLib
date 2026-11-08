@@ -44,8 +44,8 @@ whether they use point, affine, or orientation features:
 .. code-block:: python
 
    solver = homlib.Wadenback3DV2026OneSided()      # point-based
-   aff = homlib.ValtonenOrnhagICPR2026AffineSingleSided()  # affine
-   ori = homlib.ValtonenOrnhagICPR2026OrientationSingleSided()  # orientation
+   aff = homlib.ValtonenOrnhagICPR2026AffineOneSided()  # affine
+   ori = homlib.ValtonenOrnhagICPR2026OrientationOneSided()  # orientation
 
 **RANSAC backends** wrap a solver and run a robust estimation loop entirely in
 C++. Any solver can be paired with any backend:
@@ -74,7 +74,7 @@ For affine or orientation solvers, pass the extra features to ``estimate()``:
 
 .. code-block:: python
 
-   aff_solver = homlib.ValtonenOrnhagICPR2026AffineSingleSided()
+   aff_solver = homlib.ValtonenOrnhagICPR2026AffineOneSided()
    lomsac = homlib.LOMSAC(aff_solver, inlier_threshold=0.07)
    estimate, stats = lomsac.estimate(x, y, A=affine_matrices)
 
@@ -116,6 +116,7 @@ the :ref:`references` page. For the library itself:
    guides/solvers.rst
    guides/backends.rst
    guides/features.rst
+   guides/benchmarking.rst
 
 .. toctree::
    :maxdepth: 1

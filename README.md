@@ -175,6 +175,16 @@ git submodule update --init thirdparty/superansac
 CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=ON" pip install .
 ```
 
+#### On macOS
+The GC-RANSAC, MAGSAC and SupeRANSAC backends need Boost, OpenCV 4, gflags and OpenMP. With Homebrew
+(its `libomp` is found automatically):
+```bash
+git submodule update --init --recursive
+brew install eigen boost opencv@4 gflags libomp
+CMAKE_ARGS="-DCMAKE_PREFIX_PATH=<PoseLib prefix> -DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4" pip install .
+```
+For a C++ build, pass the same `-DOpenCV_DIR` to `cmake`.
+
 ### C++ (from source)
 Dependencies:
 - **Eigen 3**: `apt-get install libeigen3-dev`
@@ -187,6 +197,8 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release
 ```
 
+The code is built in C++17 by default; it also builds in C++20 and C++23 (configure with `-DCMAKE_CXX_STANDARD=20` or `23`).
+
 ## Python usage
 
 ### Direct estimation
@@ -198,11 +210,11 @@ solver = homlib.Wadenback3DV2026OneSided()
 poses = solver.estimate(x, y)  # x, y are 2xN numpy arrays
 
 # Affine-covariant solver (fewer correspondences needed)
-aff_solver = homlib.ValtonenOrnhagICPR2026AffineSingleSided()
+aff_solver = homlib.ValtonenOrnhagICPR2026AffineOneSided()
 poses = aff_solver.estimate(x, y, A=affine_matrices)  # A is 4xN
 
 # Orientation-covariant solver
-ori_solver = homlib.ValtonenOrnhagICPR2026OrientationSingleSided()
+ori_solver = homlib.ValtonenOrnhagICPR2026OrientationOneSided()
 poses = ori_solver.estimate(x, y, ori=orientations)  # ori is 2xN
 ```
 
@@ -215,6 +227,17 @@ estimate, stats = lomsac.estimate(x, y)
 print(estimate.homography)
 print(estimate.distortion_parameter)
 print(f"{len(stats.inlier_indices)} inliers")
+```
+
+### Robust estimation with GC-RANSAC
+Requires building with `-DHOMLIB_USE_GCRANSAC=ON`.
+
+```python
+solver = homlib.Wadenback3DV2026OneSided()
+gc = homlib.GCRANSAC(solver, threshold=3.0)
+estimate, stats = gc.estimate(x, y)
+
+print(f"{len(stats.inliers)} inliers, {stats.num_iterations} iterations")
 ```
 
 ### Robust estimation with SupeRANSAC

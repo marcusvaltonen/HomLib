@@ -35,7 +35,8 @@ namespace HomLib {
             return HomLib::try_radialdistort(yu, pose.distortion_parameter2, yd);
         }
 
-	protected:
+		// Public, not protected: since C++20, Solver{} for a solver that declares no constructor
+		// (an aggregate) initializes this base from outside the solver
 		PoseEstimator() = default;
 	};
 };

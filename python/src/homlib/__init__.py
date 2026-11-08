@@ -53,6 +53,32 @@ class Solver(_CppSolver):
             raise ValueError(f"Unknown feature type: {ft}")
 
 
+def solver_ids(feature_type=None, names=None):
+    """The solvers of HomLib, as a list of :class:`SolverId`, in the order of the enum.
+
+    Parameters
+    ----------
+    feature_type : FeatureType, optional
+        Only the solvers of this feature type, e.g. ``FeatureType.Points`` for the solvers
+        that take point matches alone. Default: every solver.
+    names : list of str, optional
+        Only the solvers with these names (e.g. ``["DLT", "GuoPRL2019"]``, from a command line).
+        Raises ``ValueError`` for a name that isn't a solver.
+
+    Examples
+    --------
+    >>> for solver_id in homlib.solver_ids(homlib.FeatureType.Points):
+    ...     lomsac = homlib.LOMSAC(homlib.Solver(solver_id), inlier_threshold=3.0)
+    """
+    if names is not None:
+        unknown = sorted(set(names) - set(SolverId.__members__))
+        if unknown:
+            raise ValueError(f"unknown solvers: {', '.join(unknown)}")
+    return [s for name, s in SolverId.__members__.items()
+            if (feature_type is None or Solver(s).feature_type == feature_type)
+            and (names is None or name in names)]
+
+
 # ---------------------------------------------------------------------------
 # Point-based solvers
 # ---------------------------------------------------------------------------
@@ -128,10 +154,25 @@ class NakanoICPR2025OneSided(Solver):
 
 
 class NakanoICPR2025OneSidedRight(Solver):
-    """One-sided right radial distortion solver by Nakano (ICPR 2025), 5-point."""
+    """One-sided right radial distortion solver by Nakano (ICPR 2025), 5-point.
+
+    Automatically derived from :class:`NakanoICPR2025OneSided` by swapping the
+    point arguments and inverting the homography.
+    """
 
     def __init__(self, extra_check=False):
         super().__init__(SolverId.NakanoICPR2025OneSidedRight, extra_check=extra_check)
+
+
+class FitzgibbonCVPR2001OneSidedRight(Solver):
+    """One-sided right radial distortion solver by Fitzgibbon (CVPR 2001), 5-point.
+
+    Automatically derived from :class:`FitzgibbonCVPR2001OneSided` by swapping the
+    point arguments and inverting the homography.
+    """
+
+    def __init__(self):
+        super().__init__(SolverId.FitzgibbonCVPR2001OneSidedRight)
 
 
 class Wadenback3DV2026OneSided(Solver):
@@ -139,6 +180,17 @@ class Wadenback3DV2026OneSided(Solver):
 
     def __init__(self, extra_check=True):
         super().__init__(SolverId.Wadenback3DV2026OneSided, extra_check=extra_check)
+
+
+class Wadenback3DV2026OneSidedRight(Solver):
+    """One-sided right radial distortion solver by Wadenback et al. (3DV 2026), 5-point.
+
+    Automatically derived from :class:`Wadenback3DV2026OneSided` by swapping the
+    point arguments and inverting the homography.
+    """
+
+    def __init__(self, extra_check=True):
+        super().__init__(SolverId.Wadenback3DV2026OneSidedRight, extra_check=extra_check)
 
 
 class Wadenback3DV2026TwoSidedEqual(Solver):
@@ -173,22 +225,52 @@ class BarathVISAPP2016Affine(Solver):
         super().__init__(SolverId.BarathVISAPP2016Affine)
 
 
-class ValtonenOrnhagICPR2026AffineSingleSided(Solver):
-    """Affine-covariant one-sided radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point."""
+class ValtonenOrnhagICPR2026AffineOneSided(Solver):
+    """Affine-covariant one-sided radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point.
+
+    Distortion is on the left (y) side. Automatically derived from the native
+    right-sided solver by swapping the point arguments, inverting the affine
+    features and homography.
+    """
 
     def __init__(self, extra_check=False):
-        super().__init__(SolverId.ValtonenOrnhagICPR2026AffineSingleSided, extra_check=extra_check)
+        super().__init__(SolverId.ValtonenOrnhagICPR2026AffineOneSided, extra_check=extra_check)
+
+
+class ValtonenOrnhagICPR2026AffineOneSidedRight(Solver):
+    """Affine-covariant one-sided right radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point.
+
+    Distortion is on the right (x) side. This is the native solver direction.
+    """
+
+    def __init__(self, extra_check=False):
+        super().__init__(SolverId.ValtonenOrnhagICPR2026AffineOneSidedRight, extra_check=extra_check)
 
 
 # ---------------------------------------------------------------------------
 # Orientation-covariant solvers
 # ---------------------------------------------------------------------------
 
-class ValtonenOrnhagICPR2026OrientationSingleSided(Solver):
-    """Orientation-covariant one-sided radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point."""
+class ValtonenOrnhagICPR2026OrientationOneSided(Solver):
+    """Orientation-covariant one-sided radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point.
+
+    Distortion is on the left (y) side. Automatically derived from the native
+    right-sided solver by swapping the point arguments, the orientation
+    components, and inverting the homography.
+    """
 
     def __init__(self):
-        super().__init__(SolverId.ValtonenOrnhagICPR2026OrientationSingleSided)
+        super().__init__(SolverId.ValtonenOrnhagICPR2026OrientationOneSided)
+
+
+class ValtonenOrnhagICPR2026OrientationOneSidedRight(Solver):
+    """Orientation-covariant one-sided right radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point.
+
+    Distortion is on the right (x) side. This is the native solver direction.
+    """
+
+    def __init__(self):
+        super().__init__(SolverId.ValtonenOrnhagICPR2026OrientationOneSidedRight)
 
 
 # ---------------------------------------------------------------------------
@@ -214,7 +296,7 @@ class RobustEstimator(ABC):
         return self._solver
 
     @abstractmethod
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scores=None):
         """Run robust estimation.
 
         Parameters
@@ -227,6 +309,11 @@ class RobustEstimator(ABC):
             4xN local affine transformations (required for affine solvers).
         ori : numpy.ndarray, optional
             2xN orientation vectors (required for orientation solvers).
+        scores : numpy.ndarray, optional
+            1-D array of per-match confidence scores in [0, 1],
+            sorted in descending order.  Used by score-aware
+            samplers (PROSAC, ARSampler, ImportanceSampler).
+            Supported by GC-RANSAC, MAGSAC, and SupeRANSAC.
 
         Returns
         -------
@@ -274,7 +361,7 @@ class LOMSAC(RobustEstimator):
         """The LOMSAC options."""
         return self._options
 
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scores=None):
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
             return _dispatch_lomsac_point(self._solver, x, y, self._options)
@@ -306,6 +393,13 @@ if _HAS_SUPERANSAC:
         SuperansacScoringType,
         SuperansacSamplerType,
         SuperansacLocalOptType,
+        SuperansacNeighborhoodType,
+        SuperansacNeighborhoodSettings,
+        SuperansacTerminationType,
+        SuperansacInlierSelectorType,
+        SuperansacARSamplerSettings,
+        SuperansacLOSettings,
+        SuperansacDegensacSettings,
         dispatch_superansac_point as _dispatch_superansac_point,
         dispatch_superansac_affine as _dispatch_superansac_affine,
         dispatch_superansac_orientation as _dispatch_superansac_orientation,
@@ -328,6 +422,20 @@ class SupeRANSAC(RobustEstimator):
         argument to override defaults (e.g. ``inlier_threshold=1.5``).
     """
 
+    if _HAS_SUPERANSAC:
+        Settings = SuperansacSettings
+        Statistics = SuperansacStatistics
+        ScoringType = SuperansacScoringType
+        SamplerType = SuperansacSamplerType
+        LocalOptType = SuperansacLocalOptType
+        NeighborhoodType = SuperansacNeighborhoodType
+        NeighborhoodSettings = SuperansacNeighborhoodSettings
+        TerminationType = SuperansacTerminationType
+        InlierSelectorType = SuperansacInlierSelectorType
+        ARSamplerSettings = SuperansacARSamplerSettings
+        LOSettings = SuperansacLOSettings
+        DegensacSettings = SuperansacDegensacSettings
+
     def __init__(self, solver, settings=None, **kwargs):
         if not _HAS_SUPERANSAC:
             raise ImportError(
@@ -346,18 +454,19 @@ class SupeRANSAC(RobustEstimator):
         """The SupeRANSAC settings."""
         return self._settings
 
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scores=None):
+        probs = list(scores) if scores is not None else []
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
-            return _dispatch_superansac_point(self._solver, x, y, self._settings)
+            return _dispatch_superansac_point(self._solver, x, y, probs, self._settings)
         elif ft == FeatureType.Affine:
             if A is None:
                 raise ValueError("Affine solver requires A parameter")
-            return _dispatch_superansac_affine(self._solver, x, y, A, self._settings)
+            return _dispatch_superansac_affine(self._solver, x, y, A, probs, self._settings)
         elif ft == FeatureType.Orientation:
             if ori is None:
                 raise ValueError("Orientation solver requires ori parameter")
-            return _dispatch_superansac_orientation(self._solver, x, y, ori, self._settings)
+            return _dispatch_superansac_orientation(self._solver, x, y, ori, probs, self._settings)
         else:
             raise ValueError(f"Unknown feature type: {ft}")
 
@@ -375,6 +484,8 @@ if _HAS_GCRANSAC:
     from ._core import (
         GCRANSACSettings,
         GCRANSACStatistics,
+        GCSamplerType,
+        NonMinimalStrategy,
         dispatch_gcransac_point as _dispatch_gcransac_point,
         dispatch_gcransac_affine as _dispatch_gcransac_affine,
         dispatch_gcransac_orientation as _dispatch_gcransac_orientation,
@@ -397,6 +508,12 @@ class GCRANSAC(RobustEstimator):
         argument to override defaults (e.g. ``threshold=3.0``).
     """
 
+    if _HAS_GCRANSAC:
+        Settings = GCRANSACSettings
+        Statistics = GCRANSACStatistics
+        SamplerType = GCSamplerType
+        NonMinimalStrategy = NonMinimalStrategy
+
     def __init__(self, solver, settings=None, **kwargs):
         if not _HAS_GCRANSAC:
             raise ImportError(
@@ -415,18 +532,19 @@ class GCRANSAC(RobustEstimator):
         """The GC-RANSAC settings."""
         return self._settings
 
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scores=None):
+        probs = list(scores) if scores is not None else []
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
-            return _dispatch_gcransac_point(self._solver, x, y, self._settings)
+            return _dispatch_gcransac_point(self._solver, x, y, probs, self._settings)
         elif ft == FeatureType.Affine:
             if A is None:
                 raise ValueError("Affine solver requires A parameter")
-            return _dispatch_gcransac_affine(self._solver, x, y, A, self._settings)
+            return _dispatch_gcransac_affine(self._solver, x, y, A, probs, self._settings)
         elif ft == FeatureType.Orientation:
             if ori is None:
                 raise ValueError("Orientation solver requires ori parameter")
-            return _dispatch_gcransac_orientation(self._solver, x, y, ori, self._settings)
+            return _dispatch_gcransac_orientation(self._solver, x, y, ori, probs, self._settings)
         else:
             raise ValueError(f"Unknown feature type: {ft}")
 
@@ -466,6 +584,13 @@ class MAGSAC(RobustEstimator):
         argument to override defaults (e.g. ``sigma_max=10.0``).
     """
 
+    if _HAS_MAGSAC:
+        Settings = MAGSACSettings
+        Statistics = MAGSACStatistics
+    if _HAS_GCRANSAC:
+        SamplerType = GCSamplerType
+        NonMinimalStrategy = NonMinimalStrategy
+
     def __init__(self, solver, settings=None, **kwargs):
         if not _HAS_MAGSAC:
             raise ImportError(
@@ -484,18 +609,19 @@ class MAGSAC(RobustEstimator):
         """The MAGSAC settings."""
         return self._settings
 
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scores=None):
+        probs = list(scores) if scores is not None else []
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
-            return _dispatch_magsac_point(self._solver, x, y, self._settings)
+            return _dispatch_magsac_point(self._solver, x, y, probs, self._settings)
         elif ft == FeatureType.Affine:
             if A is None:
                 raise ValueError("Affine solver requires A parameter")
-            return _dispatch_magsac_affine(self._solver, x, y, A, self._settings)
+            return _dispatch_magsac_affine(self._solver, x, y, A, probs, self._settings)
         elif ft == FeatureType.Orientation:
             if ori is None:
                 raise ValueError("Orientation solver requires ori parameter")
-            return _dispatch_magsac_orientation(self._solver, x, y, ori, self._settings)
+            return _dispatch_magsac_orientation(self._solver, x, y, ori, probs, self._settings)
         else:
             raise ValueError(f"Unknown feature type: {ft}")
 
@@ -516,6 +642,7 @@ __all__ = [
     "DistortionCase",
     # Base class
     "Solver",
+    "solver_ids",
     # Problem generation
     "ProblemConfig",
     "ProblemInstance",
@@ -531,15 +658,19 @@ __all__ = [
     "KukelovaCVPR2015TwoSided6Pt",
     "NakanoICPR2025OneSided",
     "NakanoICPR2025OneSidedRight",
+    "FitzgibbonCVPR2001OneSidedRight",
     "Wadenback3DV2026OneSided",
+    "Wadenback3DV2026OneSidedRight",
     "Wadenback3DV2026TwoSidedEqual",
     "Wadenback3DV2026TwoSided",
     "GuoPRL2019",
     # Affine-covariant solvers
     "BarathVISAPP2016Affine",
-    "ValtonenOrnhagICPR2026AffineSingleSided",
+    "ValtonenOrnhagICPR2026AffineOneSided",
+    "ValtonenOrnhagICPR2026AffineOneSidedRight",
     # Orientation-covariant solvers
-    "ValtonenOrnhagICPR2026OrientationSingleSided",
+    "ValtonenOrnhagICPR2026OrientationOneSided",
+    "ValtonenOrnhagICPR2026OrientationOneSidedRight",
     # RANSAC backends
     "RobustEstimator",
     "LOMSAC",

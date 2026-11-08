@@ -30,17 +30,31 @@
 #include "distortion_range.h"
 #include "refinement.hpp"
 #include "wadenback_common.hpp"
+#include "general_position.hpp"
 
 namespace HomLib {
 namespace GuoPRL2019 {
 
 // 4-point homography using Guo's explicit method (PRL 2019).
 // No distortion estimation; returns 0 or 1 solution.
+// CheckSample = false skips the check of the sample (is_valid_sample): faster, but an invalid
+// sample can then give a wrong homography.
+template <bool CheckSample = true>
 inline std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y
 ) {
     std::vector<HomLib::PoseData> output;
+    if (x.size() < 4) {
+        return output;
+    }
+    // No solution if three points are collinear, or if the points would be on both sides of the
+    // vanishing line of H (see general_position.hpp)
+    if constexpr (CheckSample) {
+        if (!HomLib::is_valid_sample(x.data(), y.data())) {
+            return output;
+        }
+    }
     Eigen::Matrix3d H;
     if (!HomLib::Wadenback3DV2026::homography_4pt_guo(x, y, H))
         return output;
@@ -61,6 +75,7 @@ inline std::vector<HomLib::PoseData> get(
 class Solver : public PoseEstimator<Solver> {
     public:
         static constexpr int minimal_sample_size_value = 4;
+        static constexpr DistortionCase DISTORTION_CASE = NO_DISTORTION;
         Solver() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange & = HomLib::DistortionRange()) const {   // no distortion (k = 0 passes)

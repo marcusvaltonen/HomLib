@@ -29,15 +29,27 @@
 #include <cmath>
 #include "posedata.hpp"
 #include "get_cai_pami_2025.hpp"
+#include "general_position.hpp"
 
 namespace HomLib {
 namespace CaiPAMI2025 {
 
+template <bool CheckSample>
 std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y
 ) {
     std::vector<HomLib::PoseData> output;
+    if (x.size() < 4) {
+        return output;
+    }
+    // No solution if three points are collinear, or if the points would be on both sides of the
+    // vanishing line of H (see general_position.hpp)
+    if constexpr (CheckSample) {
+        if (!HomLib::is_valid_sample(x.data(), y.data())) {
+            return output;
+        }
+    }
 
     // Source plane: differences from point 0
     const double M1N1_x = x[1](0) - x[0](0), M1P1_x = x[2](0) - x[0](0), M1Q1_x = x[3](0) - x[0](0);
@@ -84,7 +96,7 @@ std::vector<HomLib::PoseData> get(
     Eigen::Matrix3d H = Eigen::Map<const Eigen::Matrix3d>(h.data()).transpose();
 
     H.normalize();
-    if (std::abs(H.determinant()) < 1e-8) {
+    if (!H.allFinite() || std::abs(H.determinant()) < 1e-8) {
         return output;
     }
 
@@ -94,6 +106,11 @@ std::vector<HomLib::PoseData> get(
 
     return output;
 }
+
+template std::vector<HomLib::PoseData> get<true>(const std::vector<Eigen::Vector2d> &,
+                                                 const std::vector<Eigen::Vector2d> &);
+template std::vector<HomLib::PoseData> get<false>(const std::vector<Eigen::Vector2d> &,
+                                                  const std::vector<Eigen::Vector2d> &);
 
 }  // namespace CaiPAMI2025
 }  // namespace HomLib

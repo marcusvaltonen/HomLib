@@ -26,16 +26,9 @@
 #include <optional>
 #include <vector>
 #include "posedata.hpp"
+#include "solver_id.h"
 
 namespace HomLib {
-
-enum DistortionCase {
-    NO_DISTORTION,
-    ONE_SIDED_LEFT,
-    ONE_SIDED_RIGHT,
-    TWO_SIDED_EQUAL,
-    TWO_SIDED
-}; 
 
 struct ProblemInstance {
     HomLib::PoseData posedata;

@@ -1,8 +1,7 @@
 #include <algorithm>
 #include <Eigen/Dense>
 #include <vector>
-#include <cmath>
-#include "radial.hpp"
+#include "general_position.hpp"
 namespace HomLib {
 namespace Wadenback3DV2026 {
 double compute_residual1(
@@ -182,18 +181,31 @@ bool homography_4pt_guo(
     return true;
 }
 
-bool homography_4pt_guo_undistorted(
-    const std::vector<Eigen::Vector2d> &x, double k1,
-    const std::vector<Eigen::Vector2d> &y, double k2,
-    Eigen::Matrix3d &H
+bool homography_of_root(
+    const std::vector<Eigen::Vector2d> &x,
+    const std::vector<Eigen::Vector2d> &y,
+    double k1,
+    double k2,
+    Eigen::Matrix3d *H
 ) {
-    std::vector<Eigen::Vector2d> xu(4), yu(4);
-    for (int i = 0; i < 4; i++)
-        if (!HomLib::try_radialundistort(x[i], k1, xu[i]) || !HomLib::try_radialundistort(y[i], k2, yu[i]))
+    const int n = std::min<int>(x.size(), 5);
+    if (n < 4)
+        return false;
+    Eigen::Vector2d xu[5], yu[5];
+    for (int i = 0; i < n; i++) {
+        const double wx = 1 + k1 * x[i].squaredNorm(), wy = 1 + k2 * y[i].squaredNorm();
+        if (!(wx > 0 && wy > 0))
             return false;
-    // Not finite on overflow (a point that undistorts to near infinity, or a tiny barycentric
-    // coordinate)
-    return homography_4pt_guo(xu, yu, H) && H.allFinite();
+        xu[i] = x[i] / wx;
+        yu[i] = y[i] / wy;
+    }
+    const bool ok = n == 5 ? HomLib::select_valid_sample(xu, yu)
+                           : HomLib::is_valid_sample(xu, yu);
+    if (!ok)
+        return false;
+    return homography_4pt_guo(std::vector<Eigen::Vector2d>(xu, xu + 4),
+                              std::vector<Eigen::Vector2d>(yu, yu + 4), *H) &&
+           H->allFinite();
 }
 
 } // namespace

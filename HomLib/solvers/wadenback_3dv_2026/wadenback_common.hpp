@@ -73,12 +73,17 @@ bool homography_4pt_guo(
     const std::vector<Eigen::Vector2d> &y,
     Eigen::Matrix3d &H
 );
-// The same, from the first four points undistorted by the division model, with k1 for x and k2
-// for y; false also if a point can't be undistorted (1 + k |x|^2 = 0), or H isn't finite.
-bool homography_4pt_guo_undistorted(
-    const std::vector<Eigen::Vector2d> &x, double k1,
-    const std::vector<Eigen::Vector2d> &y, double k2,
-    Eigen::Matrix3d &H
+// The homography of a root, from the first 5 points of x and y undistorted with k1 and k2: Guo's
+// method on the 4 of them in the best general position (see general_position.hpp). Returns false
+// for a root that can't be a solution: when a point has 1 + k r^2 <= 0 (no undistorted point),
+// when the 4 points don't determine a homography with every point in front of both cameras, or
+// when H isn't finite.
+bool homography_of_root(
+    const std::vector<Eigen::Vector2d> &x,
+    const std::vector<Eigen::Vector2d> &y,
+    double k1,
+    double k2,
+    Eigen::Matrix3d *H
 );
 } // namespace
 } // namespace

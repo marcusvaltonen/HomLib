@@ -331,7 +331,7 @@ TEST_CASE("GC-RANSAC - point features") {
     size_t expected_inliers = data.n_total - data.n_outliers;
     bool success = false;
     for (int attempt = 0; attempt < 3 && !success; ++attempt) {
-        auto [pose, stats] = HomLib::run_gcransac_point(solver, data.x, data.y, settings);
+        auto [pose, stats] = HomLib::run_gcransac_point(solver, data.x, data.y, {}, settings);
         success = (stats.inliers.size() > 0.9 * expected_inliers) &&
                   (data.instance.hom_error(pose.homography) < 0.1);
     }
@@ -347,7 +347,7 @@ TEST_CASE("GC-RANSAC - affine features") {
     settings.max_iterations = 5000;
 
     auto [pose, stats] = HomLib::run_gcransac_affine(
-        solver, data.x, data.y, data.instance.A, settings);
+        solver, data.x, data.y, data.instance.A, {}, settings);
 
     size_t expected_inliers = data.n_total - data.n_outliers;
     REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
@@ -363,7 +363,7 @@ TEST_CASE("GC-RANSAC - orientation features") {
     settings.max_iterations = 5000;
 
     auto [pose, stats] = HomLib::run_gcransac_orientation(
-        solver, data.x, data.y, data.instance.ori, settings);
+        solver, data.x, data.y, data.instance.ori, {}, settings);
 
     size_t expected_inliers = data.n_total - data.n_outliers;
     REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
@@ -387,7 +387,7 @@ TEST_CASE("MAGSAC++ - point features") {
     settings.sigma_max = 0.01;
     settings.max_iterations = 5000;
 
-    auto [pose, stats] = HomLib::run_magsac_point(solver, data.x, data.y, settings);
+    auto [pose, stats] = HomLib::run_magsac_point(solver, data.x, data.y, {}, settings);
 
     size_t expected_inliers = data.n_total - data.n_outliers;
     REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
@@ -403,7 +403,7 @@ TEST_CASE("MAGSAC++ - affine features") {
     settings.max_iterations = 5000;
 
     auto [pose, stats] = HomLib::run_magsac_affine(
-        solver, data.x, data.y, data.instance.A, settings);
+        solver, data.x, data.y, data.instance.A, {}, settings);
 
     size_t expected_inliers = data.n_total - data.n_outliers;
     REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
@@ -419,7 +419,7 @@ TEST_CASE("MAGSAC++ - orientation features") {
     settings.max_iterations = 5000;
 
     auto [pose, stats] = HomLib::run_magsac_orientation(
-        solver, data.x, data.y, data.instance.ori, settings);
+        solver, data.x, data.y, data.instance.ori, {}, settings);
 
     size_t expected_inliers = data.n_total - data.n_outliers;
     REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
@@ -444,7 +444,7 @@ TEST_CASE("SupeRANSAC - point features") {
     settings.maxIterations = 5000;
     settings.sampler = superansac::samplers::SamplerType::Uniform;
 
-    auto [pose, stats] = HomLib::run_superansac_point(solver, data.x, data.y, settings);
+    auto [pose, stats] = HomLib::run_superansac_point(solver, data.x, data.y, {}, settings);
 
     size_t expected_inliers = data.n_total - data.n_outliers;
     REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
@@ -461,7 +461,7 @@ TEST_CASE("SupeRANSAC - affine features") {
     settings.sampler = superansac::samplers::SamplerType::Uniform;
 
     auto [pose, stats] = HomLib::run_superansac_affine(
-        solver, data.x, data.y, data.instance.A, settings);
+        solver, data.x, data.y, data.instance.A, {}, settings);
 
     size_t expected_inliers = data.n_total - data.n_outliers;
     REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
@@ -478,7 +478,7 @@ TEST_CASE("SupeRANSAC - orientation features") {
     settings.sampler = superansac::samplers::SamplerType::Uniform;
 
     auto [pose, stats] = HomLib::run_superansac_orientation(
-        solver, data.x, data.y, data.instance.ori, settings);
+        solver, data.x, data.y, data.instance.ori, {}, settings);
 
     size_t expected_inliers = data.n_total - data.n_outliers;
     REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);

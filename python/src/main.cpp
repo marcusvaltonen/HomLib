@@ -155,13 +155,17 @@ PYBIND11_MODULE(_core, m) {
         .value("KukelovaCVPR2015TwoSided6Pt", HomLib::SolverId::KukelovaCVPR2015TwoSided6Pt)
         .value("NakanoICPR2025OneSided", HomLib::SolverId::NakanoICPR2025OneSided)
         .value("NakanoICPR2025OneSidedRight", HomLib::SolverId::NakanoICPR2025OneSidedRight)
+        .value("FitzgibbonCVPR2001OneSidedRight", HomLib::SolverId::FitzgibbonCVPR2001OneSidedRight)
         .value("Wadenback3DV2026OneSided", HomLib::SolverId::Wadenback3DV2026OneSided)
+        .value("Wadenback3DV2026OneSidedRight", HomLib::SolverId::Wadenback3DV2026OneSidedRight)
         .value("Wadenback3DV2026TwoSidedEqual", HomLib::SolverId::Wadenback3DV2026TwoSidedEqual)
         .value("Wadenback3DV2026TwoSided", HomLib::SolverId::Wadenback3DV2026TwoSided)
         .value("GuoPRL2019", HomLib::SolverId::GuoPRL2019)
         .value("BarathVISAPP2016Affine", HomLib::SolverId::BarathVISAPP2016Affine)
-        .value("ValtonenOrnhagICPR2026AffineSingleSided", HomLib::SolverId::ValtonenOrnhagICPR2026AffineSingleSided)
-        .value("ValtonenOrnhagICPR2026OrientationSingleSided", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationSingleSided);
+        .value("ValtonenOrnhagICPR2026AffineOneSided", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSided)
+        .value("ValtonenOrnhagICPR2026AffineOneSidedRight", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSidedRight)
+        .value("ValtonenOrnhagICPR2026OrientationOneSided", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationOneSided)
+        .value("ValtonenOrnhagICPR2026OrientationOneSidedRight", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationOneSidedRight);
 
     py::enum_<HomLib::FeatureType>(m, "FeatureType",
         R"pbdoc(
@@ -382,6 +386,8 @@ PYBIND11_MODULE(_core, m) {
         .def_readwrite("max_focal", &HomLib::ProblemConfig::max_focal_, "Maximum focal length.")
         .def_readwrite("min_dist", &HomLib::ProblemConfig::min_dist_, "Minimum distortion parameter.")
         .def_readwrite("max_dist", &HomLib::ProblemConfig::max_dist_, "Maximum distortion parameter.")
+        .def_readwrite("seed", &HomLib::ProblemConfig::seed,
+            "Seed of the random generator (None: seeded with the time). The same seed gives the same problem on the same platform.")
         .def("__repr__",
             [](const HomLib::ProblemConfig &p) {
                 std::string distortion;
@@ -413,7 +419,7 @@ PYBIND11_MODULE(_core, m) {
                     "max_focal=" + to_string_with_precision(p.max_focal_, 2) + ", "
                     "min_dist=" + to_string_with_precision(p.min_dist_, 2) + ", "
                     "max_dist=" + to_string_with_precision(p.max_dist_, 2) +
-                    ")";
+                    ", seed=" + (p.seed ? std::to_string(*p.seed) : std::string("None")) + ")";
             }
         );
 

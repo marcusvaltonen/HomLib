@@ -12,6 +12,7 @@
 #include <get_wadenback_3dv_2026.hpp>
 #include <get_barath_visapp_2016.hpp>
 #include <get_valtonenornhag_icpr_2026.hpp>
+#include <flipped_solver.h>
 
 namespace HomLib {
 
@@ -37,13 +38,17 @@ auto dispatch_point_solver(SolverId id, Func&& func) {
         case SolverId::NakanoICPR2025OneSided:
             return func(NakanoICPR2025::SolverSingleSided{});
         case SolverId::NakanoICPR2025OneSidedRight:
-            return func(NakanoICPR2025::SolverSingleSidedRight{});
+            return func(FlippedOneSidedSolver<NakanoICPR2025::SolverSingleSided>{});
+        case SolverId::FitzgibbonCVPR2001OneSidedRight:
+            return func(FlippedOneSidedSolver<FitzgibbonCVPR2001::SolverSingleSided>{});
         case SolverId::Wadenback3DV2026OneSided:
             return func(Wadenback3DV2026::SolverSingleSided{});
         case SolverId::Wadenback3DV2026TwoSidedEqual:
             return func(Wadenback3DV2026::SolverTwoSidedEqual{});
         case SolverId::Wadenback3DV2026TwoSided:
             return func(Wadenback3DV2026::SolverTwoSided{});
+        case SolverId::Wadenback3DV2026OneSidedRight:
+            return func(FlippedOneSidedSolver<Wadenback3DV2026::SolverSingleSided>{});
         case SolverId::GuoPRL2019:
             return func(GuoPRL2019::Solver{});
         default:
@@ -56,7 +61,9 @@ auto dispatch_affine_solver(SolverId id, Func&& func) {
     switch (id) {
         case SolverId::BarathVISAPP2016Affine:
             return func(BarathVISAPP2016::AffineSolver{});
-        case SolverId::ValtonenOrnhagICPR2026AffineSingleSided:
+        case SolverId::ValtonenOrnhagICPR2026AffineOneSided:
+            return func(FlippedAffineOneSidedSolver<ValtonenOrnhagICPR2026::AffineSolverSingleSided>{});
+        case SolverId::ValtonenOrnhagICPR2026AffineOneSidedRight:
             return func(ValtonenOrnhagICPR2026::AffineSolverSingleSided{});
         default:
             throw std::invalid_argument("Not an affine-based solver");
@@ -66,7 +73,9 @@ auto dispatch_affine_solver(SolverId id, Func&& func) {
 template <typename Func>
 auto dispatch_orientation_solver(SolverId id, Func&& func) {
     switch (id) {
-        case SolverId::ValtonenOrnhagICPR2026OrientationSingleSided:
+        case SolverId::ValtonenOrnhagICPR2026OrientationOneSided:
+            return func(FlippedOrientationOneSidedSolver<ValtonenOrnhagICPR2026::OrientationSolverSingleSided>{});
+        case SolverId::ValtonenOrnhagICPR2026OrientationOneSidedRight:
             return func(ValtonenOrnhagICPR2026::OrientationSolverSingleSided{});
         default:
             throw std::invalid_argument("Not an orientation-based solver");

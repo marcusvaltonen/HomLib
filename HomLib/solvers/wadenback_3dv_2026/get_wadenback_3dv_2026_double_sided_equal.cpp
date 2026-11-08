@@ -1,4 +1,5 @@
 #include <Eigen/Dense>
+#include <algorithm>
 #include <vector>
 #include <limits>
 
@@ -40,65 +41,36 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
     double roots[6];
     int nroots = bisect_sturm_scaled<6>(p, roots);
 
-    // Only check residual if nroots > 1
-    double min_res = std::numeric_limits<double>::max();
-    double res;
-    int best_id = 0;
     std::vector<HomLib::PoseData> output;
 
     if (nroots == 0) {
         return output;
     }
     
-    if (extra_check) {
-        if (nroots > 1) {
-            for (int i = 0; i < nroots; i++) {
-                double k = roots[i];
-                if (!range.contains(k)) {
-                    continue;
-                }
-                res = unused_equation_residual(d, k);
-                if (res < min_res) {
-                    min_res = res;
-                    best_id = i;
-                }
-            }
-        }
-        
-        // Only compute homography for the best one
-        double k = roots[best_id];
-        if (!range.contains(k)) {   // no root in the range
-            return output;
-        }
-        Eigen::Matrix3d H;
-        if (!HomLib::Wadenback3DV2026::homography_4pt_guo_undistorted(x, k, y, k, H))
-            return output;
-
-        // Package
+    // The roots in the range. With extra_check, only the one with the smallest residual among
+    // those that a homography can go with (see homography_of_root): try them by increasing residual
+    int order[6];
+    int m = 0;
+    for (int i = 0; i < nroots; i++) {
+        if (range.contains(roots[i]))
+            order[m++] = i;
+    }
+    if (extra_check && m > 1) {
+        double res_of[6];
+        for (int i = 0; i < nroots; i++)
+            res_of[i] = unused_equation_residual(d, roots[i]);
+        std::sort(order, order + m, [&res_of](int a, int b) { return res_of[a] < res_of[b]; });
+    }
+    for (int j = 0; j < m; j++) {
+        const double k = roots[order[j]];
         HomLib::PoseData pd;
-        pd.homography = H;
+        if (!HomLib::Wadenback3DV2026::homography_of_root(x, y, k, k, &pd.homography))
+            continue;   // a false root
         pd.distortion_parameter = k;
         pd.distortion_parameter2 = k;
         output.push_back(pd);
-    } else {
-        // Compute homography
-        for (int j = 0; j < nroots; j++) {
-            HomLib::PoseData pd;
-            Eigen::Matrix3d H;
-            double k = roots[j];
-            if (!range.contains(k)) {
-                continue;
-            }
-
-            if (!HomLib::Wadenback3DV2026::homography_4pt_guo_undistorted(x, k, y, k, H))
-                continue;
-
-            // Package
-            pd.homography = H;
-            pd.distortion_parameter = k;
-            pd.distortion_parameter2 = k;
-            output.push_back(pd);
-        }
+        if (extra_check)
+            break;
     }
 
     return output;

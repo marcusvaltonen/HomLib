@@ -58,6 +58,17 @@ Enums
     SolverId
     FeatureType
 
+Functions
+---------
+
+:func:`solver_ids` lists the solvers of a feature type, e.g. every point
+solver.
+
+.. autosummary::
+   :toctree: generated/
+
+    solver_ids
+
 Base classes
 ------------
 
@@ -83,6 +94,7 @@ All point-based solvers have ``feature_type == FeatureType.Points``.
 .. autoclass:: DLT
 .. autoclass:: GuoPRL2019
 .. autoclass:: FitzgibbonCVPR2001OneSided
+.. autoclass:: FitzgibbonCVPR2001OneSidedRight
 .. autoclass:: FitzgibbonCVPR2001TwoSidedEqual
 .. autoclass:: KukelovaCVPR2015TwoSidedEqual
 .. autoclass:: KukelovaCVPR2015TwoSidedEqual6Pt
@@ -91,6 +103,7 @@ All point-based solvers have ``feature_type == FeatureType.Points``.
 .. autoclass:: NakanoICPR2025OneSided
 .. autoclass:: NakanoICPR2025OneSidedRight
 .. autoclass:: Wadenback3DV2026OneSided
+.. autoclass:: Wadenback3DV2026OneSidedRight
 .. autoclass:: Wadenback3DV2026TwoSidedEqual
 .. autoclass:: Wadenback3DV2026TwoSided
 
@@ -102,7 +115,8 @@ than point-based solvers. These have ``feature_type == FeatureType.Affine`` and
 require the ``A`` parameter in :meth:`~Solver.estimate`.
 
 .. autoclass:: BarathVISAPP2016Affine
-.. autoclass:: ValtonenOrnhagICPR2026AffineSingleSided
+.. autoclass:: ValtonenOrnhagICPR2026AffineOneSided
+.. autoclass:: ValtonenOrnhagICPR2026AffineOneSidedRight
 
 Orientation-covariant solvers
 -----------------------------
@@ -111,7 +125,8 @@ Solvers that leverage orientation-covariant features. These have
 ``feature_type == FeatureType.Orientation`` and require the ``ori`` parameter
 in :meth:`~Solver.estimate`.
 
-.. autoclass:: ValtonenOrnhagICPR2026OrientationSingleSided
+.. autoclass:: ValtonenOrnhagICPR2026OrientationOneSided
+.. autoclass:: ValtonenOrnhagICPR2026OrientationOneSidedRight
 
 RANSAC backends
 ---------------
@@ -145,10 +160,19 @@ GC-RANSAC configuration types
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - **GCRANSACSettings** — full configuration object (threshold, confidence,
-  spatial coherence weight, grid size, etc.). Pass as ``settings=`` to
-  :class:`GCRANSAC`, or set individual fields via keyword arguments.
+  spatial coherence weight, grid size, sampler, non-minimal strategy, etc.).
+  Pass as ``settings=`` to :class:`GCRANSAC`, or set individual fields via
+  keyword arguments.
 - **GCRANSACStatistics** — results returned alongside the best model
   (``num_iterations``, ``inliers``, ``score``).
+- **GCSamplerType** — ``Uniform``, ``PROSAC``, ``ARSampler``,
+  ``ImportanceSampler``. Shared by GC-RANSAC and MAGSAC.
+- **NonMinimalStrategy** — ``Lomsac``, ``SelectAndRefine``,
+  ``MultiSample``. Shared by GC-RANSAC and MAGSAC.
+
+The ``estimate()`` method accepts an optional ``scores`` parameter: a 1-D
+array of per-match confidence values in [0, 1], sorted in descending order.
+See :ref:`confidence_scores` for details.
 
 MAGSAC++
 ^^^^^^^^
@@ -169,10 +193,15 @@ MAGSAC++ configuration types
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - **MAGSACSettings** — full configuration object (sigma_max, confidence,
-  partition number, etc.). Pass as ``settings=`` to :class:`MAGSAC`, or
-  set individual fields via keyword arguments.
+  partition number, sampler, non-minimal strategy, etc.). Pass as
+  ``settings=`` to :class:`MAGSAC`, or set individual fields via keyword
+  arguments.
 - **MAGSACStatistics** — results returned alongside the best model
   (``num_iterations``, ``inliers``, ``score``).
+
+MAGSAC shares ``GCSamplerType`` and ``NonMinimalStrategy`` with GC-RANSAC.
+The ``estimate()`` method accepts an optional ``scores`` parameter.
+See :ref:`confidence_scores` for details.
 
 SupeRANSAC
 ^^^^^^^^^^
@@ -201,9 +230,17 @@ These types are only available when HomLib is built with SupeRANSAC support.
 - **SuperansacStatistics** — results returned alongside the best model
   (``num_iterations``, ``inliers``).
 - **SuperansacScoringType** — ``MSAC``, ``MAGSAC``, etc.
-- **SuperansacSamplerType** — ``Uniform``, ``PROSAC``, etc.
-- **SuperansacLocalOptType** — ``None_``, ``IRLS``, ``NestedRANSAC``,
-  ``LSQ``, ``GCRANSAC``, etc.
+- **SuperansacSamplerType** — ``Uniform``, ``PROSAC``, ``NAPSAC``,
+  ``ProgressiveNAPSAC``, ``ImportanceSampler``, ``ARSampler``.
+- **SuperansacLocalOptType** — ``None_``, ``LSQ``, ``IRLS``,
+  ``NestedRANSAC``, ``GCRANSAC``, ``IteratedLMEDS``, ``CrossValidation``.
+- **SuperansacARSamplerSettings** — AR sampler parameters.
+- **SuperansacLOSettings** — local optimisation parameters.
+- **SuperansacDegensacSettings** — degenerate model handling.
+- **SuperansacNeighborhoodSettings** — neighbourhood graph parameters.
+
+The ``estimate()`` method accepts an optional ``scores`` parameter.
+See :ref:`confidence_scores` for details.
 
 Synthetic data generation
 -------------------------

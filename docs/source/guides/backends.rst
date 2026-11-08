@@ -229,9 +229,9 @@ scorer, and local optimiser are independently configurable.
    sa = homlib.SupeRANSAC(
        solver,
        inlier_threshold=0.07,
-       scoring_type=homlib.SuperansacScoringType.MAGSAC,
-       sampler_type=homlib.SuperansacSamplerType.PROSAC,
-       lo_type=homlib.SuperansacLocalOptType.IRLS,
+       scoring=homlib.SuperansacScoringType.MAGSAC,
+       sampler=homlib.SuperansacSamplerType.PROSAC,
+       local_optimization=homlib.SuperansacLocalOptType.IRLS,
    )
    estimate, stats = sa.estimate(x, y)
 
@@ -253,6 +253,222 @@ Requires building with ``-DHOMLIB_USE_SUPERANSAC=ON``. Check availability:
 
 **When to use:** Research and benchmarking, or when you need a specific
 combination of RANSAC components not available in the other backends.
+
+
+.. _confidence_scores:
+
+Confidence scores and sampler selection
+---------------------------------------
+
+When correspondences have associated confidence scores (e.g., from a learned
+matcher like `LoMa <https://github.com/davnords/loma>`_,
+`LightGlue <https://github.com/cvg/LightGlue>`_, or
+`LoFTR <https://github.com/zju3dv/LoFTR>`_), they can be passed to the
+RANSAC backends to guide sampling towards more reliable matches. This is
+supported by GC-RANSAC, MAGSAC, and SupeRANSAC.
+
+.. code-block:: python
+
+   # scores: 1-D array of per-match confidences in [0, 1], length N,
+   # sorted in descending order (highest confidence first).
+   gc = homlib.GCRANSAC(solver, threshold=3.0,
+                        sampler=homlib.GCSamplerType.PROSAC)
+   estimate, stats = gc.estimate(x, y, scores=scores)
+
+**Available samplers for GC-RANSAC and MAGSAC** (``homlib.GCSamplerType``):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Sampler
+     - Description
+   * - ``Uniform``
+     - Standard uniform random sampling (default, ignores scores).
+   * - ``PROSAC``
+     - Progressively expands the sampling pool from the highest-scored
+       matches outward. Requires input sorted by confidence but does not
+       use the score values directly.
+   * - ``ARSampler``
+     - Adaptive reordering sampler. Uses the actual score values to weight
+       the sampling distribution.
+   * - ``ImportanceSampler``
+     - Samples proportionally to the score values.
+
+**Available samplers for SupeRANSAC** (``homlib.SuperansacSamplerType``):
+the same set as above, plus ``NAPSAC`` and ``ProgressiveNAPSAC``
+(neighbourhood-based samplers).
+
+Scores are **optional**: omitting them uses Uniform sampling. If a sampler
+that needs scores is selected without providing them, a ``RuntimeError`` is
+raised (GC-RANSAC, MAGSAC) or the sampler falls back to uniform weights
+(SupeRANSAC ImportanceSampler).
+
+**Score normalization.** Scores should be normalized to [0, 1]. Two common
+approaches:
+
+- **Real scores** — min-max normalization of the raw matcher confidences.
+  Preserves the relative magnitudes between matches, which benefits
+  samplers that use the actual values (ARSampler, ImportanceSampler).
+- **Linear scores** — replace the values with
+  ``np.linspace(1.0, 0.01, N)``, preserving the sorted order but
+  discarding the actual values.  This is the approach used by Barath
+  et al. in the SupeRANSAC and GC-RANSAC codebases: because PROSAC
+  only uses the rank order (not the magnitudes), the linear ramp is
+  sufficient and avoids sensitivity to the matcher's score distribution.
+
+.. code-block:: python
+
+   import numpy as np
+
+   # Real scores (from a learned matcher, already sorted descending)
+   scores_raw = pair["scores"]
+   s_min, s_max = scores_raw.min(), scores_raw.max()
+   scores_real = (scores_raw - s_min) / (s_max - s_min)
+
+   # Linear scores (Barath et al. convention)
+   # Works well with PROSAC, which only cares about ordering.
+   N = x.shape[1]
+   scores_linear = np.linspace(1.0, 0.01, N)
+
+
+**Sampler trade-offs.**
+
+- **Uniform** is the fastest sampler (no overhead), but ignores match
+  quality entirely — convergence depends on the inlier ratio.
+- **PROSAC** adds minimal overhead and converges faster than Uniform
+  when good matches are at the front of the sorted list, because it
+  draws early samples from the top-ranked correspondences.  It is
+  generally the best default when scores are available.
+- **ARSampler** and **ImportanceSampler** use the actual score values
+  to weight the sampling distribution.  They can outperform PROSAC
+  when the score magnitudes are informative (e.g. learned matcher
+  confidences), but add more computational overhead per iteration.
+
+On real-world data (e.g. HPatches, see :doc:`benchmarking`), PROSAC with real
+scores typically matches or slightly improves Uniform accuracy while needing fewer
+iterations to converge.  The wall-clock difference is small because
+the per-iteration cost dominates, but PROSAC is particularly helpful
+at low inlier ratios where Uniform needs many more iterations to find
+a good sample.
+
+See the :ref:`sampler_scores_example` for a runnable example.
+
+
+.. _backend_settings:
+
+Backend settings
+----------------
+
+Each backend exposes its full set of configurable parameters as keyword
+arguments. Settings are also accessible via namespace aliases for clarity:
+
+.. code-block:: python
+
+   # GC-RANSAC
+   gc = homlib.GCRANSAC(solver,
+       threshold=3.0,
+       confidence=0.99,
+       max_iterations=5000,
+       min_iterations=50,
+       do_local_optimization=True,
+       sampler=homlib.GCRANSAC.SamplerType.PROSAC,
+       non_minimal_strategy=homlib.GCRANSAC.NonMinimalStrategy.SelectAndRefine,
+   )
+
+   # MAGSAC (shares GCSamplerType with GC-RANSAC)
+   mg = homlib.MAGSAC(solver,
+       sigma_max=3.0,
+       sampler=homlib.MAGSAC.SamplerType.ARSampler,
+   )
+
+   # SupeRANSAC — all sub-settings are exposed
+   sa = homlib.SupeRANSAC(solver,
+       inlier_threshold=3.0,
+       sampler=homlib.SupeRANSAC.SamplerType.ARSampler,
+       scoring=homlib.SuperansacScoringType.MSAC,
+       local_optimization=homlib.SuperansacLocalOptType.GCRANSAC,
+   )
+
+**Namespace aliases.** Each backend class provides aliases to its associated
+types, so you can write ``homlib.GCRANSAC.SamplerType`` instead of
+``homlib.GCSamplerType``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 40 40
+
+   * - Backend
+     - Alias
+     - Resolves to
+   * - GC-RANSAC
+     - ``GCRANSAC.Settings``
+     - ``GCRANSACSettings``
+   * -
+     - ``GCRANSAC.SamplerType``
+     - ``GCSamplerType``
+   * -
+     - ``GCRANSAC.NonMinimalStrategy``
+     - ``NonMinimalStrategy``
+   * - MAGSAC
+     - ``MAGSAC.Settings``
+     - ``MAGSACSettings``
+   * -
+     - ``MAGSAC.SamplerType``
+     - ``GCSamplerType``
+   * -
+     - ``MAGSAC.NonMinimalStrategy``
+     - ``NonMinimalStrategy``
+   * - SupeRANSAC
+     - ``SupeRANSAC.Settings``
+     - ``SuperansacSettings``
+   * -
+     - ``SupeRANSAC.SamplerType``
+     - ``SuperansacSamplerType``
+   * -
+     - ``SupeRANSAC.ScoringType``
+     - ``SuperansacScoringType``
+   * -
+     - ``SupeRANSAC.LocalOptType``
+     - ``SuperansacLocalOptType``
+
+**SupeRANSAC sub-settings.** SupeRANSAC exposes nested settings structs for
+fine-grained control:
+
+.. code-block:: python
+
+   settings = homlib.SuperansacSettings()
+   settings.ar_sampler_settings.estimator_variance = 0.5
+   settings.lo_settings.spatial_coherence_weight = 0.14
+   settings.lo_settings.graph_cut_number = 3
+   settings.degensac_settings.enabled = True
+   settings.neighborhood_settings.neighborhood_size = 10.0
+
+   sa = homlib.SupeRANSAC(solver, settings=settings)
+
+The sub-settings structs are:
+
+- ``SuperansacARSamplerSettings`` — AR sampler variance and randomness.
+- ``SuperansacLOSettings`` — local optimisation iterations, graph-cut
+  settings, spatial coherence weight.
+- ``SuperansacDegensacSettings`` — degenerate model handling.
+- ``SuperansacNeighborhoodSettings`` — neighbourhood graph parameters.
+
+**Non-minimal strategy** (GC-RANSAC and MAGSAC). Controls how the
+non-minimal sample is used for model refinement:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Strategy
+     - Description
+   * - ``Lomsac``
+     - LO-MSAC: iterative refinement on inlier set.
+   * - ``SelectAndRefine``
+     - Select the best model, then refine (default).
+   * - ``MultiSample``
+     - Evaluate multiple non-minimal samples.
 
 
 .. _threshold_conventions:

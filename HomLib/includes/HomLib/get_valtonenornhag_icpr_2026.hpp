@@ -46,6 +46,7 @@ std::vector<HomLib::PoseData> get_ori(
 class AffineSolverSingleSided : public AffinePoseEstimator<AffineSolverSingleSided> {
     public:
         static constexpr int minimal_sample_size_value = 2;
+        static constexpr DistortionCase DISTORTION_CASE = ONE_SIDED_RIGHT;
         bool extra_check = false;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Matrix2d> &A, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -83,6 +84,7 @@ class AffineSolverSingleSided : public AffinePoseEstimator<AffineSolverSingleSid
 class OrientationSolverSingleSided : public OrientationPoseEstimator<OrientationSolverSingleSided> {
     public:
         static constexpr int minimal_sample_size_value = 4;
+        static constexpr DistortionCase DISTORTION_CASE = ONE_SIDED_RIGHT;
         OrientationSolverSingleSided() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Vector2d> &ori, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {

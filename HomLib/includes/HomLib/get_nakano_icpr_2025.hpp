@@ -41,6 +41,7 @@ std::vector<HomLib::PoseData> get(
 class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
+        static constexpr DistortionCase DISTORTION_CASE = ONE_SIDED_LEFT;
         bool extra_check = false;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -72,37 +73,6 @@ class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
             HomLib::refinement_onesided(x, y, pose);
         }
     };
-class SolverSingleSidedRight : public PoseEstimator<SolverSingleSidedRight> {
-    public:
-        static constexpr int minimal_sample_size_value = 5;
-        bool extra_check = false;
-        int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
-                  const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
-            std::vector<HomLib::PoseData> output = HomLib::NakanoICPR2025::get(y, x, extra_check, range);  // Hack here
-            for (size_t i = 0; i < output.size(); i++) {
-                output[i].homography = output[i].homography.inverse();  //Hack here
-                output[i].distortion_parameter = output[i].distortion_parameter2;  //Hack here
-                output[i].distortion_parameter2 = 0.0;  //Hack here
-                poses->push_back(output[i]);
-            }
-            return output.size();
-        }
-        int minimal_sample_size() const {
-            return 5;
-        }
-        inline Eigen::Vector2d undistort(const HomLib::PoseData pose, const Eigen::Vector2d &xd) const {
-            Eigen::Vector2d xu = HomLib::radialundistort(xd, pose.distortion_parameter);  // One-sided
-            return xu;
-        }
-        inline Eigen::Vector2d distort(const HomLib::PoseData pose, const Eigen::Vector2d &yu) const {
-            Eigen::Vector2d yd = yu;
-            return yd;
-        }
-        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-            HomLib::refinement_onesided_right(x, y, pose);
-        }
-    };
-
 }
 }
 
