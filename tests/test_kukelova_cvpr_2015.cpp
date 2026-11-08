@@ -23,6 +23,7 @@
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include "generate_problem_instance.hpp"
 #include "get_kukelova_cvpr_2015.hpp"
 #include "posedata.hpp"
 
@@ -162,4 +163,37 @@ TEST_CASE("Kukelova CVPR 2015 - range check of the estimator") {
     solver.k_range = HomLib::DistortionRange(-0.2 * norm2(x), 0.1);
     solver.estimate(xs, ys, &scaled);
     REQUIRE_FALSE(has_truth(scaled, -0.3 / (s * s)));
+}
+
+TEST_CASE("Kukelova CVPR 2015 - every solution satisfies the five equations") {
+    // Every solution is a root of the minimal problem, the true one or not: it maps the five
+    // undistorted points x_i to the y_i, up to rounding. The eigenvalues of the action matrix as
+    // roots of its characteristic polynomial are less accurate (with PoseLib's default tolerance in
+    // bisect_sturm, 26% of the solutions had a residual above 1e-9, and 0.5% above 0.1).
+    int solutions = 0, inaccurate = 0;
+    double worst = 0;
+    for (unsigned int t = 0; t < 2000; t++) {
+        HomLib::ProblemConfig config;
+        config.distortion = HomLib::DistortionCase::TWO_SIDED;
+        config.number_points = 5;
+        config.point_noise = 1e-3;
+        config.seed = t;
+        const HomLib::ProblemInstance p = HomLib::generate_problem_instance(config);
+        std::vector<Eigen::Vector2d> x(p.x1.begin(), p.x1.begin() + 5), y(p.x2.begin(), p.x2.begin() + 5);
+        for (const HomLib::PoseData &pd : HomLib::KukelovaCVPR2015::get(x, y, false)) {
+            // The largest sine of the angle between H (x_i, 1 + k1 |x_i|^2) and (y_i, 1 + k2 |y_i|^2)
+            double r = 0;
+            for (int i = 0; i < 5; i++) {
+                const Eigen::Vector3d a(x[i](0), x[i](1), 1 + pd.distortion_parameter * x[i].squaredNorm());
+                const Eigen::Vector3d b(y[i](0), y[i](1), 1 + pd.distortion_parameter2 * y[i].squaredNorm());
+                r = std::max(r, (pd.homography * a).normalized().cross(b.normalized()).norm());
+            }
+            solutions++;
+            inaccurate += r > 1e-6;
+            worst = std::max(worst, r);
+        }
+    }
+    INFO(inaccurate << " of " << solutions << " solutions with a residual above 1e-6, worst " << worst);
+    REQUIRE(inaccurate <= solutions / 500);
+    REQUIRE(worst < 1e-2);
 }
