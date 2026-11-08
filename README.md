@@ -175,6 +175,16 @@ git submodule update --init thirdparty/superansac
 CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=ON" pip install .
 ```
 
+#### On macOS
+The GC-RANSAC, MAGSAC and SupeRANSAC backends need Boost, OpenCV 4, gflags and OpenMP. With Homebrew
+(its `libomp` is found automatically):
+```bash
+git submodule update --init --recursive
+brew install eigen boost opencv@4 gflags libomp
+CMAKE_ARGS="-DCMAKE_PREFIX_PATH=<PoseLib prefix> -DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4" pip install .
+```
+For a C++ build, pass the same `-DOpenCV_DIR` to `cmake`.
+
 ### C++ (from source)
 Dependencies:
 - **Eigen 3**: `apt-get install libeigen3-dev`

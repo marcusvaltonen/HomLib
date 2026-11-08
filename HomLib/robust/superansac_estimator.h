@@ -28,6 +28,13 @@ public:
         setNonMinimalSolver(new HomLibPointNonMinimalSolver<Solver>(solver));
     }
 
+    // superansac's AbstractSolver has no virtual destructor, so deleting the solvers through
+    // unique_ptr<AbstractSolver> is undefined behaviour (clang compiles it to a trap on Apple platforms): delete them here.
+    ~SuperansacPointEstimator() override {
+        delete static_cast<HomLibMinimalSolver<Solver>*>(minimalSolver.release());
+        delete static_cast<HomLibPointNonMinimalSolver<Solver>*>(nonMinimalSolver.release());
+    }
+
     bool isWeightingApplicable() const override { return true; }
     double multError() const override { return 1.0; }
     double logAlpha0(size_t w, size_t h, double scalingFactor = 0.5) const override {
@@ -107,6 +114,13 @@ public:
         setNonMinimalSolver(new HomLibAffineNonMinimalSolver<Solver>(solver));
     }
 
+    // superansac's AbstractSolver has no virtual destructor, so deleting the solvers through
+    // unique_ptr<AbstractSolver> is undefined behaviour (clang compiles it to a trap on Apple platforms): delete them here.
+    ~SuperansacAffineEstimator() override {
+        delete static_cast<HomLibAffineMinimalSolver<Solver>*>(minimalSolver.release());
+        delete static_cast<HomLibAffineNonMinimalSolver<Solver>*>(nonMinimalSolver.release());
+    }
+
     bool isWeightingApplicable() const override { return true; }
     double multError() const override { return 1.0; }
     double logAlpha0(size_t w, size_t h, double scalingFactor = 0.5) const override {
@@ -184,6 +198,13 @@ public:
     explicit SuperansacOrientationEstimator(const Solver& solver) : solver_(solver) {
         setMinimalSolver(new HomLibOrientationMinimalSolver<Solver>(solver));
         setNonMinimalSolver(new HomLibOrientationNonMinimalSolver<Solver>(solver));
+    }
+
+    // superansac's AbstractSolver has no virtual destructor, so deleting the solvers through
+    // unique_ptr<AbstractSolver> is undefined behaviour (clang compiles it to a trap on Apple platforms): delete them here.
+    ~SuperansacOrientationEstimator() override {
+        delete static_cast<HomLibOrientationMinimalSolver<Solver>*>(minimalSolver.release());
+        delete static_cast<HomLibOrientationNonMinimalSolver<Solver>*>(nonMinimalSolver.release());
     }
 
     bool isWeightingApplicable() const override { return true; }

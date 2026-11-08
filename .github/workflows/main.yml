@@ -26,6 +26,11 @@ jobs:
           - name: Linux
             os: ubuntu-latest
             artifact: 'libHomLib-linux.zip'
+          - name: Linux (clang)
+            os: ubuntu-latest
+            artifact: 'libHomLib-linux-clang.zip'
+            cc: clang
+            cxx: clang++
           - name: macOS
             os: macos-latest
             artifact: 'libHomLib-macos.zip'
@@ -48,6 +53,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake build-essential libeigen3-dev \
             libboost-dev libboost-system-dev libopencv-dev libgflags-dev libomp-dev
+          if [[ -n "${{ matrix.config.cxx }}" ]]; then
+            # clang uses LLVM's OpenMP runtime: libomp-dev, of the same (default) LLVM version
+            sudo apt-get install -y clang
+          fi
 
       - name: Stub Boost.System cmake config (Linux)
         if: runner.os == 'Linux'
@@ -109,6 +118,9 @@ jobs:
 
       - name: Configure project
         run: |
+          if [[ -n "${{ matrix.config.cxx }}" ]]; then
+            export CC=${{ matrix.config.cc }} CXX=${{ matrix.config.cxx }}
+          fi
           cmake_args="-B ${{github.workspace}}/${{env.BUILD_DIR}} \
                       -DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install \
                       -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}}"
@@ -175,6 +187,11 @@ jobs:
           - name: Linux
             os: ubuntu-latest
             artifact: 'libHomLib-linux.zip'
+          - name: Linux (clang)
+            os: ubuntu-latest
+            artifact: 'libHomLib-linux-clang.zip'
+            cc: clang
+            cxx: clang++
           - name: macOS
             os: macos-latest
             artifact: 'libHomLib-macos.zip'
@@ -197,6 +214,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake build-essential libeigen3-dev \
             libboost-dev libboost-system-dev libopencv-dev libgflags-dev libomp-dev
+          if [[ -n "${{ matrix.config.cxx }}" ]]; then
+            # clang uses LLVM's OpenMP runtime: libomp-dev, of the same (default) LLVM version
+            sudo apt-get install -y clang
+          fi
 
       - name: Stub Boost.System cmake config (Linux)
         if: runner.os == 'Linux'
@@ -219,7 +240,12 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install cmake eigen
+          # boost, opencv@4, gflags and libomp are for the RANSAC backends
+          # (OpenMP is found through Homebrew's libomp by CMakeLists.txt).
+          # opencv@4 pulls about 100 dependencies, and Homebrew deprecated it on 2026-10-09
+          # (to be disabled on 2027-07-09): move to opencv (OpenCV 5) once the backends
+          # are tested with it.
+          brew install cmake eigen boost opencv@4 gflags libomp
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
@@ -248,6 +274,9 @@ jobs:
 
       - name: Build python package
         run: |
+          if [[ -n "${{ matrix.config.cxx }}" ]]; then
+            export CC=${{ matrix.config.cc }} CXX=${{ matrix.config.cxx }}
+          fi
           python -m pip install build
           if [[ -n "${{ matrix.config.cxx_standard }}" ]]; then
             # scikit-build-core adds CMAKE_ARGS to the cmake.args below
@@ -257,8 +286,9 @@ jobs:
             python -m build \
               --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}\\poselib-install;-DHOMLIB_USE_SUPERANSAC=OFF;-DHOMLIB_USE_GCRANSAC=OFF;-DHOMLIB_USE_MAGSAC=OFF"
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            # opencv@4 is keg-only: give its location.
             python -m build \
-              --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install;-DHOMLIB_USE_SUPERANSAC=OFF;-DHOMLIB_USE_GCRANSAC=OFF;-DHOMLIB_USE_MAGSAC=OFF"
+              --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install;-DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4"
           else
             python -m build \
               --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install"
