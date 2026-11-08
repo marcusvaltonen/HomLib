@@ -21,6 +21,7 @@
 // Tests of the general-position checks (general_position.hpp) and of the solvers that use them.
 
 #include <Eigen/Dense>
+#include <cfenv>
 #include <cmath>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
@@ -97,6 +98,14 @@ TEST_CASE("General position - choosing four of five points") {
     for (int i = 0; i < 5; i++)
         y[i] = apply(kH, c[i]);
     REQUIRE_FALSE(HomLib::select_valid_sample(c, y));
+
+    // Five identical points: every triangle is flat, and no 0 / 0 (FE_INVALID) in the scores
+    Eigen::Vector2d same[5], same_y[5];
+    for (int i = 0; i < 5; i++)
+        same[i] = same_y[i] = Eigen::Vector2d(0.3, 0.2);
+    std::feclearexcept(FE_ALL_EXCEPT);
+    REQUIRE_FALSE(HomLib::select_valid_sample(same, same_y));
+    REQUIRE(std::fetestexcept(FE_INVALID | FE_DIVBYZERO) == 0);
 }
 
 TEST_CASE("General position - the 4-point solvers return nothing for three collinear points") {

@@ -87,6 +87,10 @@ inline bool select_valid_sample(Eigen::Vector2d *x, Eigen::Vector2d *y) {
         mx = std::max(mx, ax[t]);
         my = std::max(my, ay[t]);
     }
+    // All the triangles flat in an image (e.g. 5 identical points): no valid sample, and no 0 / 0
+    // below
+    if (!(mx > 0 && my > 0))
+        return false;
     // score[d]: the most collinear triangle (relative area, the smaller in both images) of the 4
     // points other than d, i.e. of the triangles without d
     double score[5] = {INFINITY, INFINITY, INFINITY, INFINITY, INFINITY};
