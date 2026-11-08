@@ -141,6 +141,8 @@ def map_points(pose, p):
     q = np.array(pose.homography) @ np.vstack([p, 1 + k1 * np.sum(p**2, 0)])
     ok = q[2] != 0
     u = np.divide(q[:2], q[2], out=np.zeros_like(q[:2]), where=ok)
+    ok &= np.all(np.abs(u) < 1e150, 0)   # a tiny q[2]: |u|^2 would overflow
+    u[:, ~ok] = 0
     disc = 1 - 4 * k2 * np.sum(u**2, 0)
     ok &= disc >= 0
     return u * 2 / (1 + np.sqrt(np.where(ok, disc, 0))), ok
@@ -220,12 +222,14 @@ def main():
 
     if not args.matches:
         parser.error("the matches file is required")
+    if args.data_dir is not None and args.protocol != "gluefactory":
+        parser.error("--data_dir is only used by --protocol gluefactory")
     pairs = load_matches(Path(args.matches))
     if args.protocol == "gluefactory":
         try:
             pairs = gluefactory_pairs(pairs, args.data_dir)
-        except ValueError as e:
-            parser.error(str(e))
+        except (ValueError, OSError) as e:
+            parser.error(f"{e} (--data_dir: the directory that contains {HPATCHES_DIRNAME})")
 
     solvers = ([homlib.SolverId.__members__[s] for s in args.solvers] if args.solvers
                else point_solvers)

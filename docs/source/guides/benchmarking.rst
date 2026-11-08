@@ -47,7 +47,8 @@ for the viewpoint and the illumination pairs:
    *true inliers* are the matches within the inlier threshold (3 px by
    default) of the ground-truth homography. This metric ignores false
    inliers: the corner error accounts for them. Pairs with no true inlier are
-   left out, since no solver can find any.
+   left out, since no solver can find any (with the default protocol; see
+   `glue-factory's protocol`_).
 
 **AUC@1, AUC@3, AUC@5, AUC@10**
    The area under the cumulative curve of the corner error, up to 1, 3, 5 and
@@ -173,8 +174,8 @@ Its options:
    ``hpatches-sequences-release``, as for ``hpatches_features.py``.
 
 ``--seeds N``
-   The number of runs per pair (default: 3). LOMSAC gets a different random
-   seed for each run, so that its runs are reproducible on the same platform;
+   The number of runs per pair (default: 3). LOMSAC gets the seeds 1 to N, so
+   its runs are reproducible on the same platform;
    the other estimators draw their seeds themselves. Across platforms, the
    results differ slightly, because the standard library's
    ``std::uniform_int_distribution`` is implementation-defined: libc++ (macOS)
@@ -215,8 +216,8 @@ To measure the effect of a change in HomLib:
    python experiments/hpatches_benchmark.py data/hpatches_sift.npz --output after.json
    python experiments/hpatches_benchmark.py --compare before.json after.json
 
-Another script, ``hpatches_loma.py``, evaluates on HPatches with LoMa matches
-computed on the fly.
+Another script, ``hpatches_loma.py``, computes LoMa matches and evaluates them
+in one run, without a matches file.
 
 glue-factory's protocol
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -263,8 +264,8 @@ in glue-factory's README. ``--protocol gluefactory`` follows it:
 - **Robust estimator and threshold.** The robust estimator stays HomLib's
   (LOMSAC by default, or ``--backend``), whereas glue-factory runs a
   homography RANSAC of its own: OpenCV's ``findHomography`` with a 0.5 px
-  threshold in its official configurations of LightGlue, or PoseLib with a
-  1 px threshold in the pipeline's default, without a configuration.
+  threshold in its official configurations of LightGlue, or, without a
+  configuration, PoseLib with 1 px (the default of ``eval/hpatches.py``).
   ``--threshold`` sets the threshold, in pixels of the resized images. There
   is no threshold sweep: glue-factory's ``eval.ransac_th=-1`` runs 0.5, 1,
   1.5, 2, 2.5 and 3 px and reports the threshold with the best mean of

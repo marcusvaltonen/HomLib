@@ -415,7 +415,7 @@ PYBIND11_MODULE(_core, m) {
                     "max_focal=" + to_string_with_precision(p.max_focal_, 2) + ", "
                     "min_dist=" + to_string_with_precision(p.min_dist_, 2) + ", "
                     "max_dist=" + to_string_with_precision(p.max_dist_, 2) +
-                    ")";
+                    ", seed=" + (p.seed ? std::to_string(*p.seed) : std::string("None")) + ")";
             }
         );
 

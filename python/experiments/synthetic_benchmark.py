@@ -132,10 +132,11 @@ def main():
         results[name] = {}
         for case in cases:
             results[name][case.name] = {}
-            for j, noise in enumerate(noises):
+            for noise in noises:
                 runs = []
                 for i in range(problems):
-                    instance = make_problem(case, noise, sample_size, problem_seed(args.seed, int(case.value), j, i))
+                    instance = make_problem(case, noise, sample_size,
+                                            problem_seed(args.seed, int(case.value), round(noise * 1000), i))
                     x, y = np.array(instance.x1).T, np.array(instance.x2).T
                     t0 = time.perf_counter()
                     solutions = solver.estimate(np.ascontiguousarray(x), np.ascontiguousarray(y))
@@ -159,7 +160,8 @@ def load_results(path):
 
 
 def problem_seed(*key):
-    """The seed of a problem, from (--seed, case, noise or share, index)"""
+    """The seed of a problem, from (--seed, case, noise level or share of outliers, index): the value of
+    the noise or share, not its position in the list, so that a level gets the same problems in every run"""
     return int(np.random.SeedSequence([int(k) for k in key]).generate_state(1)[0])
 
 
@@ -177,10 +179,10 @@ def run_outliers(solvers, shares, problems, iterations, seed, n_points=200, nois
         solver = homlib.Solver(homlib.SolverId.__members__[name])
         case = SOLVERS[name][1][-1]   # the case the solver is made for
         results[name] = {}
-        for j, share in enumerate(shares):
+        for share in shares:
             runs = []
             for i in range(problems):
-                ps = problem_seed(seed, int(case.value), j, i)
+                ps = problem_seed(seed, int(case.value), round(share * 1000), i)
                 instance = make_problem(case, noise, n_points, ps)
                 rng = np.random.default_rng(ps)
                 x, y = np.array(instance.x1).T, np.array(instance.x2).T
