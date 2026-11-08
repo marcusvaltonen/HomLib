@@ -194,10 +194,6 @@ TEST_CASE("Range check: NaN distortion parameters are dropped") {
     const std::vector<Eigen::Vector2d> x(5, Eigen::Vector2d(2, 2)), y = x;
     FixedSolver solver;
     std::vector<HomLib::PoseData> poses;
-    solver.k_range = HomLib::DistortionRange();
-    // Without a range, estimate() still drops the 3 non-finite solutions
-    REQUIRE(solver.estimate(x, y, &poses) == 3);
-
     // A range that excludes 0, so that the one-sided solution passes only as such
     solver.k_range = HomLib::DistortionRange(-1.0, -0.1);
     int n = solver.estimate(x, y, &poses);

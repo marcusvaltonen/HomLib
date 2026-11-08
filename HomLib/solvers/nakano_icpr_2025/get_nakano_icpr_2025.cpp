@@ -26,6 +26,7 @@
 #include <Eigen/Eigenvalues>
 #include "posedata.hpp"
 
+#include "invert_homography.hpp"
 #include "radial.hpp"
 #include "get_nakano_icpr_2025.hpp"
 
@@ -98,9 +99,7 @@ namespace NakanoICPR2025 {
                 
                 // Package output; a singular H gives no solution
                 HomLib::PoseData pd;
-                bool invertible;
-                H.computeInverseWithCheck(pd.homography, invertible, 0.0);
-                if (!invertible || !pd.homography.allFinite())
+                if (!HomLib::invert_homography(H, &pd.homography))
                     continue;
                 pd.distortion_parameter2 = k;
                 output.push_back(pd);

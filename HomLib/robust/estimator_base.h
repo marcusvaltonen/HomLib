@@ -2,6 +2,7 @@
 
 #include <Eigen/Dense>
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <vector>
 #include "posedata.hpp"
@@ -42,9 +43,13 @@ namespace HomLib {
 			return f0;
 		}
 
-		// The solutions back in the input's coordinates, without the non-finite ones (which the
-		// scaling can make, on overflow, and a solver might return)
+		// The solutions back in the input's coordinates. The solvers return only finite solutions
+		// (tested for every solver in test_finite_solutions.cpp); checked here in Debug builds.
 		void denormalize(std::vector<HomLib::PoseData> *poses, double f0) const {
+			assert(std::all_of(poses->begin(), poses->end(), [](const HomLib::PoseData &p) {
+				return p.homography.allFinite() && std::isfinite(p.distortion_parameter) &&
+				       std::isfinite(p.distortion_parameter2) && std::isfinite(p.focal_length);
+			}));
 			if (normalize_image_coord) {
 				double f02 = f0 * f0;
 				for (size_t i = 0; i < poses->size(); ++i) {
@@ -59,10 +64,6 @@ namespace HomLib {
 					(*poses)[i].distortion_parameter2 /= f02;
 				}
 			}
-			poses->erase(std::remove_if(poses->begin(), poses->end(), [](const HomLib::PoseData &p) {
-				return !(p.homography.allFinite() && std::isfinite(p.distortion_parameter) &&
-				         std::isfinite(p.distortion_parameter2) && std::isfinite(p.focal_length));
-			}), poses->end());
 		}
 	};
 };

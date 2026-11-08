@@ -26,6 +26,7 @@
 #include <Eigen/Eigenvalues>
 #include "posedata.hpp"
 
+#include "invert_homography.hpp"
 #include "radial.hpp"
 #include "get_valtonenornhag_icpr_2026.hpp"
 
@@ -196,9 +197,7 @@ namespace ValtonenOrnhagICPR2026 {
                     
                     // Package output; a singular H gives no solution
                     HomLib::PoseData pd;
-                    bool invertible;
-                    H.computeInverseWithCheck(pd.homography, invertible, 0.0);
-                    if (!invertible || !pd.homography.allFinite()) {
+                    if (!HomLib::invert_homography(H, &pd.homography)) {
                         continue;
                     }
                     pd.distortion_parameter = k;
