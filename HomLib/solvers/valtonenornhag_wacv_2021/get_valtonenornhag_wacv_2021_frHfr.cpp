@@ -82,12 +82,8 @@ namespace ValtonenOrnhagWACV2021 {
         input << Eigen::Map<Eigen::VectorXd>(M.rightCols(6).data(), 6*3), d;
 
         // Extract solution
-        Eigen::MatrixXcd sols = HomLib::ValtonenOrnhagWACV2021::solver_frHfr(input);
-
-        // Pre-processing: Remove complex-valued solutions
-        double thresh = 1e-5;
-        Eigen::Array3d real_sols;
-        real_sols = sols.imag().cwiseAbs().colwise().sum();
+        Eigen::Matrix<double, 4, 3> sols;
+        int nroots = HomLib::ValtonenOrnhagWACV2021::solver_frHfr(input, sols);
 
         // Allocate space for putative (real) homographies
         Eigen::Matrix<double, 5, 1> this_sols;
@@ -98,7 +94,7 @@ namespace ValtonenOrnhagWACV2021 {
         // Since this is a 2.5 pt solver, use the last
         // (previously unused) constraint, to discard
         // false solutions.
-        Eigen::ArrayXd xx(2);
+        Eigen::VectorXd xx(4);
         Eigen::VectorXd input_algebraic(29);
         input_algebraic << Eigen::VectorXd::Zero(5),
                            scale * p1[0],
@@ -110,10 +106,9 @@ namespace ValtonenOrnhagWACV2021 {
                            Eigen::Map<Eigen::VectorXd>(R.data(), 9),
                            R1.col(1);
 
-        for (int i = 0; i < real_sols.size(); i++) {
-            if (real_sols(i) <= thresh) {
-                // Get parameters.
-                xx = sols.col(i).real();
+        for (int i = 0; i < nroots; i++) {
+            {
+                xx = sols.col(i);
 
                 // Construct complete set of motion parameters and intrinsic
                 this_sols = construct_sols(xx, input, M.rightCols(6));

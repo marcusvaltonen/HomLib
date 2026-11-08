@@ -20,10 +20,12 @@
 
 #include "solver_valtonenornhag_wacv_2021_frHfr.hpp"
 #include <Eigen/Dense>
+#include "PoseLib/misc/sturm.h"
+#include "PoseLib/misc/univariate.h"
 
 namespace HomLib {
 namespace ValtonenOrnhagWACV2021 {
-    Eigen::MatrixXcd solver_frHfr(const Eigen::VectorXd& data) {
+    int solver_frHfr(const Eigen::VectorXd& data, Eigen::Matrix<double, 4, 3>& sols) {
         // Compute coefficients
         const double* d = data.data();
         Eigen::VectorXd coeffs(64);
@@ -167,21 +169,25 @@ namespace ValtonenOrnhagWACV2021 {
             AM.row(i) = RR.row(AM_ind[i]);
         }
 
-        // TODO(marcusvaltonen): Return only two rows.
-        Eigen::Matrix<std::complex<double>, 4, 3> sols;
+        // Real eigenvalues of the 3×3 action matrix via its characteristic polynomial
+        double p[4];
+        Eigen::Matrix<double, 3, 3> AMp = AM;
+        poselib::sturm::charpoly_danilevsky_piv(AMp, p);
+        double roots[3];
+        int nroots = poselib::univariate::solve_cubic_real(p[2], p[1], p[0], roots);
+
+        // Fast eigenvector extraction.
+        // AM.row(2) = [0,1,0], so v[1] = λ·v[2]; with v[2] = 1: v[1] = λ.
+        // Row 0: v[0] = (AM[0,1]·λ + AM[0,2]) / (λ − AM[0,0]).
         sols.setZero();
+        for (int i = 0; i < nroots; i++) {
+            const double lam = roots[i];
+            const double v0 = (AM(0, 1) * lam + AM(0, 2)) / (lam - AM(0, 0));
+            sols(2, i) = lam;
+            sols(3, i) = v0 / lam;
+        }
 
-        // Solve eigenvalue problem
-        Eigen::EigenSolver<Eigen::Matrix<double, 3, 3> > es(AM);
-        Eigen::ArrayXcd D = es.eigenvalues();
-        Eigen::ArrayXXcd V = es.eigenvectors();
-
-        V = (V / V.row(2).array().replicate(3, 1)).eval();
-
-        sols.row(2) = D.transpose().array();
-        sols.row(3) = V.row(0).array() / (sols.row(2).array());
-
-        return sols;
+        return nroots;
     }
 }  // namespace ValtonenOrnhagWACV2021
 }  // namespace HomLib

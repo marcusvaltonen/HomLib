@@ -64,9 +64,9 @@ inline void preprocess_affine(
     for (size_t i=0; i < x_.cols(); i++) {
         x->push_back(x_.col(i));
         y->push_back(y_.col(i));
-        Eigen::Matrix2d tmp;
-        tmp << A_.col(i);
-        tmp.transposeInPlace();
+        Eigen::Matrix2d tmp;   // the columns of A_ are row-major 2 x 2 matrices
+        tmp << A_(0, i), A_(1, i),
+               A_(2, i), A_(3, i);
         A->push_back(tmp);
     }
 }
