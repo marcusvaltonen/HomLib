@@ -10,10 +10,15 @@ project(
   LANGUAGES CXX
 )
 
+option(HOMLIB_NATIVE_ARCH "Use -march=native for CPU-specific optimizations (not portable)" OFF)
+
 if(MSVC)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
-else()
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -ftree-vectorize -funroll-loops")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  string(APPEND CMAKE_CXX_FLAGS_RELEASE " -funroll-loops")
+  if(HOMLIB_NATIVE_ARCH)
+    add_compile_options(-march=native)
+  endif()
 endif()
 
 message(STATUS "CMAKE_PREFIX_PATH = ${CMAKE_PREFIX_PATH}")
@@ -52,8 +57,8 @@ function(configure_binding_object target)
     if(MSVC)
         target_compile_definitions(${target} PRIVATE _USE_MATH_DEFINES)
         target_compile_options(${target} PRIVATE /bigobj)
-    else()
-        target_compile_options(${target} PRIVATE -O3 -ftree-vectorize -funroll-loops)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${target} PRIVATE $<$<CONFIG:Release>:-funroll-loops>)
     endif()
 endfunction()
 
