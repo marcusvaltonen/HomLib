@@ -22,6 +22,7 @@
 #define INCLUDES_HOMLIB_GET_GUO_PRL_2019_HPP_
 
 #include <Eigen/Dense>
+#include <cmath>
 #include <vector>
 #include "posedata.hpp"
 #include "radial.hpp"
@@ -57,7 +58,9 @@ inline std::vector<HomLib::PoseData> get(
     Eigen::Matrix3d H = HomLib::Wadenback3DV2026::homography_4pt_guo(x, y);
 
     H.normalize();
-    if (!H.allFinite() || std::abs(H.determinant()) < 1e-8) {
+    // After the normalization, a non-finite entry makes the determinant NaN, which fails the quiet
+    // comparison: no separate finiteness test
+    if (!std::isgreaterequal(std::abs(H.determinant()), 1e-8)) {
         return output;
     }
 
