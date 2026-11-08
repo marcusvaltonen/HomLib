@@ -32,6 +32,9 @@ jobs:
           - name: Windows
             os: windows-latest
             artifact: 'libHomLib-windows.zip'
+          - name: Linux (C++23)
+            os: ubuntu-latest
+            cxx_standard: 23
 
     steps:
       - name: Checkout your project
@@ -117,6 +120,9 @@ jobs:
           elif [[ "$RUNNER_OS" == "Linux" ]]; then
             cmake_args="$cmake_args -DHOMLIB_USE_SUPERANSAC=ON -DHOMLIB_USE_GCRANSAC=ON -DHOMLIB_USE_MAGSAC=ON"
           fi
+          if [[ -n "${{ matrix.config.cxx_standard }}" ]]; then
+            cmake_args="$cmake_args -DCMAKE_CXX_STANDARD=${{ matrix.config.cxx_standard }} -DHOMLIB_STRICT_STANDARD=ON"
+          fi
           cmake $cmake_args
         shell: bash
 
@@ -175,6 +181,9 @@ jobs:
           - name: Windows
             os: windows-latest
             artifact: 'libHomLib-windows.zip'
+          - name: Linux (C++23)
+            os: ubuntu-latest
+            cxx_standard: 23
 
     steps:
       - name: Checkout your project
@@ -240,6 +249,10 @@ jobs:
       - name: Build python package
         run: |
           python -m pip install build
+          if [[ -n "${{ matrix.config.cxx_standard }}" ]]; then
+            # scikit-build-core adds CMAKE_ARGS to the cmake.args below
+            export CMAKE_ARGS="-DCMAKE_CXX_STANDARD=${{ matrix.config.cxx_standard }} -DHOMLIB_STRICT_STANDARD=ON"
+          fi
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             python -m build \
               --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}\\poselib-install;-DHOMLIB_USE_SUPERANSAC=OFF;-DHOMLIB_USE_GCRANSAC=OFF;-DHOMLIB_USE_MAGSAC=OFF"

@@ -41,30 +41,30 @@ endif()
 set(BINDING_COMMON_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${HOMLIB_INCLUDE_DIRS}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty/RansacLib
 )
+set(BINDING_THIRDPARTY_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty/RansacLib)
 
 # Helper: configure common properties for a binding object library
 function(configure_binding_object target)
     target_include_directories(${target} PRIVATE ${BINDING_COMMON_INCLUDES})
-    target_include_directories(${target} PRIVATE ${Python_INCLUDE_DIRS})
+    target_include_directories(${target} SYSTEM PRIVATE ${BINDING_THIRDPARTY_INCLUDES} ${Python_INCLUDE_DIRS})
     target_link_libraries(${target} PRIVATE pybind11::headers HomLib PoseLib::PoseLib Eigen3::Eigen)
     target_compile_definitions(${target} PRIVATE HOMLIB_VERSION="${PROJECT_VERSION_FULL}")
     set_target_properties(${target} PROPERTIES
-        POSITION_INDEPENDENT_CODE ON
-        CXX_STANDARD 17
-        CXX_STANDARD_REQUIRED ON)
+        POSITION_INDEPENDENT_CODE ON)
     if(MSVC)
         target_compile_definitions(${target} PRIVATE _USE_MATH_DEFINES)
         target_compile_options(${target} PRIVATE /bigobj)
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(${target} PRIVATE $<$<CONFIG:Release>:-funroll-loops>)
     endif()
+    homlib_strict_standard(${target})
 endfunction()
 
 # Main module — core bindings, LOMSAC (no backend-specific headers)
 python_add_library(_core MODULE src/main.cpp WITH_SOABI)
 target_include_directories(_core PRIVATE ${BINDING_COMMON_INCLUDES})
+target_include_directories(_core SYSTEM PRIVATE ${BINDING_THIRDPARTY_INCLUDES})
 target_link_libraries(_core PRIVATE pybind11::headers)
 target_link_libraries(_core PRIVATE HomLib)
 target_link_libraries(_core PRIVATE PoseLib::PoseLib)
@@ -72,12 +72,13 @@ target_compile_definitions(_core PRIVATE HOMLIB_VERSION="${PROJECT_VERSION_FULL}
 if(MSVC)
     target_compile_definitions(_core PRIVATE _USE_MATH_DEFINES)
 endif()
+homlib_strict_standard(_core)
 
 # SupeRANSAC backend — separate compilation unit with only SupeRANSAC includes
 if(HOMLIB_USE_SUPERANSAC)
     add_library(bind_superansac_obj OBJECT src/bind_superansac.cpp)
     configure_binding_object(bind_superansac_obj)
-    target_include_directories(bind_superansac_obj PRIVATE ${SUPERANSAC_INCLUDE_DIR})
+    target_include_directories(bind_superansac_obj SYSTEM PRIVATE ${SUPERANSAC_INCLUDE_DIR})
     target_link_libraries(bind_superansac_obj PRIVATE SupeRANSAC)
     target_compile_definitions(bind_superansac_obj PRIVATE HOMLIB_HAS_SUPERANSAC)
 
@@ -94,7 +95,7 @@ endif()
 if(HOMLIB_USE_GCRANSAC)
     add_library(bind_gcransac_obj OBJECT src/bind_gcransac.cpp)
     configure_binding_object(bind_gcransac_obj)
-    target_include_directories(bind_gcransac_obj PRIVATE ${GCRANSAC_INCLUDE_DIR})
+    target_include_directories(bind_gcransac_obj SYSTEM PRIVATE ${GCRANSAC_INCLUDE_DIR})
     target_link_libraries(bind_gcransac_obj PRIVATE GCoptimization ${OpenCV_LIBS})
     target_compile_definitions(bind_gcransac_obj PRIVATE HOMLIB_HAS_GCRANSAC)
 
@@ -106,7 +107,7 @@ endif()
 if(HOMLIB_USE_MAGSAC)
     add_library(bind_magsac_obj OBJECT src/bind_magsac.cpp)
     configure_binding_object(bind_magsac_obj)
-    target_include_directories(bind_magsac_obj PRIVATE ${GCRANSAC_INCLUDE_DIR} ${MAGSAC_INCLUDE_DIR})
+    target_include_directories(bind_magsac_obj SYSTEM PRIVATE ${GCRANSAC_INCLUDE_DIR} ${MAGSAC_INCLUDE_DIR})
     target_link_libraries(bind_magsac_obj PRIVATE GCoptimization ${OpenCV_LIBS} gflags OpenMP::OpenMP_CXX)
     target_compile_definitions(bind_magsac_obj PRIVATE HOMLIB_HAS_GCRANSAC HOMLIB_HAS_MAGSAC USE_OPENMP)
 

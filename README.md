@@ -187,6 +187,8 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release
 ```
 
+The code is built in C++17 by default; it also builds in C++20 and C++23 (configure with `-DCMAKE_CXX_STANDARD=20` or `23`).
+
 ## Python usage
 
 ### Direct estimation
