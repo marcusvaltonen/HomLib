@@ -59,18 +59,12 @@ class Solver : public PoseEstimator<Solver> {
         int minimal_sample_size() const {
             return 4;
         }
-        inline Eigen::Vector2d undistort(const HomLib::PoseData, const Eigen::Vector2d &xd) const {
-            return xd;
-        }
-        inline Eigen::Vector2d distort(const HomLib::PoseData, const Eigen::Vector2d &yu) const {
-            return yu;
-        }
-        // As undistort and distort, but false where they have no solution (see radial.hpp)
-        inline bool try_undistort(const HomLib::PoseData &, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
+        // xu: xd undistorted, yd: yu distorted; false where there is none (see radial.hpp)
+        inline bool undistort(const HomLib::PoseData &, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
             xu = xd;
             return true;
         }
-        inline bool try_distort(const HomLib::PoseData &, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
+        inline bool distort(const HomLib::PoseData &, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
             yd = yu;
             return true;
         }

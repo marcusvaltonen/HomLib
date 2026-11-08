@@ -20,7 +20,7 @@ class SolverIdsTestCase(unittest.TestCase):
                     self.assertEqual(homlib.Solver(solver_id).feature_type, feature_type)
         self.assertIn(homlib.SolverId.DLT, homlib.solver_ids(homlib.FeatureType.Points))
         self.assertIn(homlib.SolverId.BarathVISAPP2016Affine, homlib.solver_ids(homlib.FeatureType.Affine))
-        self.assertIn(homlib.SolverId.ValtonenOrnhagICPR2026OrientationSingleSided,
+        self.assertIn(homlib.SolverId.ValtonenOrnhagICPR2026OrientationOneSided,
                       homlib.solver_ids(homlib.FeatureType.Orientation))
 
     def test_partition(self):

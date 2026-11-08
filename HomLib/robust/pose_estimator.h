@@ -18,20 +18,12 @@ namespace HomLib {
 			return static_cast<const Solver*>(this)->minimal_sample_size();
 		}
 
-		// Distortion functions using the pose's parameters
-        inline Eigen::Vector2d undistort(const HomLib::PoseData pose, const Eigen::Vector2d &xd) const {
-            Eigen::Vector2d xu = HomLib::radialundistort(xd, pose.distortion_parameter);
-            return xu;
-        }
-        inline Eigen::Vector2d distort(const HomLib::PoseData pose, const Eigen::Vector2d &yu) const {
-            Eigen::Vector2d yd = HomLib::radialdistort(yu, pose.distortion_parameter2);
-            return yd;
-        }
-        // As undistort and distort, but false where they have no solution (see radial.hpp)
-        inline bool try_undistort(const HomLib::PoseData &pose, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
+        // xu: xd undistorted with the pose's parameters, yd: yu distorted; false where there is
+        // none (see radial.hpp)
+        inline bool undistort(const HomLib::PoseData &pose, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
             return HomLib::try_radialundistort(xd, pose.distortion_parameter, xu);
         }
-        inline bool try_distort(const HomLib::PoseData &pose, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
+        inline bool distort(const HomLib::PoseData &pose, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
             return HomLib::try_radialdistort(yu, pose.distortion_parameter2, yd);
         }
 

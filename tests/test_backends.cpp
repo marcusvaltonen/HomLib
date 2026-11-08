@@ -174,40 +174,6 @@ TEST_CASE("Residual - no invalid operation or division by zero") {
     }
 }
 
-namespace {
-
-// A wrapper that overrides undistort and distort but not try_undistort and try_distort, as a
-// solver written without them would: the right-sided case, k1 in the first image
-struct RightSidedWithoutTry : HomLib::PoseEstimator<RightSidedWithoutTry> {
-    inline Eigen::Vector2d undistort(const HomLib::PoseData pose, const Eigen::Vector2d &xd) const {
-        return HomLib::radialundistort(xd, pose.distortion_parameter);
-    }
-    inline Eigen::Vector2d distort(const HomLib::PoseData, const Eigen::Vector2d &yu) const {
-        return yu;
-    }
-};
-
-} // anonymous namespace
-
-TEST_CASE("Residual - a solver's own undistort and distort, if it has no try_ versions of them") {
-    STATIC_REQUIRE(HomLib::detail::try_functions_match<HomLib::Wadenback3DV2026::SolverTwoSided>());
-    STATIC_REQUIRE(HomLib::detail::try_functions_match<HomLib::ValtonenOrnhagICPR2026::AffineSolverSingleSided>());
-    STATIC_REQUIRE_FALSE(HomLib::detail::try_functions_match<RightSidedWithoutTry>());
-
-    RightSidedWithoutTry solver;
-    HomLib::PoseData pose;
-    pose.homography << 1.02, 0.03, 0.01, -0.02, 0.98, 0.02, 0.01, -0.02, 1.0;
-    pose.distortion_parameter = -0.2;
-    pose.distortion_parameter2 = 0.15;   // ignored by this solver: the defaults would use it
-    std::mt19937 rng(3);
-    std::uniform_real_distribution<double> u(-1.0, 1.0);
-    for (int i = 0; i < 20; ++i) {
-        const Eigen::Vector2d x(u(rng), u(rng)), y(u(rng), u(rng));
-        const Eigen::Vector2d z = (pose.homography * solver.undistort(pose, x).homogeneous()).hnormalized();
-        CHECK(HomLib::detail::compute_squared_residual(solver, pose, x, y) == (y - solver.distort(pose, z)).squaredNorm());
-    }
-}
-
 TEST_CASE("LOMSAC - outliers where the true distortion can't be inverted") {
     // Pincushion distortion in the second image (k2 > 0): its distort has no real solution beyond
     // r = 1 / (2 sqrt(k2)) = 1.118. The inliers lie in the unit disk, and H maps them within that radius;
