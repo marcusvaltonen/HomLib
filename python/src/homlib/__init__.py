@@ -232,7 +232,7 @@ class RobustEstimator(ABC):
         return self._solver
 
     @abstractmethod
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scores=None):
         """Run robust estimation.
 
         Parameters
@@ -245,6 +245,11 @@ class RobustEstimator(ABC):
             4xN local affine transformations (required for affine solvers).
         ori : numpy.ndarray, optional
             2xN orientation vectors (required for orientation solvers).
+        scores : numpy.ndarray, optional
+            1-D array of per-match confidence scores in [0, 1],
+            sorted in descending order.  Used by score-aware
+            samplers (PROSAC, ARSampler, ImportanceSampler).
+            Supported by GC-RANSAC, MAGSAC, and SupeRANSAC.
 
         Returns
         -------
@@ -292,7 +297,7 @@ class LOMSAC(RobustEstimator):
         """The LOMSAC options."""
         return self._options
 
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scores=None):
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
             return _dispatch_lomsac_point(self._solver, x, y, self._options)
@@ -324,6 +329,13 @@ if _HAS_SUPERANSAC:
         SuperansacScoringType,
         SuperansacSamplerType,
         SuperansacLocalOptType,
+        SuperansacNeighborhoodType,
+        SuperansacNeighborhoodSettings,
+        SuperansacTerminationType,
+        SuperansacInlierSelectorType,
+        SuperansacARSamplerSettings,
+        SuperansacLOSettings,
+        SuperansacDegensacSettings,
         dispatch_superansac_point as _dispatch_superansac_point,
         dispatch_superansac_affine as _dispatch_superansac_affine,
         dispatch_superansac_orientation as _dispatch_superansac_orientation,
@@ -346,6 +358,20 @@ class SupeRANSAC(RobustEstimator):
         argument to override defaults (e.g. ``inlier_threshold=1.5``).
     """
 
+    if _HAS_SUPERANSAC:
+        Settings = SuperansacSettings
+        Statistics = SuperansacStatistics
+        ScoringType = SuperansacScoringType
+        SamplerType = SuperansacSamplerType
+        LocalOptType = SuperansacLocalOptType
+        NeighborhoodType = SuperansacNeighborhoodType
+        NeighborhoodSettings = SuperansacNeighborhoodSettings
+        TerminationType = SuperansacTerminationType
+        InlierSelectorType = SuperansacInlierSelectorType
+        ARSamplerSettings = SuperansacARSamplerSettings
+        LOSettings = SuperansacLOSettings
+        DegensacSettings = SuperansacDegensacSettings
+
     def __init__(self, solver, settings=None, **kwargs):
         if not _HAS_SUPERANSAC:
             raise ImportError(
@@ -364,18 +390,19 @@ class SupeRANSAC(RobustEstimator):
         """The SupeRANSAC settings."""
         return self._settings
 
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scores=None):
+        probs = list(scores) if scores is not None else []
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
-            return _dispatch_superansac_point(self._solver, x, y, self._settings)
+            return _dispatch_superansac_point(self._solver, x, y, probs, self._settings)
         elif ft == FeatureType.Affine:
             if A is None:
                 raise ValueError("Affine solver requires A parameter")
-            return _dispatch_superansac_affine(self._solver, x, y, A, self._settings)
+            return _dispatch_superansac_affine(self._solver, x, y, A, probs, self._settings)
         elif ft == FeatureType.Orientation:
             if ori is None:
                 raise ValueError("Orientation solver requires ori parameter")
-            return _dispatch_superansac_orientation(self._solver, x, y, ori, self._settings)
+            return _dispatch_superansac_orientation(self._solver, x, y, ori, probs, self._settings)
         else:
             raise ValueError(f"Unknown feature type: {ft}")
 
@@ -393,6 +420,8 @@ if _HAS_GCRANSAC:
     from ._core import (
         GCRANSACSettings,
         GCRANSACStatistics,
+        GCSamplerType,
+        NonMinimalStrategy,
         dispatch_gcransac_point as _dispatch_gcransac_point,
         dispatch_gcransac_affine as _dispatch_gcransac_affine,
         dispatch_gcransac_orientation as _dispatch_gcransac_orientation,
@@ -415,6 +444,12 @@ class GCRANSAC(RobustEstimator):
         argument to override defaults (e.g. ``threshold=3.0``).
     """
 
+    if _HAS_GCRANSAC:
+        Settings = GCRANSACSettings
+        Statistics = GCRANSACStatistics
+        SamplerType = GCSamplerType
+        NonMinimalStrategy = NonMinimalStrategy
+
     def __init__(self, solver, settings=None, **kwargs):
         if not _HAS_GCRANSAC:
             raise ImportError(
@@ -433,18 +468,19 @@ class GCRANSAC(RobustEstimator):
         """The GC-RANSAC settings."""
         return self._settings
 
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scores=None):
+        probs = list(scores) if scores is not None else []
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
-            return _dispatch_gcransac_point(self._solver, x, y, self._settings)
+            return _dispatch_gcransac_point(self._solver, x, y, probs, self._settings)
         elif ft == FeatureType.Affine:
             if A is None:
                 raise ValueError("Affine solver requires A parameter")
-            return _dispatch_gcransac_affine(self._solver, x, y, A, self._settings)
+            return _dispatch_gcransac_affine(self._solver, x, y, A, probs, self._settings)
         elif ft == FeatureType.Orientation:
             if ori is None:
                 raise ValueError("Orientation solver requires ori parameter")
-            return _dispatch_gcransac_orientation(self._solver, x, y, ori, self._settings)
+            return _dispatch_gcransac_orientation(self._solver, x, y, ori, probs, self._settings)
         else:
             raise ValueError(f"Unknown feature type: {ft}")
 
@@ -484,6 +520,13 @@ class MAGSAC(RobustEstimator):
         argument to override defaults (e.g. ``sigma_max=10.0``).
     """
 
+    if _HAS_MAGSAC:
+        Settings = MAGSACSettings
+        Statistics = MAGSACStatistics
+    if _HAS_GCRANSAC:
+        SamplerType = GCSamplerType
+        NonMinimalStrategy = NonMinimalStrategy
+
     def __init__(self, solver, settings=None, **kwargs):
         if not _HAS_MAGSAC:
             raise ImportError(
@@ -502,18 +545,19 @@ class MAGSAC(RobustEstimator):
         """The MAGSAC settings."""
         return self._settings
 
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scores=None):
+        probs = list(scores) if scores is not None else []
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
-            return _dispatch_magsac_point(self._solver, x, y, self._settings)
+            return _dispatch_magsac_point(self._solver, x, y, probs, self._settings)
         elif ft == FeatureType.Affine:
             if A is None:
                 raise ValueError("Affine solver requires A parameter")
-            return _dispatch_magsac_affine(self._solver, x, y, A, self._settings)
+            return _dispatch_magsac_affine(self._solver, x, y, A, probs, self._settings)
         elif ft == FeatureType.Orientation:
             if ori is None:
                 raise ValueError("Orientation solver requires ori parameter")
-            return _dispatch_magsac_orientation(self._solver, x, y, ori, self._settings)
+            return _dispatch_magsac_orientation(self._solver, x, y, ori, probs, self._settings)
         else:
             raise ValueError(f"Unknown feature type: {ft}")
 

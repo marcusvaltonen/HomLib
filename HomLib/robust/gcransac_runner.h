@@ -17,6 +17,10 @@
 #include "preemption/preemption_empty.h"
 #include "inlier_selectors/empty_inlier_selector.h"
 
+#include "samplers/prosac_sampler.h"
+#include "samplers/importance_sampler.h"
+#include "samplers/adaptive_reordering_sampler.h"
+
 #include "posedata.hpp"
 #include "gcransac_model_utils.h"
 #include "gcransac_estimator.h"
@@ -42,6 +46,7 @@ struct GCRANSACSettings {
     bool do_graph_cut = true;
     bool do_final_least_squares = true;
     NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::SelectAndRefine;
+    GCSamplerType sampler = GCSamplerType::Uniform;
 };
 
 namespace detail {
@@ -50,9 +55,11 @@ template <size_t DimensionNumber, class Estimator>
 std::pair<PoseData, GCRANSACStatistics> run_gcransac_pipeline(
     const Estimator& estimator,
     const cv::Mat& data,
+    const std::vector<double>& probabilities,
     const GCRANSACSettings& opts)
 {
     using NeighborhoodGraph = gcransac::neighborhood::GridNeighborhoodGraph<DimensionNumber>;
+    using SamplerBase = gcransac::sampler::Sampler<cv::Mat, size_t>;
 
     // Build neighborhood graph.
     // GridNeighborhoodGraph computes cell indices as
@@ -80,8 +87,30 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_pipeline(
 
     NeighborhoodGraph neighborhood(&shifted_data, cell_sizes, opts.cell_number);
 
-    // Samplers
-    gcransac::sampler::UniformSampler main_sampler(&data);
+    // Main sampler — type depends on settings + probabilities
+    std::unique_ptr<SamplerBase> main_sampler;
+    const size_t sample_size = Estimator::sampleSize();
+    if ((opts.sampler == GCSamplerType::ImportanceSampler ||
+         opts.sampler == GCSamplerType::ARSampler) && probabilities.empty())
+        throw std::runtime_error(
+            "ImportanceSampler and ARSampler require probabilities.");
+    switch (opts.sampler) {
+        case GCSamplerType::PROSAC:
+            main_sampler = std::make_unique<gcransac::sampler::ProsacSampler>(
+                &data, sample_size);
+            break;
+        case GCSamplerType::ImportanceSampler:
+            main_sampler = std::make_unique<gcransac::sampler::ImportanceSampler>(
+                &data, probabilities, sample_size);
+            break;
+        case GCSamplerType::ARSampler:
+            main_sampler = std::make_unique<gcransac::sampler::AdaptiveReorderingSampler>(
+                &data, probabilities, sample_size);
+            break;
+        default:
+            main_sampler = std::make_unique<gcransac::sampler::UniformSampler>(&data);
+            break;
+    }
     gcransac::sampler::UniformSampler lo_sampler(&data);
 
     // Configure GCRANSAC
@@ -101,7 +130,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_pipeline(
     gcransac.settings.do_final_iterated_least_squares = opts.do_final_least_squares;
 
     gcransac::Model model;
-    gcransac.run(data, estimator, &main_sampler, &lo_sampler,
+    gcransac.run(data, estimator, main_sampler.get(), &lo_sampler,
                  &neighborhood, model);
 
     GCRANSACStatistics stats;
@@ -127,6 +156,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_point(
     const Solver& solver,
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
+    const std::vector<double>& probabilities,
     const GCRANSACSettings& settings)
 {
     constexpr size_t SS = Solver::minimal_sample_size_value;
@@ -136,7 +166,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_point(
 
     auto data = detail::pack_point_cvmat(x, y);
     Est estimator(solver, settings.non_minimal_strategy);
-    auto result = detail::run_gcransac_pipeline<4>(estimator, data, settings);
+    auto result = detail::run_gcransac_pipeline<4>(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }
@@ -147,6 +177,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_affine(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Matrix2d>& A,
+    const std::vector<double>& probabilities,
     const GCRANSACSettings& settings)
 {
     constexpr size_t SS = Solver::minimal_sample_size_value;
@@ -156,7 +187,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_affine(
 
     auto data = detail::pack_affine_cvmat(x, y, A);
     Est estimator(solver, settings.non_minimal_strategy);
-    auto result = detail::run_gcransac_pipeline<8>(estimator, data, settings);
+    auto result = detail::run_gcransac_pipeline<8>(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }
@@ -167,6 +198,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_orientation(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Vector2d>& ori,
+    const std::vector<double>& probabilities,
     const GCRANSACSettings& settings)
 {
     constexpr size_t SS = Solver::minimal_sample_size_value;
@@ -176,7 +208,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_orientation(
 
     auto data = detail::pack_orientation_cvmat(x, y, ori);
     Est estimator(solver, settings.non_minimal_strategy);
-    auto result = detail::run_gcransac_pipeline<6>(estimator, data, settings);
+    auto result = detail::run_gcransac_pipeline<6>(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }

@@ -217,6 +217,17 @@ print(estimate.distortion_parameter)
 print(f"{len(stats.inlier_indices)} inliers")
 ```
 
+### Robust estimation with GC-RANSAC
+Requires building with `-DHOMLIB_USE_GCRANSAC=ON`.
+
+```python
+solver = homlib.Wadenback3DV2026OneSided()
+gc = homlib.GCRANSAC(solver, threshold=3.0)
+estimate, stats = gc.estimate(x, y)
+
+print(f"{len(stats.inliers)} inliers, {stats.num_iterations} iterations")
+```
+
 ### Robust estimation with SupeRANSAC
 Requires building with `-DHOMLIB_USE_SUPERANSAC=ON`.
 
