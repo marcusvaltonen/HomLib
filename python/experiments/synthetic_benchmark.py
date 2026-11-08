@@ -19,11 +19,14 @@ of the true inliers that LOMSAC finds, and the median time of a run. Without ``-
 LOMSAC stops when it is confident or after 10000 iterations. ``--iterations N`` runs exactly N
 iterations, so that every solver gets the same budget.
 
-``generate_problem_instance`` seeds itself with the time, so two runs don't solve the same
-problems: ``--compare`` reports statistical differences. The differences of the rates (no solution,
-missed, inliers found) come with their standard errors; the ratios of the median errors and times
-have none. Without noise, the median errors are close to the machine precision, so their ratio is
-not given. ``--compare`` also warns about the settings that differ.
+Every problem is seeded from ``--seed`` (default 0), the distortion case, the noise level (or the
+share of outliers) and its index: the solvers with the same sample size solve the same problems,
+and two runs with the same seed solve the same problems and give the same results on the same
+platform (the C++ and NumPy random distributions differ between standard libraries), which helps
+debugging. ``--compare`` reports the differences of the rates (no solution, missed, inliers found)
+with their standard errors, and the ratios of the median errors and times, which have none; without
+noise, the median errors are close to the machine precision, so their ratio is not given.
+``--compare`` also warns about the settings that differ.
 
 Usage
 -----
@@ -91,6 +94,8 @@ def main():
     parser.add_argument("--solvers", nargs="+", choices=sorted(SOLVERS), default=sorted(SOLVERS))
     parser.add_argument("--outliers", type=float, nargs="+", default=None,
                         help="Shares of outliers: run LOMSAC on problems with outliers instead")
+    parser.add_argument("--seed", type=int, default=0,
+                        help="Seed of the problems (default: 0): same seed, same results on the same platform")
     parser.add_argument("--iterations", type=int, default=None,
                         help="With --outliers: run LOMSAC for exactly this many iterations")
     parser.add_argument("--output", type=str, default=None, help="Save the settings and the results to this JSON file")
@@ -108,9 +113,9 @@ def main():
             parser.error("--outliers runs with 0.5 px of noise: it doesn't take --noise")
         if not all(0 <= share < 1 for share in args.outliers):
             parser.error("the shares of outliers must be in [0, 1)")
-        results = run_outliers(args.solvers, args.outliers, args.problems or 200, args.iterations)
+        results = run_outliers(args.solvers, args.outliers, args.problems or 200, args.iterations, args.seed)
         if args.output:
-            settings = dict(problems=args.problems or 200, noise=None, iterations=args.iterations,
+            settings = dict(problems=args.problems or 200, noise=None, iterations=args.iterations, seed=args.seed,
                             outliers=args.outliers)
             with open(args.output, "w") as f:
                 json.dump(dict(settings=settings, outliers=results), f)
@@ -127,11 +132,10 @@ def main():
         results[name] = {}
         for case in cases:
             results[name][case.name] = {}
-            for noise in noises:
+            for j, noise in enumerate(noises):
                 runs = []
-                for _ in range(problems):
-                    config = homlib.ProblemConfig(case, noise / FOCAL, sample_size)
-                    instance = homlib.generate_problem_instance(config)
+                for i in range(problems):
+                    instance = make_problem(case, noise, sample_size, problem_seed(args.seed, int(case.value), j, i))
                     x, y = np.array(instance.x1).T, np.array(instance.x2).T
                     t0 = time.perf_counter()
                     solutions = solver.estimate(np.ascontiguousarray(x), np.ascontiguousarray(y))
@@ -139,7 +143,7 @@ def main():
                     runs.append((best_error(instance, solutions), len(solutions), elapsed))
                 results[name][case.name][str(noise)] = runs
     if args.output:
-        settings = dict(problems=problems, noise=noises, iterations=None, outliers=None)
+        settings = dict(problems=problems, noise=noises, iterations=None, outliers=None, seed=args.seed)
         with open(args.output, "w") as f:
             json.dump(dict(settings=settings, results=results), f)
     print_results(results)
@@ -154,24 +158,36 @@ def load_results(path):
     return settings, data.get("results", data)
 
 
-def run_outliers(solvers, shares, problems, iterations, n_points=200, noise=0.5, threshold=5.0):
+def problem_seed(*key):
+    """The seed of a problem, from (--seed, case, noise or share, index)"""
+    return int(np.random.SeedSequence([int(k) for k in key]).generate_state(1)[0])
+
+
+def make_problem(case, noise, n_points, seed):
+    config = homlib.ProblemConfig(case, noise / FOCAL, n_points)
+    config.seed = seed
+    return homlib.generate_problem_instance(config)
+
+
+def run_outliers(solvers, shares, problems, iterations, seed, n_points=200, noise=0.5, threshold=5.0):
     """results[solver][share] = per problem: (share of the true inliers found, time)"""
     results = {}
-    rng = np.random.default_rng()
     options = {} if iterations is None else dict(min_num_iterations=iterations, max_num_iterations=iterations)
     for name in tqdm(solvers, desc="Solvers"):
         solver = homlib.Solver(homlib.SolverId.__members__[name])
         case = SOLVERS[name][1][-1]   # the case the solver is made for
         results[name] = {}
-        for share in shares:
+        for j, share in enumerate(shares):
             runs = []
-            for _ in range(problems):
-                instance = homlib.generate_problem_instance(homlib.ProblemConfig(case, noise / FOCAL, n_points))
+            for i in range(problems):
+                ps = problem_seed(seed, int(case.value), j, i)
+                instance = make_problem(case, noise, n_points, ps)
+                rng = np.random.default_rng(ps)
                 x, y = np.array(instance.x1).T, np.array(instance.x2).T
                 n_out = int(round(share * n_points))
                 # Outliers: random points in the bounding box of the second image's points
                 y[:, :n_out] = rng.uniform(y.min(1, keepdims=True), y.max(1, keepdims=True), (2, n_out))
-                lomsac = homlib.LOMSAC(solver, inlier_threshold=threshold / FOCAL, **options)
+                lomsac = homlib.LOMSAC(solver, inlier_threshold=threshold / FOCAL, random_seed=ps, **options)
                 t0 = time.perf_counter()
                 _, stats = lomsac.estimate(np.ascontiguousarray(x), np.ascontiguousarray(y))
                 elapsed = time.perf_counter() - t0

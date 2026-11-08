@@ -358,10 +358,14 @@ Comparing two runs
 ^^^^^^^^^^^^^^^^^^
 
 ``--output`` and ``--compare A B`` work as in the HPatches benchmark; the saved
-settings are ``--problems``, ``--noise``, ``--iterations`` and ``--outliers``.
-Here the two runs don't solve the same problems, since
-:func:`~homlib.generate_problem_instance` seeds itself with the time: the
-differences are statistical. The differences of the rates (no solution,
+settings are ``--problems``, ``--noise``, ``--iterations``, ``--outliers`` and
+``--seed``. Every problem is seeded from ``--seed`` (default 0), its distortion
+case, its noise level (or share of outliers) and its index, through the
+``seed`` of :class:`~homlib.ProblemConfig`. So the solvers with the same sample
+size solve the same problems, and two runs with the same seed solve the same
+problems and give the same results on the same platform, which helps debugging
+(the C++ and NumPy random distributions differ between standard libraries, so
+other platforms give other problems). The differences of the rates (no solution,
 missed, inliers found) come with their standard errors. The ratios of the
 median errors and of the median times have none: take them as indications.
 Without noise, the median errors are close to the machine precision, and
