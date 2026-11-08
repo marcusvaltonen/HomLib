@@ -28,15 +28,9 @@ namespace HomLib {
 template<class Solver>
 int HomLib::AffinePoseEstimator<Solver>::estimate(const std::vector<Eigen::Vector2d> &x_, const std::vector<Eigen::Vector2d> &y_, const std::vector<Eigen::Matrix2d> &A_, std::vector<HomLib::PoseData> *poses) const
 {
-    std::vector<Eigen::Vector2d> x = x_;
-    std::vector<Eigen::Vector2d> y = y_;
-    const double f0 = normalize(x, y);
-    poses->clear();
-    if (f0 == 0.0)
-        return 0;
-    static_cast<const Solver*>(this)->solve(x, y, A_, poses, k_range);
-    denormalize(poses, f0);
-    return static_cast<int>(poses->size());
+    return estimate_normalized(x_, y_, poses, [&](const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) {
+        static_cast<const Solver*>(this)->solve(x, y, A_, poses, k_range);
+    });
 }
 
 

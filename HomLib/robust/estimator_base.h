@@ -43,6 +43,23 @@ namespace HomLib {
 			return f0;
 		}
 
+		// The estimate() of the three estimators: normalizes copies of x and y, calls
+		// solve(x, y) on them (which adds the solutions to poses), and denormalizes the solutions;
+		// their number. No solution if the sample can't be normalized.
+		template <class Solve>
+		int estimate_normalized(const std::vector<Eigen::Vector2d> &x_, const std::vector<Eigen::Vector2d> &y_,
+		                        std::vector<HomLib::PoseData> *poses, const Solve &solve) const {
+			std::vector<Eigen::Vector2d> x = x_;
+			std::vector<Eigen::Vector2d> y = y_;
+			const double f0 = normalize(x, y);
+			poses->clear();
+			if (f0 == 0.0)
+				return 0;
+			solve(x, y);
+			denormalize(poses, f0);
+			return static_cast<int>(poses->size());
+		}
+
 		// The solutions back in the input's coordinates. The solvers return only finite solutions
 		// (tested for every solver in test_finite_solutions.cpp); checked here in Debug builds.
 		void denormalize(std::vector<HomLib::PoseData> *poses, double f0) const {
