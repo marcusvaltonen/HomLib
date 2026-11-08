@@ -83,6 +83,7 @@ All point-based solvers have ``feature_type == FeatureType.Points``.
 .. autoclass:: DLT
 .. autoclass:: GuoPRL2019
 .. autoclass:: FitzgibbonCVPR2001OneSided
+.. autoclass:: FitzgibbonCVPR2001OneSidedRight
 .. autoclass:: FitzgibbonCVPR2001TwoSidedEqual
 .. autoclass:: KukelovaCVPR2015TwoSidedEqual
 .. autoclass:: KukelovaCVPR2015TwoSidedEqual6Pt
@@ -91,6 +92,7 @@ All point-based solvers have ``feature_type == FeatureType.Points``.
 .. autoclass:: NakanoICPR2025OneSided
 .. autoclass:: NakanoICPR2025OneSidedRight
 .. autoclass:: Wadenback3DV2026OneSided
+.. autoclass:: Wadenback3DV2026OneSidedRight
 .. autoclass:: Wadenback3DV2026TwoSidedEqual
 .. autoclass:: Wadenback3DV2026TwoSided
 
@@ -102,7 +104,8 @@ than point-based solvers. These have ``feature_type == FeatureType.Affine`` and
 require the ``A`` parameter in :meth:`~Solver.estimate`.
 
 .. autoclass:: BarathVISAPP2016Affine
-.. autoclass:: ValtonenOrnhagICPR2026AffineSingleSided
+.. autoclass:: ValtonenOrnhagICPR2026AffineOneSided
+.. autoclass:: ValtonenOrnhagICPR2026AffineOneSidedRight
 
 Orientation-covariant solvers
 -----------------------------
@@ -111,7 +114,8 @@ Solvers that leverage orientation-covariant features. These have
 ``feature_type == FeatureType.Orientation`` and require the ``ori`` parameter
 in :meth:`~Solver.estimate`.
 
-.. autoclass:: ValtonenOrnhagICPR2026OrientationSingleSided
+.. autoclass:: ValtonenOrnhagICPR2026OrientationOneSided
+.. autoclass:: ValtonenOrnhagICPR2026OrientationOneSidedRight
 
 RANSAC backends
 ---------------

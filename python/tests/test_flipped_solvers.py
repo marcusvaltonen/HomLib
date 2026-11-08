@@ -4,34 +4,69 @@ import numpy as np
 import homlib
 
 
+def make_instance(distortion, n_points):
+    config = homlib.ProblemConfig(distortion, 0.0, n_points)
+    return homlib.generate_problem_instance(config)
+
+
+def to_2n(pts):
+    """Convert list of (2,) arrays to [2, n] numpy array."""
+    return np.column_stack(pts)
+
+
+def to_A_4n(A_list):
+    """Convert list of (2,2) affine matrices to [4, n] numpy array."""
+    return np.column_stack([a.flatten() for a in A_list])
+
+
+def has_gt_solution(results, inst, hom_tol=1e-6, dist_tol=1e-6):
+    gt = inst.posedata
+    H_gt = gt.homography / np.linalg.norm(gt.homography)
+    if H_gt[2, 2] < 0:
+        H_gt *= -1.0
+    for r in results:
+        H_est = r.homography / np.linalg.norm(r.homography)
+        if H_est[2, 2] < 0:
+            H_est *= -1.0
+        h_err = np.linalg.norm(H_gt - H_est)
+        d_err = 0.5 * (
+            abs(gt.distortion_parameter - r.distortion_parameter)
+            + abs(gt.distortion_parameter2 - r.distortion_parameter2)
+        )
+        if h_err < hom_tol and d_err < dist_tol:
+            return True
+    return False
+
+
 class FlippedSolverConsistencyTestCase(unittest.TestCase):
-    """Flipped (left/default) vs native (right) solvers:
-    inverted H and swapped distortion parameters."""
+    """Flipped (left/default) vs native (right) solvers on valid samples."""
 
     def setUp(self):
-        np.random.seed(42)
-        self.p1 = np.random.randn(2, 5) * 0.5
-        self.p2 = np.random.randn(2, 5) * 0.5
+        self.inst = make_instance(homlib.DistortionCase.ONE_SIDED_LEFT, 5)
+        self.x1 = to_2n(self.inst.x1)
+        self.x2 = to_2n(self.inst.x2)
 
     def _verify_consistency(self, right_cls, left_cls):
-        right_results = right_cls().estimate(self.p1, self.p2)
-        left_results = left_cls().estimate(self.p2, self.p1)
+        native_results = left_cls().estimate(self.x1, self.x2)
+        flipped_results = right_cls().estimate(self.x2, self.x1)
 
-        self.assertEqual(len(right_results), len(left_results))
-        self.assertGreater(len(right_results), 0)
+        self.assertGreater(len(native_results), 0)
+        self.assertTrue(has_gt_solution(native_results, self.inst))
 
-        for r, l in zip(right_results, left_results):
+        self.assertEqual(len(native_results), len(flipped_results))
+
+        for n, f in zip(native_results, flipped_results):
             self.assertAlmostEqual(
-                l.distortion_parameter,
-                r.distortion_parameter2, places=10,
+                f.distortion_parameter,
+                n.distortion_parameter2, places=10,
             )
             self.assertAlmostEqual(
-                l.distortion_parameter2,
-                r.distortion_parameter, places=10,
+                f.distortion_parameter2,
+                n.distortion_parameter, places=10,
             )
-            H_inv = np.linalg.inv(r.homography)
+            H_inv = np.linalg.inv(n.homography)
             np.testing.assert_allclose(
-                l.homography, H_inv, atol=1e-10,
+                f.homography, H_inv, atol=1e-10,
             )
 
     def test_fitzgibbon(self):
@@ -54,38 +89,27 @@ class FlippedSolverConsistencyTestCase(unittest.TestCase):
 
 
 class FlippedAffineConsistencyTestCase(unittest.TestCase):
-    """Flipped affine solver: left vs native right."""
+    """Flipped affine solver: left vs native right on valid samples."""
 
     def test_affine(self):
-        x = np.array([
-            [-0.304372059145248, -0.308082306270758],
-            [-0.174125682172663, 0.100342577802908],
-        ])
-        y = np.array([
-            [0.596062339231747, 0.284590553127076],
-            [0.449851750693698, 0.20125992440591],
-        ])
-        A1 = np.array([
-            [-0.742737063351745, -1.25720051435581],
-            [1.29931162730836, -0.953395533218031],
-        ])
-        A2 = np.array([
-            [-0.763314941736403, -1.05311577674003],
-            [1.13911319830585, -0.839438880618645],
-        ])
-        A = np.column_stack([A1.flatten(), A2.flatten()])
+        inst = make_instance(homlib.DistortionCase.ONE_SIDED_RIGHT, 2)
+        x1 = to_2n(inst.x1)
+        x2 = to_2n(inst.x2)
+        A = to_A_4n(inst.A)
+
         A_inv = np.column_stack([
-            np.linalg.inv(A1).flatten(),
-            np.linalg.inv(A2).flatten(),
+            np.linalg.inv(a).flatten() for a in inst.A
         ])
 
         right = homlib.ValtonenOrnhagICPR2026AffineOneSidedRight()
-        rr = right.estimate(x, y, A=A)
+        rr = right.estimate(x1, x2, A=A)
         left = homlib.ValtonenOrnhagICPR2026AffineOneSided()
-        lr = left.estimate(y, x, A=A_inv)
+        lr = left.estimate(x2, x1, A=A_inv)
+
+        self.assertGreater(len(rr), 0)
+        self.assertTrue(has_gt_solution(rr, inst))
 
         self.assertEqual(len(rr), len(lr))
-        self.assertGreater(len(rr), 0)
         for r, l in zip(rr, lr):
             self.assertAlmostEqual(
                 l.distortion_parameter,
@@ -102,36 +126,25 @@ class FlippedAffineConsistencyTestCase(unittest.TestCase):
 
 
 class FlippedOrientationConsistencyTestCase(unittest.TestCase):
-    """Flipped orientation solver: left vs native right."""
+    """Flipped orientation solver: left vs native right on valid samples."""
 
     def test_orientation(self):
-        x = np.array([
-            [0.611733207361777, 0.506500688761625,
-             0.618492431042353, 0.446207436531052],
-            [-0.100815813483642, 0.22654451870654,
-             0.490634389234033, -0.221543454776215],
-        ])
-        y = np.array([
-            [0.152378076324475, 0.35249479911981,
-             0.576429540272504, -0.0960825885072252],
-            [0.471173894309057, 0.604057206211103,
-             0.546190419126011, 0.57183541266364],
-        ])
-        ori = np.array([
-            [2.82616873462069, 2.76670870212448,
-             3.03912230291483, 2.54398570702913],
-            [2.11084467936878, 1.5791745485192,
-             1.40242855410085, 2.11604504644583],
-        ])
+        inst = make_instance(homlib.DistortionCase.ONE_SIDED_RIGHT, 4)
+        x1 = to_2n(inst.x1)
+        x2 = to_2n(inst.x2)
+        ori = to_2n(inst.ori)
+
         ori_swapped = np.array([ori[1], ori[0]])
 
         right = homlib.ValtonenOrnhagICPR2026OrientationOneSidedRight()
-        rr = right.estimate(x, y, ori=ori)
+        rr = right.estimate(x1, x2, ori=ori)
         left = homlib.ValtonenOrnhagICPR2026OrientationOneSided()
-        lr = left.estimate(y, x, ori=ori_swapped)
+        lr = left.estimate(x2, x1, ori=ori_swapped)
+
+        self.assertGreater(len(rr), 0)
+        self.assertTrue(has_gt_solution(rr, inst))
 
         self.assertEqual(len(rr), len(lr))
-        self.assertGreater(len(rr), 0)
         for r, l in zip(rr, lr):
             self.assertAlmostEqual(
                 l.distortion_parameter,

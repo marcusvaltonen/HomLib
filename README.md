@@ -198,11 +198,11 @@ solver = homlib.Wadenback3DV2026OneSided()
 poses = solver.estimate(x, y)  # x, y are 2xN numpy arrays
 
 # Affine-covariant solver (fewer correspondences needed)
-aff_solver = homlib.ValtonenOrnhagICPR2026AffineSingleSided()
+aff_solver = homlib.ValtonenOrnhagICPR2026AffineOneSided()
 poses = aff_solver.estimate(x, y, A=affine_matrices)  # A is 4xN
 
 # Orientation-covariant solver
-ori_solver = homlib.ValtonenOrnhagICPR2026OrientationSingleSided()
+ori_solver = homlib.ValtonenOrnhagICPR2026OrientationOneSided()
 poses = ori_solver.estimate(x, y, ori=orientations)  # ori is 2xN
 ```
 

@@ -82,9 +82,14 @@ Distortion configurations
    * - Configuration
      - Description
      - PoseData fields set
-   * - **One-sided**
-     - Distortion on one image only (the other is assumed distortion-free).
-     - ``distortion_parameter`` or ``distortion_parameter2``
+   * - **One-sided (left)**
+     - Distortion on the second image (**y**); the first image (**x**) is
+       distortion-free. ``OneSided`` (no suffix) is the default.
+     - ``distortion_parameter2``
+   * - **One-sided (right)**
+     - Distortion on the first image (**x**); the second image (**y**) is
+       distortion-free. Solver names end in ``OneSidedRight``.
+     - ``distortion_parameter``
    * - **Two-sided equal**
      - Same distortion coefficient on both images (:math:`k_1 = k_2`).
      - Both set to the same value
@@ -94,6 +99,14 @@ Distortion configurations
    * - **No distortion**
      - Pure homography, :math:`k = 0`.
      - Neither set
+
+**Left vs. right** refers to which image carries the radial distortion in a
+one-sided model.  "Left" (the default, ``OneSided``) places distortion on the
+**y** argument (second image); "right" (``OneSidedRight``) places it on the
+**x** argument (first image).  The ``OneSidedRight`` variants are derived
+automatically from the corresponding ``OneSided`` solver, so they share the
+same numerical core.  Choose whichever matches which of your two images is
+distorted.
 
 
 .. _feature_types_overview:
@@ -140,7 +153,11 @@ Point-based solvers
      - [HartleyZisserman2003]_
    * - :class:`~homlib.FitzgibbonCVPR2001OneSided`
      - 5
-     - One-sided
+     - One-sided (left)
+     - [Fitzgibbon2001]_
+   * - :class:`~homlib.FitzgibbonCVPR2001OneSidedRight`
+     - 5
+     - One-sided (right)
      - [Fitzgibbon2001]_
    * - :class:`~homlib.FitzgibbonCVPR2001TwoSidedEqual`
      - 5
@@ -172,7 +189,11 @@ Point-based solvers
      - [Nakano2024]_
    * - :class:`~homlib.Wadenback3DV2026OneSided`
      - 5
-     - One-sided
+     - One-sided (left)
+     - [Wadenback2026]_
+   * - :class:`~homlib.Wadenback3DV2026OneSidedRight`
+     - 5
+     - One-sided (right)
      - [Wadenback2026]_
    * - :class:`~homlib.Wadenback3DV2026TwoSidedEqual`
      - 5
@@ -202,9 +223,13 @@ Affine-covariant solvers
      - 2
      - None
      - [Barath2016]_
-   * - :class:`~homlib.ValtonenOrnhagICPR2026AffineSingleSided`
+   * - :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSided`
      - 2
-     - One-sided
+     - One-sided (left)
+     - [ValtonenOrnhagAdalbjornsson2026]_
+   * - :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSidedRight`
+     - 2
+     - One-sided (right)
      - [ValtonenOrnhagAdalbjornsson2026]_
 
 Orientation-covariant solvers
@@ -218,9 +243,13 @@ Orientation-covariant solvers
      - Corrs.
      - Distortion
      - Reference
-   * - :class:`~homlib.ValtonenOrnhagICPR2026OrientationSingleSided`
+   * - :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSided`
      - 3
-     - One-sided
+     - One-sided (left)
+     - [ValtonenOrnhagAdalbjornsson2026]_
+   * - :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSidedRight`
+     - 3
+     - One-sided (right)
      - [ValtonenOrnhagAdalbjornsson2026]_
 
 
@@ -246,8 +275,8 @@ Choosing a solver
    - Point, one-sided: :class:`~homlib.Wadenback3DV2026OneSided`
    - Point, two-sided equal: :class:`~homlib.Wadenback3DV2026TwoSidedEqual`
    - Point, two-sided independent: :class:`~homlib.Wadenback3DV2026TwoSided`
-   - Affine, one-sided: :class:`~homlib.ValtonenOrnhagICPR2026AffineSingleSided`
-   - Orientation, one-sided: :class:`~homlib.ValtonenOrnhagICPR2026OrientationSingleSided`
+   - Affine, one-sided: :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSided`
+   - Orientation, one-sided: :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSided`
 
    The Wadenbäck 3DV 2026 solvers are the newest and are generally the most
    numerically stable.  They enable ``extra_check`` by default, which filters

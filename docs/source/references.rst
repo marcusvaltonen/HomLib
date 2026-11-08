@@ -80,8 +80,8 @@ Affine-covariant and orientation-covariant solvers
    Distortion Homography Estimation from Affine-Covariant or Orientation-Covariant Features,"
    in *Proceedings of the International Conference on Pattern Recognition (ICPR)*, 2026.
 
-   See :class:`~homlib.ValtonenOrnhagICPR2026AffineSingleSided`,
-   :class:`~homlib.ValtonenOrnhagICPR2026OrientationSingleSided`.
+   See :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSided`,
+   :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSided`.
 
 Robust estimation
 -----------------

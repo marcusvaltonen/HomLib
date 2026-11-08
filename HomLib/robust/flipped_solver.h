@@ -24,10 +24,12 @@ constexpr DistortionCase flipped_case(DistortionCase c) {
 
 inline void flip_poses(std::vector<PoseData>& poses) {
     auto it = std::remove_if(poses.begin(), poses.end(),
-        [](const PoseData& p) { return std::abs(p.homography.determinant()) < 1e-15; });
+        [](const PoseData& p) {
+            return !(std::abs((p.homography / p.homography.norm()).determinant()) > 1e-12);
+        });
     poses.erase(it, poses.end());
     for (auto& p : poses) {
-        p.homography = p.homography.inverse();
+        p.homography = p.homography.inverse().eval();
         std::swap(p.distortion_parameter, p.distortion_parameter2);
     }
 }
