@@ -109,6 +109,27 @@ TEST_CASE("General position - the 4-point solvers return nothing for three colli
     REQUIRE(HomLib::GuoPRL2019::get(x, y).empty());       // was a NaN homography
     REQUIRE(HomLib::CaiPAMI2025::get(x, y).empty());
     REQUIRE(HomLib::DLT::get(x, y, false).empty());       // was an arbitrary homography
+
+    // Without the check (CheckSample = false), the DLT returns its arbitrary homography again
+    REQUIRE(HomLib::DLT::get<false>(x, y, false).size() == 1);
+}
+
+TEST_CASE("General position - the 4-point solvers without the check, on a valid sample") {
+    const std::vector<Eigen::Vector2d> x = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+    std::vector<Eigen::Vector2d> y;
+    for (const Eigen::Vector2d &p : x)
+        y.push_back(apply(kH, p));
+    const std::vector<std::vector<HomLib::PoseData>> checked = {
+        HomLib::GuoPRL2019::get(x, y), HomLib::CaiPAMI2025::get(x, y), HomLib::DLT::get(x, y)};
+    const std::vector<std::vector<HomLib::PoseData>> unchecked = {
+        HomLib::GuoPRL2019::get<false>(x, y), HomLib::CaiPAMI2025::get<false>(x, y),
+        HomLib::DLT::get<false>(x, y)};
+    for (size_t s = 0; s < checked.size(); s++) {
+        CAPTURE(s);
+        REQUIRE(checked[s].size() == 1);
+        REQUIRE(unchecked[s].size() == 1);
+        REQUIRE(unchecked[s][0].homography.isApprox(checked[s][0].homography, 1e-14));
+    }
 }
 
 TEST_CASE("General position - Wadenback 3DV 2026 with three collinear undistorted points") {

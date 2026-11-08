@@ -32,6 +32,7 @@
 namespace HomLib {
 namespace DLT {
 
+template <bool CheckSample>
 std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y,
@@ -40,11 +41,16 @@ std::vector<HomLib::PoseData> get(
     std::vector<HomLib::PoseData> output;
 
     const int n = static_cast<int>(x.size());
+    if (n < 4) {
+        return output;
+    }
     // A minimal sample: no solution if three points are collinear, or if the points would be on
     // both sides of the vanishing line of H (see general_position.hpp). Larger samples aren't
     // checked.
-    if (n < 4 || (n == 4 && !HomLib::is_valid_sample(x.data(), y.data()))) {
-        return output;
+    if constexpr (CheckSample) {
+        if (n == 4 && !HomLib::is_valid_sample(x.data(), y.data())) {
+            return output;
+        }
     }
     Eigen::Matrix<double, Eigen::Dynamic, 9> A(2 * n, 9);
     for (int i = 0; i < n; i++) {
@@ -76,6 +82,11 @@ std::vector<HomLib::PoseData> get(
 
     return output;
 }
+
+template std::vector<HomLib::PoseData> get<true>(const std::vector<Eigen::Vector2d> &,
+                                                 const std::vector<Eigen::Vector2d> &, bool);
+template std::vector<HomLib::PoseData> get<false>(const std::vector<Eigen::Vector2d> &,
+                                                  const std::vector<Eigen::Vector2d> &, bool);
 
 }  // namespace DLT
 }  // namespace HomLib

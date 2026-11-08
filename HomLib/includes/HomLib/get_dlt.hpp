@@ -34,6 +34,9 @@ namespace DLT {
 
 // 4-point DLT homography. No distortion estimation; returns 0 or 1 solution.
 // use_qr: false = SVD (default, more robust), true = QR of A^T (faster).
+// CheckSample = false skips the check of a 4-point sample (is_valid_sample): faster, but an
+// invalid sample can then give a wrong homography.
+template <bool CheckSample = true>
 std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y,
