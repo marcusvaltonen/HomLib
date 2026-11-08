@@ -59,6 +59,10 @@ Point-based solvers
    Note: The class name uses ``ICPR2025`` (the conference year), while the
    publication is dated 2024.
 
+.. [Barath2023] D. Barath, D. Mishkin, M. Polic, W. Förstner, and J. Matas, "A Large-Scale
+   Homography Benchmark," in *Proc. IEEE/CVF Conference on Computer Vision and Pattern
+   Recognition (CVPR)*, 2023.
+
 .. [Wadenback2026] M. Wadenbäck, M. Valtonen Örnhag, and J. Edstedt, "Radially Distorted
    Homographies, Revisited," in *Proceedings of the International Conference on 3D Vision
    (3DV)*, 2026.

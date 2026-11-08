@@ -70,7 +70,7 @@ from hpatches_data import HPATCHES_DIRNAME, add_image_sizes, load_matches
 
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from common import BACKENDS, inlier_indices, make_estimator, warn_settings  # noqa: E402
+from common import BACKENDS, inlier_indices, make_estimator, map_points, warn_settings  # noqa: E402
 
 # glue-factory's HPatches evaluation: the shorter side of the resized images, and the sequences of
 # large images that it leaves out (HPatches.ignored_scenes in gluefactory/datasets/hpatches.py)
@@ -132,25 +132,6 @@ def gluefactory_pairs(pairs, data_dir):
                              "gluefactory needs: give the directory of HPatches with --data_dir")
         add_image_sizes(pairs, Path(data_dir) / HPATCHES_DIRNAME)
     return {k: resize_pair(p) for k, p in pairs.items()}
-
-
-def map_points(pose, p):
-    """The points p of image 1 mapped to image 2 with an estimated model: undistorted with k1,
-    mapped with H, distorted with k2 (division model); and whether each point has an image. It
-    hasn't if H maps it to infinity, or if k2 has no distorted point for it (1 - 4 k2 |u|^2 < 0).
-    Both are tested before the division and the square root, so that no NaN or infinity is
-    created."""
-    k1, k2 = pose.distortion_parameter, pose.distortion_parameter2
-    # Undistorted with k1 in homogeneous coordinates (w = 1 + k1 |p|^2 as third coordinate): no
-    # division by w
-    q = np.array(pose.homography) @ np.vstack([p, 1 + k1 * np.sum(p**2, 0)])
-    ok = q[2] != 0
-    u = np.divide(q[:2], q[2], out=np.zeros_like(q[:2]), where=ok)
-    ok &= np.all(np.abs(u) < 1e150, 0)   # a tiny q[2]: |u|^2 would overflow
-    u[:, ~ok] = 0
-    disc = 1 - 4 * k2 * np.sum(u**2, 0)
-    ok &= disc >= 0
-    return u * 2 / (1 + np.sqrt(np.where(ok, disc, 0))), ok
 
 
 def corner_error(pose, pair):

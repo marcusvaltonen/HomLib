@@ -1,4 +1,7 @@
-"""What the benchmarks share: the robust estimators, and the check of the settings of two runs."""
+"""What the benchmarks share: the robust estimators, the check of the settings of two runs, and the
+mapping of points with an estimated model."""
+
+import numpy as np
 
 import homlib
 
@@ -41,3 +44,22 @@ def warn_settings(settings_a, settings_b):
         differ = [f"{k} ({settings_a.get(k)} vs {settings_b.get(k)})"
                   for k in sorted(set(settings_a) | set(settings_b)) if settings_a.get(k) != settings_b.get(k)]
         print("Warning: the runs have different settings: " + ", ".join(differ))
+
+
+def map_points(pose, p):
+    """The points p of image 1 mapped to image 2 with an estimated model: undistorted with k1,
+    mapped with H, distorted with k2 (division model); and whether each point has an image. It
+    hasn't if H maps it to infinity, or if k2 has no distorted point for it (1 - 4 k2 |u|^2 < 0).
+    Both are tested before the division and the square root, so that no NaN or infinity is
+    created."""
+    k1, k2 = pose.distortion_parameter, pose.distortion_parameter2
+    # Undistorted with k1 in homogeneous coordinates (w = 1 + k1 |p|^2 as third coordinate): no
+    # division by w
+    q = np.array(pose.homography) @ np.vstack([p, 1 + k1 * np.sum(p**2, 0)])
+    ok = q[2] != 0
+    u = np.divide(q[:2], q[2], out=np.zeros_like(q[:2]), where=ok)
+    ok &= np.all(np.abs(u) < 1e150, 0)   # a tiny q[2]: |u|^2 would overflow
+    u[:, ~ok] = 0
+    disc = 1 - 4 * k2 * np.sum(u**2, 0)
+    ok &= disc >= 0
+    return u * 2 / (1 + np.sqrt(np.where(ok, disc, 0))), ok

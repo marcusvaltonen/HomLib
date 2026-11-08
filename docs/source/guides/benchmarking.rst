@@ -4,12 +4,12 @@ Benchmarking
 ============
 
 HomLib's benchmarks compare its solvers and robust estimators on real image
-pairs (HPatches) and on synthetic problems. Use them to choose a solver for
+pairs (HPatches, HEB) and on synthetic problems. Use them to choose a solver for
 your data, and to measure the effect of a change in HomLib: run a benchmark
 before and after the change, and compare the two runs.
 
 The scripts are in ``python/benchmark/``: one directory per dataset
-(``hpatches/``), and ``synthetic/``. They need the ``homlib`` Python
+(``hpatches/``, ``heb/``), and ``synthetic/``. They need the ``homlib`` Python
 package (see :ref:`installation_users`), and a few packages of their own:
 
 .. code-block:: bash
@@ -376,6 +376,49 @@ missed, inliers found) come with their standard errors. The ratios of the
 median errors and of the median times have none: take them as indications.
 Without noise, the median errors are close to the machine precision, and
 their ratio is not given (``n/a``).
+
+
+HEB benchmark
+-------------
+
+HEB, the Homography Estimation Benchmark of Barath, Mishkin et al.
+[Barath2023]_, has image pairs of 10 scenes of photo collections (1DSfM), with
+their SIFT matches, the matches that are inliers of the ground-truth
+homography, and the intrinsics and relative pose of the cameras. Unlike
+HPatches, the scenes aren't planar: each pair's homography maps one plane of
+the scene, so most matches are outliers. ``heb_benchmark.py`` evaluates the
+point solvers on it as the benchmark's own scripts do
+(`homography-benchmark <https://github.com/danini/homography-benchmark>`__):
+it keeps the matches with an SNN ratio below 0.8 (``--snn``), runs a robust
+estimator (``--backend``, ``--threshold`` 4 px by default), and reports, for
+each solver:
+
+**mAA of the reprojection error**
+   The mean distance between the ground-truth inliers of image 2 and their
+   mapping by the estimated model, distortion included, averaged over 10
+   thresholds from 1 to 20 px.
+
+**mAA of the pose error**
+   The larger of the rotation and translation errors of the pose decomposed
+   from H with the intrinsics, averaged over the thresholds 1 to 10 degrees.
+
+**Time**
+   The median time of a run of the estimator.
+
+The dataset (33 GB, of which 25 GB for the test split) is linked from the
+benchmark's README; put it in a directory with ``test/`` and
+``training_and_validation/``. The script needs ``h5py`` too. The scenes have
+thousands of pairs each: ``--max_pairs`` (1000 by default, 0 for all)
+evaluates a random subset of each scene, the same in every run, and the runs
+use all the cores (``--jobs``):
+
+.. code-block:: bash
+
+   pip install h5py
+   python benchmark/heb/heb_benchmark.py /path/to/heb --output heb.json
+   python benchmark/heb/heb_benchmark.py --compare before.json after.json
+
+``--split train`` uses the two training scenes, and ``--scene NAME`` one scene.
 
 
 Regression test
