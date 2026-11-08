@@ -36,6 +36,19 @@ class GenerateProblemInstanceTestCase(unittest.TestCase):
             instance = homlib.generate_problem_instance(config)
             self.assertIsNotNone(instance)
 
+    def test_seed(self):
+        """The same seed gives the same problem; another seed, another problem."""
+        def make(seed):
+            config = homlib.ProblemConfig(homlib.DistortionCase.TWO_SIDED, 1e-3, 5)
+            config.seed = seed
+            return homlib.generate_problem_instance(config)
+        a, b, c = make(7), make(7), make(8)
+        self.assertEqual(list(map(list, a.x1)), list(map(list, b.x1)))
+        self.assertEqual(list(map(list, a.x2)), list(map(list, b.x2)))
+        self.assertEqual(a.posedata.distortion_parameter, b.posedata.distortion_parameter)
+        self.assertNotEqual(list(map(list, a.x1)), list(map(list, c.x1)))
+        self.assertIsNone(homlib.ProblemConfig(homlib.DistortionCase.TWO_SIDED, 0.0, 5).seed)
+
     def test_problem_config_repr(self):
         config = homlib.ProblemConfig(homlib.DistortionCase.ONE_SIDED_LEFT, 0.0, 5)
         self.assertIn("ONE_SIDED_LEFT", repr(config))

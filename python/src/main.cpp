@@ -382,6 +382,8 @@ PYBIND11_MODULE(_core, m) {
         .def_readwrite("max_focal", &HomLib::ProblemConfig::max_focal_, "Maximum focal length.")
         .def_readwrite("min_dist", &HomLib::ProblemConfig::min_dist_, "Minimum distortion parameter.")
         .def_readwrite("max_dist", &HomLib::ProblemConfig::max_dist_, "Maximum distortion parameter.")
+        .def_readwrite("seed", &HomLib::ProblemConfig::seed,
+            "Seed of the random generator (None: seeded with the time). The same seed gives the same problem on the same platform.")
         .def("__repr__",
             [](const HomLib::ProblemConfig &p) {
                 std::string distortion;
@@ -413,7 +415,7 @@ PYBIND11_MODULE(_core, m) {
                     "max_focal=" + to_string_with_precision(p.max_focal_, 2) + ", "
                     "min_dist=" + to_string_with_precision(p.min_dist_, 2) + ", "
                     "max_dist=" + to_string_with_precision(p.max_dist_, 2) +
-                    ")";
+                    ", seed=" + (p.seed ? std::to_string(*p.seed) : std::string("None")) + ")";
             }
         );
 
