@@ -28,8 +28,12 @@ The features and the matcher:
   LightGlue's SIFT is OpenCV SIFT without precise upscaling, which shifts its points by about
   0.1 px: the script gives it the same SIFT with precise upscaling.
 - ``--features loma``: LoMa (Nordström et al., ECCV 2026), which detects, describes and matches the
-  points itself, as in hpatches_loma.py. Its pixel origin is the top-left corner of the image: the
-  script shifts its points by -0.5 px, to OpenCV's convention.
+  points itself. Its pixel origin is the top-left corner of the image: the script shifts its points
+  by -0.5 px, to OpenCV's convention.
+
+Each match also gets a score, higher for a better match, as the ``scores`` of the robust estimators
+(not sorted): 1 - the distance ratio of the ratio test for SIFT, the match confidence of LightGlue
+and of LoMa.
 
 ``--export_subset`` writes the matches of 8 pairs (4 viewpoint, 4 illumination) for the regression
 test ``python/tests/test_hpatches.py``.
@@ -65,7 +69,7 @@ SUBSET = ["v_graffiti/2", "v_boat/3", "v_wall/4", "v_bird/2",
 
 
 def sift_matcher(num_features, ratio):
-    """match(img1_path, img2_path) -> (points1, points2), Nx2, in pixels."""
+    """match(img1_path, img2_path) -> (points1, points2, scores): Nx2 points in pixels, and N scores."""
     # enable_precise_upscale (OpenCV >= 4.8) removes a shift of the keypoints of the upscaled octave
     try:
         sift = cv2.SIFT_create(num_features, enable_precise_upscale=True)
@@ -85,25 +89,41 @@ def sift_matcher(num_features, ratio):
     def match(path1, path2):
         k1, d1 = detect(path1)
         k2, d2 = sift.detectAndCompute(cv2.imread(path2, cv2.IMREAD_GRAYSCALE), None)
-        good = [m for m, n in bf.knnMatch(d1, d2, k=2) if m.distance < ratio * n.distance]
-        return (np.array([k1[m.queryIdx].pt for m in good]).reshape(-1, 2),
-                np.array([k2[m.trainIdx].pt for m in good]).reshape(-1, 2))
+        good = [(m, n) for m, n in bf.knnMatch(d1, d2, k=2) if m.distance < ratio * n.distance]
+        return (np.array([k1[m.queryIdx].pt for m, _ in good]).reshape(-1, 2),
+                np.array([k2[m.trainIdx].pt for m, _ in good]).reshape(-1, 2),
+                np.array([1 - m.distance / n.distance for m, n in good]))
     return match
 
 
 def loma_matcher(num_keypoints):
+    import torch
     from loma import LoMa, LoMaB
+    from loma.loma import filter_matches, to_pixel_coords
     model = LoMa(LoMaB(num_keypoints=num_keypoints))
+
+    @torch.inference_mode()
+    def loma_match(path1, path2):
+        # LoMa.match, which doesn't return the scores of the matches
+        k1, d1, h1, w1 = model.detect_and_describe(path1, None)
+        k2, d2, h2, w2 = model.detect_and_describe(path2, None)
+        m0, _, scores0, _ = filter_matches(model(k1, k2, d1, d2)["scores"], model.cfg.filter_threshold)
+        valid = m0[0] > -1
+        return (to_pixel_coords(k1[0][torch.where(valid)[0]], h1, w1).cpu().numpy(),
+                to_pixel_coords(k2[0][m0[0][valid]], h2, w2).cpu().numpy(),
+                scores0[0][valid].cpu().numpy())
 
     def match(path1, path2):
         try:
-            kpts1, kpts2 = model.match(path1, path2)
-        except Exception as e:   # as in hpatches_loma.py: report the pair, and save it with no match
+            kpts1, kpts2, scores = loma_match(path1, path2)
+        except Exception as e:   # report the pair, and save it with no match
             print(f"LoMa failed on {path1} and {path2}: {e}")
             kpts1 = kpts2 = np.zeros((0, 2))
+            scores = np.zeros(0)
         # LoMa's (0, 0) is the top-left corner of the image: shift to OpenCV's convention
         return (np.asarray(kpts1, dtype=float).reshape(-1, 2) - 0.5,
-                np.asarray(kpts2, dtype=float).reshape(-1, 2) - 0.5)
+                np.asarray(kpts2, dtype=float).reshape(-1, 2) - 0.5,
+                np.asarray(scores, dtype=float).reshape(-1))
     return match
 
 
@@ -138,24 +158,26 @@ def lightglue_matcher(features, num_features, resize):
     @torch.no_grad()
     def match(path1, path2):
         f1, f2 = extract(path1), extract(path2)
-        m = rbd(matcher({"image0": f1, "image1": f2}))["matches"]
+        out = rbd(matcher({"image0": f1, "image1": f2}))
+        m = out["matches"]
         f1, f2 = rbd(f1), rbd(f2)
         return (f1["keypoints"][m[:, 0]].cpu().numpy().astype(float),
-                f2["keypoints"][m[:, 1]].cpu().numpy().astype(float))
+                f2["keypoints"][m[:, 1]].cpu().numpy().astype(float),
+                out["scores"].cpu().numpy().astype(float))
     return match
 
 
 def compute_matches(seq_dir: Path, match):
     pairs = {}
     for seq_name, i, path1, path2, H in tqdm(list(load_hpatches_pairs(seq_dir)), desc="Matches"):
-        p1, p2 = match(path1, path2)
+        p1, p2, scores = match(path1, path2)
         (h1, w1), (h2, w2) = (cv2.imread(p, cv2.IMREAD_GRAYSCALE).shape for p in (path1, path2))
         c1 = np.array([(w1 - 1) / 2, (h1 - 1) / 2])
         c2 = np.array([(w2 - 1) / 2, (h2 - 1) / 2])
         T1 = np.array([[1, 0, -c1[0]], [0, 1, -c1[1]], [0, 0, 1.0]])
         T2 = np.array([[1, 0, -c2[0]], [0, 1, -c2[1]], [0, 0, 1.0]])
         H_centered = T2 @ H @ np.linalg.inv(T1)
-        pairs[f"{seq_name}/{i}"] = dict(x=(p1 - c1).T, y=(p2 - c2).T, H=H_centered,
+        pairs[f"{seq_name}/{i}"] = dict(x=(p1 - c1).T, y=(p2 - c2).T, H=H_centered, scores=scores,
                                         width=w1, height=h1, width2=w2, height2=h2)
     return pairs
 

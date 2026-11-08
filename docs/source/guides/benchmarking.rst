@@ -8,7 +8,8 @@ pairs (HPatches) and on synthetic problems. Use them to choose a solver for
 your data, and to measure the effect of a change in HomLib: run a benchmark
 before and after the change, and compare the two runs.
 
-The scripts are in ``python/experiments/``. They need the ``homlib`` Python
+The scripts are in ``python/benchmark/``: one directory per dataset
+(``hpatches/``), and ``synthetic/``. They need the ``homlib`` Python
 package (see :ref:`installation_users`), and a few packages of their own:
 
 .. code-block:: bash
@@ -79,7 +80,7 @@ homographies to a ``.npz`` file:
 
 .. code-block:: bash
 
-   python experiments/hpatches_features.py --data_dir data --output data/hpatches_sift.npz
+   python benchmark/hpatches/hpatches_features.py --data_dir data --output data/hpatches_sift.npz
 
 Matching is a separate step, so that every later run compares the solvers on
 the same matches. The script has three matchers:
@@ -112,7 +113,7 @@ resized to 480 px. These settings follow their setup:
 
 .. code-block:: bash
 
-   python experiments/hpatches_features.py --data_dir data --features superpoint \
+   python benchmark/hpatches/hpatches_features.py --data_dir data --features superpoint \
        --matcher lightglue --num_features 1024 --resize 480 \
        --output data/hpatches_superpoint_lightglue.npz
 
@@ -134,7 +135,10 @@ The matches files also store the sizes of the two images of each pair: the
 images of a viewpoint sequence don't all have the same size. Older matches
 files, such as the regression test's subset, lack the second image's size;
 ``--protocol gluefactory`` then reads it from the HPatches images
-(``--data_dir``).
+(``--data_dir``). They also store a score per match, higher for a better match,
+for the samplers that use scores (see :ref:`confidence_scores`): 1 - the
+distance ratio of the ratio test for SIFT, the match confidence of LightGlue
+and of LoMa. The scores aren't sorted.
 
 Step 2: run the solvers
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -144,7 +148,7 @@ of the three metrics:
 
 .. code-block:: bash
 
-   python experiments/hpatches_benchmark.py data/hpatches_sift.npz --output sift.json
+   python benchmark/hpatches/hpatches_benchmark.py data/hpatches_sift.npz --output sift.json
 
 Its options:
 
@@ -211,13 +215,10 @@ To measure the effect of a change in HomLib:
 
 .. code-block:: bash
 
-   python experiments/hpatches_benchmark.py data/hpatches_sift.npz --output before.json
+   python benchmark/hpatches/hpatches_benchmark.py data/hpatches_sift.npz --output before.json
    # ... change HomLib, and reinstall it ...
-   python experiments/hpatches_benchmark.py data/hpatches_sift.npz --output after.json
-   python experiments/hpatches_benchmark.py --compare before.json after.json
-
-Another script, ``hpatches_loma.py``, computes LoMa matches and evaluates them
-in one run, without a matches file.
+   python benchmark/hpatches/hpatches_benchmark.py data/hpatches_sift.npz --output after.json
+   python benchmark/hpatches/hpatches_benchmark.py --compare before.json after.json
 
 glue-factory's protocol
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -276,7 +277,7 @@ For example, with the matches of SuperPoint and LightGlue above:
 
 .. code-block:: bash
 
-   python experiments/hpatches_benchmark.py data/hpatches_superpoint_lightglue.npz \
+   python benchmark/hpatches/hpatches_benchmark.py data/hpatches_superpoint_lightglue.npz \
        --protocol gluefactory --threshold 0.5 --output superpoint_lightglue_gf.json
 
 
@@ -329,29 +330,30 @@ solver, case and noise level:
 
 .. code-block:: bash
 
-   python experiments/synthetic_benchmark.py --output synthetic.json
+   python benchmark/synthetic/synthetic_benchmark.py --output synthetic.json
 
 ``--problems N``, ``--noise PX ...`` and ``--solvers NAME ...`` change these
 settings.
 
-LOMSAC with outliers
-^^^^^^^^^^^^^^^^^^^^
+Robust estimation with outliers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``--outliers`` runs another experiment, as in Fig. 5 of Wadenbäck et al.
 [Wadenback2026]_: LOMSAC on problems with 200 points, 0.5 px of noise and the
-given shares of outliers, with a 5 px inlier threshold. The outliers replace
+given shares of outliers, with a 5 px inlier threshold (``--backend`` chooses
+another estimator, as in the HPatches benchmark). The outliers replace
 the points of the second image of some matches by random points; the *true
 inliers* are the other matches. The experiment reports the share of the true
-inliers that LOMSAC finds, and the median time of a run. Each solver
+inliers that the estimator finds, and the median time of a run. Each solver
 solves problems of the distortion case it is made for, so the rows of solvers
 made for different cases don't compare.
 
 .. code-block:: bash
 
-   python experiments/synthetic_benchmark.py --outliers 0.2 0.4 0.6 0.8 --output outliers.json
+   python benchmark/synthetic/synthetic_benchmark.py --outliers 0.2 0.4 0.6 0.8 --output outliers.json
 
-Without ``--iterations``, LOMSAC stops when it is confident, or after 10000
-iterations. ``--iterations N`` runs exactly N iterations, so that every solver
+Without ``--iterations``, the estimator stops when it is confident (LOMSAC: or
+after 10000 iterations). ``--iterations N`` runs exactly N iterations, so that every solver
 gets the same budget. By default, this experiment solves 200 problems per
 solver and share of outliers.
 
@@ -359,8 +361,8 @@ Comparing two runs
 ^^^^^^^^^^^^^^^^^^
 
 ``--output`` and ``--compare A B`` work as in the HPatches benchmark; the saved
-settings are ``--problems``, ``--noise``, ``--iterations``, ``--outliers`` and
-``--seed``. Every problem is seeded from ``--seed`` (default 0), its distortion
+settings are ``--problems``, ``--noise``, ``--iterations``, ``--outliers``,
+``--backend`` and ``--seed``. Every problem is seeded from ``--seed`` (default 0), its distortion
 case, its noise level (or share of outliers) and its index, through the
 ``seed`` of :class:`~homlib.ProblemConfig`. So the solvers with the same sample
 size solve the same problems, and two runs with the same seed solve the same
@@ -419,7 +421,7 @@ full SIFT matches, publish it, and print its checksum:
 
 .. code-block:: bash
 
-   python experiments/hpatches_features.py --matches data/hpatches_sift.npz \
+   python benchmark/hpatches/hpatches_features.py --matches data/hpatches_sift.npz \
        --export_subset hpatches_sift_subset.npz
    gh release create test-data-v1 hpatches_sift_subset.npz \
        -R marcusvaltonen/HomLib --latest=false \

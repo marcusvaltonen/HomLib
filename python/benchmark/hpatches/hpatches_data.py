@@ -64,11 +64,13 @@ def load_hpatches_pairs(seq_dir: Path, max_sequences: int | None = None):
 
 def save_matches(path: Path, pairs):
     """Save the matches to a .npz file. pairs maps "seq/i" to dict(x, y: 2xN points centered on
-    their image; H: the ground truth in these coordinates; width, height: of image 1; width2,
-    height2: of image i, or None if unknown)."""
+    their image; H: the ground truth in these coordinates; scores: N scores of the matches, or
+    None; width, height: of image 1; width2, height2: of image i, or None if unknown)."""
     flat = {}
     for k, p in pairs.items():
         flat[k + ":x"], flat[k + ":y"], flat[k + ":H"] = p["x"], p["y"], p["H"]
+        if p.get("scores") is not None:
+            flat[k + ":scores"] = p["scores"]
         flat[k + ":size"] = np.array([p["width"], p["height"]])
         if p.get("width2") is not None:
             flat[k + ":size2"] = np.array([p["width2"], p["height2"]])
@@ -77,14 +79,16 @@ def save_matches(path: Path, pairs):
 
 def load_matches(path: Path):
     """The matches saved by save_matches. The files written before the size of image i was saved
-    (":size2") give None for width2 and height2: add_image_sizes reads them from HPatches."""
+    (":size2") give None for width2 and height2: add_image_sizes reads them from HPatches. Those
+    written before the scores (":scores") give None for them."""
     flat = np.load(path)
     keys = sorted({k.rsplit(":", 1)[0] for k in flat.files})
     pairs = {}
     for k in keys:
         w1, h1 = (int(v) for v in flat[k + ":size"])
         w2, h2 = (int(v) for v in flat[k + ":size2"]) if k + ":size2" in flat.files else (None, None)
-        pairs[k] = dict(x=flat[k + ":x"], y=flat[k + ":y"], H=flat[k + ":H"],
+        scores = flat[k + ":scores"] if k + ":scores" in flat.files else None
+        pairs[k] = dict(x=flat[k + ":x"], y=flat[k + ":y"], H=flat[k + ":H"], scores=scores,
                         width=w1, height=h1, width2=w2, height2=h2)
     return pairs
 

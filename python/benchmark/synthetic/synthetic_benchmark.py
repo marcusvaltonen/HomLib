@@ -11,13 +11,13 @@ case and noise level, the script reports:
   as in their Fig. 4, with ``--noise`` in pixels for a focal length of 1000 px);
 - the median time of a call, measured from Python, so it includes the overhead of the bindings.
 
-``--outliers`` runs a second experiment, as in Fig. 5 of Wadenbäck et al.: LOMSAC on problems with
-200 points, 0.5 px of noise and a share of outliers, with a 5 px inlier threshold. Each solver
-solves problems of the distortion case it is made for (the last of its cases in ``SOLVERS``), so
-the rows of different cases don't compare. For each solver and share, the script reports the share
-of the true inliers that LOMSAC finds, and the median time of a run. Without ``--iterations``,
-LOMSAC stops when it is confident or after 10000 iterations. ``--iterations N`` runs exactly N
-iterations, so that every solver gets the same budget.
+``--outliers`` runs a second experiment, as in Fig. 5 of Wadenbäck et al.: LOMSAC (or the estimator
+of ``--backend``) on problems with 200 points, 0.5 px of noise and a share of outliers, with a 5 px
+inlier threshold. Each solver solves problems of the distortion case it is made for (the last of its
+cases in ``SOLVERS``), so the rows of different cases don't compare. For each solver and share, the
+script reports the share of the true inliers that the estimator finds, and the median time of a run.
+Without ``--iterations``, the estimator stops when it is confident (LOMSAC: or after 10000
+iterations). ``--iterations N`` runs exactly N iterations, so that every solver gets the same budget.
 
 Every problem is seeded from ``--seed`` (default 0), the distortion case, the noise level (or the
 share of outliers) and its index: the solvers with the same sample size solve the same problems,
@@ -33,19 +33,24 @@ Usage
     python synthetic_benchmark.py [--problems 2000] [--noise 0 0.5 1 2] [--solvers ...]
                                   [--output results.json]
     python synthetic_benchmark.py --outliers 0.2 0.4 0.6 0.8 [--iterations 100] [--problems 200]
-                                  [--solvers ...] [--output outliers.json]
+                                  [--backend lomsac] [--solvers ...] [--output outliers.json]
     python synthetic_benchmark.py --compare before.json after.json
 """
 
 import argparse
 import json
+import sys
 import time
+from pathlib import Path
 
 import numpy as np
 from tqdm import tqdm
 
 import homlib
-from hpatches_benchmark import warn_settings
+
+# common.py is in the parent directory (benchmark/)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import BACKENDS, inlier_indices, make_estimator, warn_settings  # noqa: E402
 
 FOCAL = 1000.0   # pixels: the noise is given in pixels for this focal length
 
@@ -97,7 +102,10 @@ def main():
     parser.add_argument("--seed", type=int, default=0,
                         help="Seed of the problems (default: 0): same seed, same results on the same platform")
     parser.add_argument("--iterations", type=int, default=None,
-                        help="With --outliers: run LOMSAC for exactly this many iterations")
+                        help="With --outliers: run the estimator for exactly this many iterations")
+    parser.add_argument("--backend", choices=sorted(BACKENDS), default=None,
+                        help="With --outliers: the robust estimator (default: lomsac). The others need HomLib "
+                             "built with them")
     parser.add_argument("--output", type=str, default=None, help="Save the settings and the results to this JSON file")
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
                         help="Print the differences B - A between two saved runs, and exit")
@@ -106,17 +114,19 @@ def main():
         compare(*args.compare)
         return
 
-    if args.outliers is None and args.iterations is not None:
-        parser.error("--iterations needs --outliers")
+    if args.outliers is None and (args.iterations is not None or args.backend is not None):
+        parser.error("--iterations and --backend need --outliers")
+    backend = args.backend or "lomsac"
     if args.outliers is not None:
         if args.noise is not None:
             parser.error("--outliers runs with 0.5 px of noise: it doesn't take --noise")
         if not all(0 <= share < 1 for share in args.outliers):
             parser.error("the shares of outliers must be in [0, 1)")
-        results = run_outliers(args.solvers, args.outliers, args.problems or 200, args.iterations, args.seed)
+        results = run_outliers(args.solvers, args.outliers, args.problems or 200, args.iterations, args.seed,
+                               backend)
         if args.output:
             settings = dict(problems=args.problems or 200, noise=None, iterations=args.iterations, seed=args.seed,
-                            outliers=args.outliers)
+                            outliers=args.outliers, backend=backend)
             with open(args.output, "w") as f:
                 json.dump(dict(settings=settings, outliers=results), f)
         print_outliers(results)
@@ -171,10 +181,9 @@ def make_problem(case, noise, n_points, seed):
     return homlib.generate_problem_instance(config)
 
 
-def run_outliers(solvers, shares, problems, iterations, seed, n_points=200, noise=0.5, threshold=5.0):
+def run_outliers(solvers, shares, problems, iterations, seed, backend, n_points=200, noise=0.5, threshold=5.0):
     """results[solver][share] = per problem: (share of the true inliers found, time)"""
     results = {}
-    options = {} if iterations is None else dict(min_num_iterations=iterations, max_num_iterations=iterations)
     for name in tqdm(solvers, desc="Solvers"):
         solver = homlib.Solver(homlib.SolverId.__members__[name])
         case = SOLVERS[name][1][-1]   # the case the solver is made for
@@ -189,11 +198,11 @@ def run_outliers(solvers, shares, problems, iterations, seed, n_points=200, nois
                 n_out = int(round(share * n_points))
                 # Outliers: random points in the bounding box of the second image's points
                 y[:, :n_out] = rng.uniform(y.min(1, keepdims=True), y.max(1, keepdims=True), (2, n_out))
-                lomsac = homlib.LOMSAC(solver, inlier_threshold=threshold / FOCAL, random_seed=ps, **options)
+                estimator = make_estimator(backend, solver, threshold / FOCAL, iterations, ps)
                 t0 = time.perf_counter()
-                _, stats = lomsac.estimate(np.ascontiguousarray(x), np.ascontiguousarray(y))
+                _, stats = estimator.estimate(np.ascontiguousarray(x), np.ascontiguousarray(y))
                 elapsed = time.perf_counter() - t0
-                found = np.sum(np.array(stats.inlier_indices, dtype=int) >= n_out)
+                found = np.sum(np.array(inlier_indices(stats), dtype=int) >= n_out)
                 runs.append((found / (n_points - n_out), elapsed))
             results[name][str(share)] = runs
     return results

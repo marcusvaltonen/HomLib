@@ -53,7 +53,7 @@ class Solver(_CppSolver):
             raise ValueError(f"Unknown feature type: {ft}")
 
 
-def solver_ids(feature_type=None):
+def solver_ids(feature_type=None, names=None):
     """The solvers of HomLib, as a list of :class:`SolverId`, in the order of the enum.
 
     Parameters
@@ -61,14 +61,22 @@ def solver_ids(feature_type=None):
     feature_type : FeatureType, optional
         Only the solvers of this feature type, e.g. ``FeatureType.Points`` for the solvers
         that take point matches alone. Default: every solver.
+    names : list of str, optional
+        Only the solvers with these names (e.g. ``["DLT", "GuoPRL2019"]``, from a command line).
+        Raises ``ValueError`` for a name that isn't a solver.
 
     Examples
     --------
     >>> for solver_id in homlib.solver_ids(homlib.FeatureType.Points):
     ...     lomsac = homlib.LOMSAC(homlib.Solver(solver_id), inlier_threshold=3.0)
     """
-    return [s for s in SolverId.__members__.values()
-            if feature_type is None or Solver(s).feature_type == feature_type]
+    if names is not None:
+        unknown = sorted(set(names) - set(SolverId.__members__))
+        if unknown:
+            raise ValueError(f"unknown solvers: {', '.join(unknown)}")
+    return [s for name, s in SolverId.__members__.items()
+            if (feature_type is None or Solver(s).feature_type == feature_type)
+            and (names is None or name in names)]
 
 
 # ---------------------------------------------------------------------------
