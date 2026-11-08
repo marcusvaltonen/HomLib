@@ -23,6 +23,7 @@
 #include "get_wadenback_3dv_2026.hpp"
 #include "get_valtonenornhag_icpr_2026.hpp"
 #include "get_kukelova_cvpr_2015.hpp"
+#include "flipped_solver.h"
 
 #include "ransac_estimator.h"
 #include "affine_ransac_estimator.h"
@@ -355,7 +356,7 @@ int main(int argc, char *argv[]) {
  
     config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
     
-    HomLib::NakanoICPR2025::SolverSingleSidedRight estimator_nakano_single_right;
+    HomLib::FlippedOneSidedSolver<HomLib::NakanoICPR2025::SolverSingleSided> estimator_nakano_single_right;
 
     br = test_loransac("nakano_one_sided_right", &estimator_nakano_single_right, config, nbr_outliers, nbr_iter, nbr_ransac_iter);
     if (print_to_file)

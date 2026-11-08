@@ -45,6 +45,7 @@ std::vector<HomLib::PoseData> get(
 class Solver : public PoseEstimator<Solver> {
     public:
         static constexpr int minimal_sample_size_value = 4;
+        static constexpr DistortionCase DISTORTION_CASE = NO_DISTORTION;
         Solver() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange & = HomLib::DistortionRange()) const {   // no distortion (k = 0 passes)

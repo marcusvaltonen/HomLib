@@ -113,7 +113,7 @@ frames of matched features.
    import homlib
 
    # A_matrices: shape (N, 2, 2) from your detector/matcher
-   solver = homlib.ValtonenOrnhagICPR2026AffineSingleSided()
+   solver = homlib.ValtonenOrnhagICPR2026AffineOneSided()
    poses = solver.estimate(x, y, A=A_matrices)
 
    # With RANSAC
@@ -123,7 +123,8 @@ frames of matched features.
 **Available solvers:**
 
 - :class:`~homlib.BarathVISAPP2016Affine` — 2-point, pure homography (no distortion).
-- :class:`~homlib.ValtonenOrnhagICPR2026AffineSingleSided` — 2-point, one-sided distortion.
+- :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSided` — 2-point, one-sided distortion (left).
+- :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSidedRight` — 2-point, one-sided distortion (right).
 
 
 Orientation-covariant features
@@ -151,7 +152,7 @@ additional information, needing **3 correspondences** instead of 5.
    angle_diff = angles1 - angles2
    ori = np.vstack([np.cos(angle_diff), np.sin(angle_diff)])  # shape (2, N)
 
-   solver = homlib.ValtonenOrnhagICPR2026OrientationSingleSided()
+   solver = homlib.ValtonenOrnhagICPR2026OrientationOneSided()
    poses = solver.estimate(x, y, ori=ori)
 
    # With RANSAC
@@ -160,8 +161,10 @@ additional information, needing **3 correspondences** instead of 5.
 
 **Available solvers:**
 
-- :class:`~homlib.ValtonenOrnhagICPR2026OrientationSingleSided` — 3-point,
-  one-sided distortion.
+- :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSided` — 3-point,
+  one-sided distortion (left).
+- :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSidedRight` — 3-point,
+  one-sided distortion (right).
 
 
 Using features with RANSAC backends
@@ -179,11 +182,11 @@ feature data as keyword arguments to ``estimate()``:
    est, stats = homlib.LOMSAC(solver_pt, inlier_threshold=0.07).estimate(x, y)
 
    # Affine solver — pass A
-   solver_aff = homlib.ValtonenOrnhagICPR2026AffineSingleSided()
+   solver_aff = homlib.ValtonenOrnhagICPR2026AffineOneSided()
    est, stats = homlib.LOMSAC(solver_aff, inlier_threshold=0.07).estimate(x, y, A=A)
 
    # Orientation solver — pass ori
-   solver_ori = homlib.ValtonenOrnhagICPR2026OrientationSingleSided()
+   solver_ori = homlib.ValtonenOrnhagICPR2026OrientationOneSided()
    est, stats = homlib.LOMSAC(solver_ori, inlier_threshold=0.07).estimate(x, y, ori=ori)
 
 The same pattern works for :class:`~homlib.GCRANSAC`, :class:`~homlib.MAGSAC`,
