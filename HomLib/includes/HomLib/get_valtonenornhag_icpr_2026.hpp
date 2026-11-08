@@ -67,6 +67,14 @@ class AffineSolverSingleSided : public AffinePoseEstimator<AffineSolverSingleSid
             Eigen::Vector2d yd = yu;
             return yd;
         }
+        // As undistort and distort, but false where they have no solution (see radial.hpp)
+        inline bool try_undistort(const HomLib::PoseData &pose, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
+            return HomLib::try_radialundistort(xd, pose.distortion_parameter, xu);
+        }
+        inline bool try_distort(const HomLib::PoseData &, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
+            yd = yu;
+            return true;
+        }
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_onesided_right(x, y, pose);
         }
@@ -95,6 +103,14 @@ class OrientationSolverSingleSided : public OrientationPoseEstimator<Orientation
         inline Eigen::Vector2d distort(const HomLib::PoseData pose, const Eigen::Vector2d &yu) const {
             Eigen::Vector2d yd = yu;
             return yd;
+        }
+        // As undistort and distort, but false where they have no solution (see radial.hpp)
+        inline bool try_undistort(const HomLib::PoseData &pose, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
+            return HomLib::try_radialundistort(xd, pose.distortion_parameter, xu);
+        }
+        inline bool try_distort(const HomLib::PoseData &, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
+            yd = yu;
+            return true;
         }
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_onesided_right(x, y, pose);

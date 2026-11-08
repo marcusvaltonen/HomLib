@@ -22,6 +22,7 @@
 #define INCLUDES_HOMLIB_GET_GUO_PRL_2019_HPP_
 
 #include <Eigen/Dense>
+#include <cmath>
 #include <vector>
 #include "posedata.hpp"
 #include "radial.hpp"
@@ -40,10 +41,14 @@ inline std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &y
 ) {
     std::vector<HomLib::PoseData> output;
-    Eigen::Matrix3d H = HomLib::Wadenback3DV2026::homography_4pt_guo(x, y);
+    Eigen::Matrix3d H;
+    if (!HomLib::Wadenback3DV2026::homography_4pt_guo(x, y, H))
+        return output;
 
     H.normalize();
-    if (std::abs(H.determinant()) < 1e-8) {
+    // After the normalization, a non-finite entry makes the determinant NaN, which fails the quiet
+    // comparison: no separate finiteness test
+    if (!std::isgreaterequal(std::abs(H.determinant()), 1e-8)) {
         return output;
     }
 
@@ -73,6 +78,15 @@ class Solver : public PoseEstimator<Solver> {
         }
         inline Eigen::Vector2d distort(const HomLib::PoseData, const Eigen::Vector2d &yu) const {
             return yu;
+        }
+        // As undistort and distort, but false where they have no solution (see radial.hpp)
+        inline bool try_undistort(const HomLib::PoseData &, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
+            xu = xd;
+            return true;
+        }
+        inline bool try_distort(const HomLib::PoseData &, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
+            yd = yu;
+            return true;
         }
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_no_dist(x, y, pose);

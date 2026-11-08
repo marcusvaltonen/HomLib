@@ -27,6 +27,13 @@ namespace HomLib {
             Eigen::Vector2d yd = HomLib::radialdistort(yu, pose.distortion_parameter2);
             return yd;
         }
+        // As undistort and distort, but false where they have no solution (see radial.hpp)
+        inline bool try_undistort(const HomLib::PoseData &pose, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
+            return HomLib::try_radialundistort(xd, pose.distortion_parameter, xu);
+        }
+        inline bool try_distort(const HomLib::PoseData &pose, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
+            return HomLib::try_radialdistort(yu, pose.distortion_parameter2, yd);
+        }
 
 	protected:
 		PoseEstimator() = default;
@@ -41,9 +48,11 @@ int HomLib::PoseEstimator<Solver>::estimate(const std::vector<Eigen::Vector2d> &
     std::vector<Eigen::Vector2d> y = y_;
     const double f0 = normalize(x, y);
     poses->clear();
-    int n_sols = static_cast<const Solver*>(this)->solve(x, y, poses, k_range);
+    if (f0 == 0.0)
+        return 0;
+    static_cast<const Solver*>(this)->solve(x, y, poses, k_range);
     denormalize(poses, f0);
-    return n_sols;
+    return static_cast<int>(poses->size());
 }
 
 

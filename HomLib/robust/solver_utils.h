@@ -1,10 +1,12 @@
 #pragma once
 
 #include <vector>
+#include <cmath>
 #include <limits>
 #include <random>
 #include <algorithm>
 #include <numeric>
+#include <type_traits>
 #include <Eigen/Dense>
 #include "posedata.hpp"
 
@@ -14,16 +16,60 @@ enum class NonMinimalStrategy { Lomsac, SelectAndRefine, MultiSample };
 
 namespace detail {
 
+// The class that declares a member function
+template <class M> struct declaring_class;
+template <class R, class C, class... A> struct declaring_class<R (C::*)(A...) const> { using type = C; };
+template <class S, class = void> struct has_try_functions : std::false_type {};
+template <class S>
+struct has_try_functions<S, std::void_t<decltype(&S::try_undistort), decltype(&S::try_distort)>>
+    : std::true_type {};
+
+// Whether the solver's try_undistort and try_distort are declared with its undistort and distort
+// (the defaults of PoseEstimator, or overrides of both): not for a class that overrides undistort
+// or distort only, such as a wrapper written without the try_ functions
+template <class S>
+constexpr bool try_functions_match() {
+    if constexpr (has_try_functions<S>::value) {
+        return std::is_same_v<typename declaring_class<decltype(&S::undistort)>::type,
+                              typename declaring_class<decltype(&S::try_undistort)>::type> &&
+               std::is_same_v<typename declaring_class<decltype(&S::distort)>::type,
+                              typename declaring_class<decltype(&S::try_distort)>::type>;
+    } else {
+        return false;
+    }
+}
+
 template <class Solver>
 inline double compute_squared_residual(
     const Solver& solver, const PoseData& pose,
     const Eigen::Vector2d& x, const Eigen::Vector2d& y)
 {
-    Eigen::Vector2d z = solver.undistort(pose, x);
-    Eigen::Vector3d Z = pose.homography * z.homogeneous();
-    z = Z.hnormalized();
-    z = solver.distort(pose, z);
-    return (y - z).squaredNorm();
+    // max() (an outlier for every backend) where x can't be undistorted, H z is at infinity, H z
+    // can't be distorted, or r2 overflows; tested before the operations, so that nothing traps with
+    // floating-point exceptions enabled (for a finite H). A NaN would fail every comparison. Not
+    // inf: sqrt(r2), 0 * r2 and r2 - r2 stay finite.
+    constexpr double kOutlier = std::numeric_limits<double>::max();
+    Eigen::Vector2d z, w;
+    if constexpr (try_functions_match<Solver>()) {
+        if (!solver.try_undistort(pose, x, z))
+            return kOutlier;
+    } else {
+        // The solver's own undistort and distort, without the tests (not trap-safe), so that the
+        // residual is still right
+        z = solver.undistort(pose, x);
+    }
+    const Eigen::Vector3d Z = pose.homography * z.homogeneous();
+    if (Z(2) == 0.0)
+        return kOutlier;
+    if constexpr (try_functions_match<Solver>()) {
+        if (!solver.try_distort(pose, Z.hnormalized(), w))
+            return kOutlier;
+    } else {
+        w = solver.distort(pose, Z.hnormalized());
+    }
+    const double r2 = (y - w).squaredNorm();
+    // r2 >= 0: false only for an overflow (inf) or a NaN (a NaN in H); a quiet comparison
+    return std::islessequal(r2, kOutlier) ? r2 : kOutlier;
 }
 
 template <class Solver>

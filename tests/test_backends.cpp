@@ -24,15 +24,21 @@
 #include <vector>
 #include <random>
 #include <algorithm>
+#include <cmath>
+#include <limits>
+#include <cfenv>
 #include <catch2/catch_test_macros.hpp>
 
 #include "posedata.hpp"
+#include "radial.hpp"
 #include "problem_instance.hpp"
 #include "generate_problem_instance.hpp"
 #include "get_wadenback_3dv_2026.hpp"
 #include "get_valtonenornhag_icpr_2026.hpp"
+#include "pose_estimator.h"
 
 #include "lomsac_runner.h"
+#include "solver_utils.h"
 
 #ifdef HOMLIB_HAS_GCRANSAC
 #include "gcransac_runner.h"
@@ -88,6 +94,167 @@ TestData generate_test_data(int seed, int n_points, int n_outliers, HomLib::Dist
 }
 
 } // anonymous namespace
+
+
+// ---------------------------------------------------------------------------
+// The residual that every backend uses
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// Points where computing the residual used to give a NaN or divide by zero
+struct ResidualCase {
+    const char* what;
+    Eigen::Matrix3d H;
+    double k1, k2;
+    Eigen::Vector2d x;
+    bool outlier;
+};
+
+std::vector<ResidualCase> residual_cases() {
+    const Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
+    Eigen::Matrix3d H_inf = I;   // H z at infinity where z(0) = 1
+    H_inf.row(2) << 1.0, 0.0, -1.0;
+    return {
+        {"4 k2 |H z|^2 = 1.6 > 1: H z can't be distorted", I, 0.0, 0.1, {2.0, 0.0}, true},
+        {"H z at infinity", H_inf, 0.0, 0.0, {1.0, 0.5}, true},
+        {"1 + k1 |x|^2 = 0: x can't be undistorted", I, -0.25, 0.0, {2.0, 0.0}, true},
+        {"x = H z = 0", I, 0.0, 0.1, {0.0, 0.0}, false},
+    };
+}
+
+} // anonymous namespace
+
+TEST_CASE("Residual - a point without a residual is an outlier") {
+    HomLib::Wadenback3DV2026::SolverTwoSided solver;
+    const Eigen::Vector2d y(0.3, 0.0);
+    for (const auto& c : residual_cases()) {
+        INFO(c.what);
+        HomLib::PoseData pose;
+        pose.homography = c.H;
+        pose.distortion_parameter = c.k1;
+        pose.distortion_parameter2 = c.k2;
+        const double r2 = HomLib::detail::compute_squared_residual(solver, pose, c.x, y);
+        if (c.outlier)
+            CHECK(r2 == std::numeric_limits<double>::max());
+        else
+            CHECK(r2 == (y - c.x).squaredNorm());
+    }
+
+    // Where the distortion can be inverted, the residual is unchanged
+    HomLib::PoseData pose;   // H = I, no distortion in the first image
+    pose.distortion_parameter2 = 0.1;
+    const Eigen::Vector2d x1(1.0, 0.0);
+    const Eigen::Vector2d y1 = HomLib::radialdistort(x1, pose.distortion_parameter2);
+    REQUIRE(HomLib::detail::compute_squared_residual(solver, pose, x1, y1) < 1e-24);
+    REQUIRE(HomLib::detail::compute_squared_residual(solver, pose, x1, x1)
+            == (y1 - x1).squaredNorm());
+}
+
+TEST_CASE("Residual - no invalid operation or division by zero") {
+    // With floating-point traps enabled (feenableexcept), either would raise SIGFPE. The inputs
+    // are read through volatile after clearing the flags, and the result stored to a volatile
+    // before testing them, so that the compiler neither folds nor moves the computation.
+    HomLib::Wadenback3DV2026::SolverTwoSided solver;
+    const Eigen::Vector2d y(0.3, 0.0);
+    for (const auto& c : residual_cases()) {
+        INFO(c.what);
+        volatile double k1 = c.k1, k2 = c.k2, x0 = c.x(0), x1 = c.x(1);
+        std::feclearexcept(FE_ALL_EXCEPT);
+        HomLib::PoseData pose;
+        pose.homography = c.H;
+        pose.distortion_parameter = k1;
+        pose.distortion_parameter2 = k2;
+        volatile double r2 = HomLib::detail::compute_squared_residual(
+            solver, pose, Eigen::Vector2d(x0, x1), y);
+        const int flags = std::fetestexcept(FE_INVALID | FE_DIVBYZERO);
+        (void)r2;
+        CHECK((flags & FE_INVALID) == 0);
+        CHECK((flags & FE_DIVBYZERO) == 0);
+    }
+}
+
+namespace {
+
+// A wrapper that overrides undistort and distort but not try_undistort and try_distort, as a
+// solver written without them would: the right-sided case, k1 in the first image
+struct RightSidedWithoutTry : HomLib::PoseEstimator<RightSidedWithoutTry> {
+    inline Eigen::Vector2d undistort(const HomLib::PoseData pose, const Eigen::Vector2d &xd) const {
+        return HomLib::radialundistort(xd, pose.distortion_parameter);
+    }
+    inline Eigen::Vector2d distort(const HomLib::PoseData, const Eigen::Vector2d &yu) const {
+        return yu;
+    }
+};
+
+} // anonymous namespace
+
+TEST_CASE("Residual - a solver's own undistort and distort, if it has no try_ versions of them") {
+    STATIC_REQUIRE(HomLib::detail::try_functions_match<HomLib::Wadenback3DV2026::SolverTwoSided>());
+    STATIC_REQUIRE(HomLib::detail::try_functions_match<HomLib::ValtonenOrnhagICPR2026::AffineSolverSingleSided>());
+    STATIC_REQUIRE_FALSE(HomLib::detail::try_functions_match<RightSidedWithoutTry>());
+
+    RightSidedWithoutTry solver;
+    HomLib::PoseData pose;
+    pose.homography << 1.02, 0.03, 0.01, -0.02, 0.98, 0.02, 0.01, -0.02, 1.0;
+    pose.distortion_parameter = -0.2;
+    pose.distortion_parameter2 = 0.15;   // ignored by this solver: the defaults would use it
+    std::mt19937 rng(3);
+    std::uniform_real_distribution<double> u(-1.0, 1.0);
+    for (int i = 0; i < 20; ++i) {
+        const Eigen::Vector2d x(u(rng), u(rng)), y(u(rng), u(rng));
+        const Eigen::Vector2d z = (pose.homography * solver.undistort(pose, x).homogeneous()).hnormalized();
+        CHECK(HomLib::detail::compute_squared_residual(solver, pose, x, y) == (y - solver.distort(pose, z)).squaredNorm());
+    }
+}
+
+TEST_CASE("LOMSAC - outliers where the true distortion can't be inverted") {
+    // Pincushion distortion in the second image (k2 > 0): its distort has no real solution beyond
+    // r = 1 / (2 sqrt(k2)) = 1.118. The inliers lie in the unit disk, and H maps them within that radius;
+    // the outliers' x lie at r in [1.5, 2], so that H x is beyond 1.118 for the true model and
+    // every model close to it. Their residual used to be NaN, which made the MSAC score of these
+    // models NaN, so LOMSAC never selected them.
+    const double k2 = 0.2;
+    const double c = std::cos(0.2), s = std::sin(0.2);
+    Eigen::Matrix3d H;
+    H << c, -s, 0.05,
+         s,  c, -0.03,
+         0.01, 0.02, 1.0;
+    std::mt19937 rng(7);
+    std::uniform_real_distribution<double> angle(0.0, 2.0 * M_PI), unit(0.0, 1.0);
+    std::vector<Eigen::Vector2d> x, y;
+    const int n_inliers = 160, n_outliers = 40;
+    for (int i = 0; i < n_inliers + n_outliers; ++i) {
+        const double a = angle(rng);
+        const double r = i < n_inliers ? std::sqrt(unit(rng)) : 1.5 + 0.5 * unit(rng);
+        const Eigen::Vector2d xi = r * Eigen::Vector2d(std::cos(a), std::sin(a));
+        Eigen::Vector2d yi;
+        if (i < n_inliers) {
+            yi = HomLib::radialdistort((H * xi.homogeneous()).hnormalized(), k2);
+        } else {
+            const double b = angle(rng), rb = std::sqrt(unit(rng));
+            yi = rb * Eigen::Vector2d(std::cos(b), std::sin(b));
+        }
+        x.push_back(xi);
+        y.push_back(yi);
+    }
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
+    for (int i = 0; i < n_inliers + n_outliers; ++i) {
+        const Eigen::Vector2d Hx = (H * x[i].homogeneous()).hnormalized();
+        REQUIRE((4.0 * k2 * Hx.squaredNorm() < 1.0) == (i < n_inliers));
+    }
+
+    ransac_lib::LORansacOptions options;
+    options.squared_inlier_threshold_ = 0.005 * 0.005;
+    options.max_num_iterations_ = 5000;
+    options.random_seed_ = 7;
+    auto [pose, stats] = HomLib::run_lomsac_point(solver, x, y, options);
+
+    REQUIRE(stats.best_num_inliers == n_inliers);
+    REQUIRE(std::abs(pose.distortion_parameter2 - k2) < 1e-6);
+    Eigen::Matrix3d H1 = H / H(2, 2), H2 = pose.homography / pose.homography(2, 2);
+    REQUIRE((H1 - H2).norm() < 1e-6);
+}
 
 
 // ---------------------------------------------------------------------------

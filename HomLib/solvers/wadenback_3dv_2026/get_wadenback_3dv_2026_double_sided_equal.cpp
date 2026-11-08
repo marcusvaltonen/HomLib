@@ -70,16 +70,9 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
         if (!range.contains(k)) {   // no root in the range
             return output;
         }
-        std::vector<Eigen::Vector2d> x_undist;
-        std::vector<Eigen::Vector2d> y_undist;
-        for (int i = 0; i < 4; i++) {
-            Eigen::Vector2d tmp;
-            tmp = x[i] / (1 + k * x[i].squaredNorm());
-            x_undist.push_back(tmp);
-            tmp = y[i] / (1 + k * y[i].squaredNorm());
-            y_undist.push_back(tmp);
-        }
-        Eigen::Matrix3d H = HomLib::Wadenback3DV2026::homography_4pt_guo(x_undist, y_undist);
+        Eigen::Matrix3d H;
+        if (!HomLib::Wadenback3DV2026::homography_4pt_guo_undistorted(x, k, y, k, H))
+            return output;
 
         // Package
         HomLib::PoseData pd;
@@ -97,16 +90,8 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
                 continue;
             }
 
-            std::vector<Eigen::Vector2d> x_undist;
-            std::vector<Eigen::Vector2d> y_undist;
-            for (int i = 0; i < 4; i++) {
-	            Eigen::Vector2d tmp;
-	            tmp = x[i] / (1 + k * x[i].squaredNorm());
-	            x_undist.push_back(tmp);
-	            tmp = y[i] / (1 + k * y[i].squaredNorm());
-	            y_undist.push_back(tmp);
-            }
-            H = HomLib::Wadenback3DV2026::homography_4pt_guo(x_undist, y_undist);
+            if (!HomLib::Wadenback3DV2026::homography_4pt_guo_undistorted(x, k, y, k, H))
+                continue;
 
             // Package
             pd.homography = H;

@@ -60,6 +60,15 @@ class Solver : public PoseEstimator<Solver> {
         inline Eigen::Vector2d distort(const HomLib::PoseData, const Eigen::Vector2d &yu) const {
             return yu;
         }
+        // As undistort and distort, but false where they have no solution (see radial.hpp)
+        inline bool try_undistort(const HomLib::PoseData &, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
+            xu = xd;
+            return true;
+        }
+        inline bool try_distort(const HomLib::PoseData &, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
+            yd = yu;
+            return true;
+        }
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_no_dist(x, y, pose);
         }

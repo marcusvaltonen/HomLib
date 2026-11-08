@@ -30,6 +30,13 @@ namespace HomLib {
   std::vector<Eigen::Vector2d> radialundistort(const std::vector<Eigen::Vector2d> &x, double kappa);
   void radialdistort(const std::vector<Eigen::Vector2d> &xu, std::vector<Eigen::Vector2d>* xd, double kappa);
   void radialundistort(const std::vector<Eigen::Vector2d> &xd, std::vector<Eigen::Vector2d>* xu, double kappa);
+
+  // Versions that return false, without an invalid operation or a division by zero (they don't
+  // trap with floating-point exceptions enabled), and leave out unchanged: try_radialundistort
+  // where 1 + kappa |x|^2 = 0, try_radialdistort where 4 kappa |x|^2 > 1 (no distorted point maps
+  // to x), both if |x|^2 overflows.
+  bool try_radialundistort(const Eigen::Vector2d &x, double kappa, Eigen::Vector2d &out);
+  bool try_radialdistort(const Eigen::Vector2d &x, double kappa, Eigen::Vector2d &out);
 }
 
 #endif  // SRC_HELPERS_RADIAL_HPP_

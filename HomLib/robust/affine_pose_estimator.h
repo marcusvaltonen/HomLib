@@ -31,9 +31,11 @@ int HomLib::AffinePoseEstimator<Solver>::estimate(const std::vector<Eigen::Vecto
     std::vector<Eigen::Vector2d> y = y_;
     const double f0 = normalize(x, y);
     poses->clear();
-    int n_sols = static_cast<const Solver*>(this)->solve(x, y, A_, poses, k_range);
+    if (f0 == 0.0)
+        return 0;
+    static_cast<const Solver*>(this)->solve(x, y, A_, poses, k_range);
     denormalize(poses, f0);
-    return n_sols;
+    return static_cast<int>(poses->size());
 }
 
 

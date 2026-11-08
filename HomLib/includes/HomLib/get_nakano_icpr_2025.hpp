@@ -61,6 +61,13 @@ class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
             Eigen::Vector2d yd = HomLib::radialdistort(yu, pose.distortion_parameter2);
             return yd;
         }
+        // As undistort and distort, but false where they have no solution (see radial.hpp)
+        inline bool try_undistort(const HomLib::PoseData &, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
+            return HomLib::try_radialundistort(xd, 0.0, xu);
+        }
+        inline bool try_distort(const HomLib::PoseData &pose, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
+            return HomLib::try_radialdistort(yu, pose.distortion_parameter2, yd);
+        }
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_onesided(x, y, pose);
         }

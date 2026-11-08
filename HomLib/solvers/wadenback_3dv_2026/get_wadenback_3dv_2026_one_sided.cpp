@@ -37,7 +37,10 @@ std::vector<HomLib::PoseData> get_one_sided(
     const double c1 = -rhs(1)*d[8] + rhs(2)*d[7];
     const double c0 = -rhs(1)*d[11] + rhs(2)*d[10];
 
-    // Find real roots
+    // Find real roots. c3 = 0 for a degenerate sample (a point at the origin): no solution
+    if (c3 == 0.0) {
+        return {};
+    }
     double inv_c3 = 1.0 / c3;
     double roots[3];
     int nroots = poselib::univariate::solve_cubic_real(c2 * inv_c3, c1 * inv_c3, c0 * inv_c3, roots);
@@ -71,12 +74,9 @@ std::vector<HomLib::PoseData> get_one_sided(
         if (!range.contains(k)) {   // no root in the range
             return output;
         }
-        std::vector<Eigen::Vector2d> y_undist;
-        for (int i = 0; i < 4; i++) {
-            Eigen::Vector2d tmp = y[i] / (1 + k * y[i].squaredNorm());
-            y_undist.push_back(tmp);
-        }
-        Eigen::Matrix3d H = HomLib::Wadenback3DV2026::homography_4pt_guo(x, y_undist);
+        Eigen::Matrix3d H;
+        if (!HomLib::Wadenback3DV2026::homography_4pt_guo_undistorted(x, 0.0, y, k, H))
+            return output;
         // Package
         HomLib::PoseData pd;
         pd.homography = H;
@@ -93,12 +93,8 @@ std::vector<HomLib::PoseData> get_one_sided(
                 continue;
             }
 
-            std::vector<Eigen::Vector2d> y_undist;
-            for (int i = 0; i < 4; i++) {
-	            Eigen::Vector2d tmp = y[i] / (1 + k * y[i].squaredNorm());
-	            y_undist.push_back(tmp);
-            }
-            H = HomLib::Wadenback3DV2026::homography_4pt_guo(x, y_undist);
+            if (!HomLib::Wadenback3DV2026::homography_4pt_guo_undistorted(x, 0.0, y, k, H))
+                continue;
             // Package
             pd.homography = H;
             pd.distortion_parameter2 = k;

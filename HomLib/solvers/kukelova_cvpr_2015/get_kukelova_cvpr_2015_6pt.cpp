@@ -76,6 +76,11 @@ std::vector<HomLib::PoseData> get_6pt(
     Eigen::Vector2d rs;
     std::vector<HomLib::PoseData> output;
 
+    // a = 0 only for a degenerate sample (e.g. all the points at the origin): no solution, on
+    // purpose, even if b != 0 (a linear root)
+    if (a == 0.0) {
+        return output;
+    }
     if (std::abs(d) < 100.0 * std::numeric_limits<double>::epsilon()) {
         nsols = 1;
         rs(0) = (-b) / (2.0 * a);
@@ -101,6 +106,9 @@ std::vector<HomLib::PoseData> get_6pt(
         // returns), but columns 3 and 4 of T scale with it: without a fixed scale, the
         // least-squares solution below (with noise) would depend on that basis.
         n.normalize();
+        if (n(2) == 0.0) {
+            continue;
+        }
         const double l2 = n(6) / n(2);
         if (!dist_equal && !range.contains(l2)) {   // l2 is distortion_parameter: checked before the SVD that gives l1
             continue;
@@ -116,6 +124,9 @@ std::vector<HomLib::PoseData> get_6pt(
         Eigen::JacobiSVD<Matrix65d> Svd2(T, Eigen::ComputeFullV);
         Eigen::Matrix<double, 5, 1> v2 = Svd2.matrixV().col(4);
 
+        if (v2(4) == 0.0) {
+            continue;
+        }
         v2.head(4) /= v2(4);
         const double l1 = v2(3);
         if (dist_equal ? !range.contains(0.5 * (l1 + l2)) : !range.contains(l1)) {   // l2 checked above
@@ -129,6 +140,9 @@ std::vector<HomLib::PoseData> get_6pt(
         // Package output
         HomLib::PoseData pd;
         pd.homography << n(0), n(1), n(2), n(3), n(4), n(5), v2(0), v2(1), v2(2); 
+        if (!pd.homography.allFinite() || !std::isfinite(l1) || !std::isfinite(l2)) {
+            continue;
+        }
         if (dist_equal) {
             pd.distortion_parameter = 0.5 * (l1 + l2);
             pd.distortion_parameter2 = pd.distortion_parameter;

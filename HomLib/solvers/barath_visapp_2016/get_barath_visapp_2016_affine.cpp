@@ -142,9 +142,12 @@ namespace BarathVISAPP2016 {
         H << h(0), h(1), h(2),
              h(3), h(4), h(5),
              h(6), h(7), h(8);
-        H /= H(2,2);
-
         std::vector<HomLib::PoseData> output;
+        if (H(2,2) != 0.0)   // otherwise the unit-norm h (H maps the origin to infinity)
+            H /= H(2,2);
+        if (!H.allFinite())
+            return output;
+
         HomLib::PoseData pd;
         pd.homography = H;
         pd.distortion_parameter = 0.0;
