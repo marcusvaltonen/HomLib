@@ -11,6 +11,9 @@
 #include "model.h"
 #include "model_score.h"
 #include "samplers/uniform_sampler.h"
+#include "samplers/prosac_sampler.h"
+#include "samplers/importance_sampler.h"
+#include "samplers/adaptive_reordering_sampler.h"
 
 #include "posedata.hpp"
 #include "gcransac_model_utils.h"
@@ -34,6 +37,7 @@ struct MAGSACSettings {
     int partition_number = 5;
     bool use_magsac_plus_plus = true;
     NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::SelectAndRefine;
+    GCSamplerType sampler = GCSamplerType::Uniform;
 };
 
 namespace detail {
@@ -42,10 +46,12 @@ template <class Estimator>
 std::pair<PoseData, MAGSACStatistics> run_magsac_pipeline(
     Estimator& estimator,
     const cv::Mat& data,
+    const std::vector<double>& probabilities,
     const MAGSACSettings& opts)
 {
     using MAGSACType = MAGSAC<cv::Mat, Estimator>;
     using Version = typename MAGSACType::Version;
+    using SamplerBase = gcransac::sampler::Sampler<cv::Mat, size_t>;
 
     MAGSACType magsac(opts.use_magsac_plus_plus
         ? Version::MAGSAC_PLUS_PLUS : Version::MAGSAC_ORIGINAL);
@@ -55,12 +61,35 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_pipeline(
     magsac.setPartitionNumber(opts.partition_number);
     magsac.setReferenceThreshold(opts.sigma_max / 2.0);
 
-    gcransac::sampler::UniformSampler sampler(&data);
+    const size_t sample_size = Estimator::sampleSize();
+    if ((opts.sampler == GCSamplerType::ImportanceSampler ||
+         opts.sampler == GCSamplerType::ARSampler) && probabilities.empty())
+        throw std::runtime_error(
+            "ImportanceSampler and ARSampler require probabilities.");
+    std::unique_ptr<SamplerBase> sampler;
+    switch (opts.sampler) {
+        case GCSamplerType::PROSAC:
+            sampler = std::make_unique<gcransac::sampler::ProsacSampler>(
+                &data, sample_size);
+            break;
+        case GCSamplerType::ImportanceSampler:
+            sampler = std::make_unique<gcransac::sampler::ImportanceSampler>(
+                &data, probabilities, sample_size);
+            break;
+        case GCSamplerType::ARSampler:
+            sampler = std::make_unique<gcransac::sampler::AdaptiveReorderingSampler>(
+                &data, probabilities, sample_size);
+            break;
+        default:
+            sampler = std::make_unique<gcransac::sampler::UniformSampler>(&data);
+            break;
+    }
+
     gcransac::Model model;
     int iterations = 0;
     ModelScore model_score;
 
-    magsac.run(data, opts.confidence, estimator, sampler,
+    magsac.run(data, opts.confidence, estimator, *sampler,
                model, iterations, model_score);
 
     MAGSACStatistics stats;
@@ -92,6 +121,7 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_point(
     const Solver& solver,
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
+    const std::vector<double>& probabilities,
     const MAGSACSettings& settings)
 {
     constexpr size_t SS = Solver::minimal_sample_size_value;
@@ -101,7 +131,7 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_point(
 
     auto data = detail::pack_point_cvmat(x, y);
     Est estimator(solver, settings.non_minimal_strategy);
-    auto result = detail::run_magsac_pipeline(estimator, data, settings);
+    auto result = detail::run_magsac_pipeline(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }
@@ -112,6 +142,7 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_affine(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Matrix2d>& A,
+    const std::vector<double>& probabilities,
     const MAGSACSettings& settings)
 {
     constexpr size_t SS = Solver::minimal_sample_size_value;
@@ -121,7 +152,7 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_affine(
 
     auto data = detail::pack_affine_cvmat(x, y, A);
     Est estimator(solver, settings.non_minimal_strategy);
-    auto result = detail::run_magsac_pipeline(estimator, data, settings);
+    auto result = detail::run_magsac_pipeline(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }
@@ -132,6 +163,7 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_orientation(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Vector2d>& ori,
+    const std::vector<double>& probabilities,
     const MAGSACSettings& settings)
 {
     constexpr size_t SS = Solver::minimal_sample_size_value;
@@ -141,7 +173,7 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_orientation(
 
     auto data = detail::pack_orientation_cvmat(x, y, ori);
     Est estimator(solver, settings.non_minimal_strategy);
-    auto result = detail::run_magsac_pipeline(estimator, data, settings);
+    auto result = detail::run_magsac_pipeline(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }

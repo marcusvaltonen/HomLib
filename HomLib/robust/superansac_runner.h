@@ -27,6 +27,7 @@
 #include "samplers/napsac_sampler.h"
 #include "samplers/progressive_napsac_sampler.h"
 #include "samplers/importance_sampler.h"
+#include "samplers/adaptive_reordering_sampler.h"
 #include "scoring/grid_scoring.h"
 #include "inlier_selectors/types.h"
 
@@ -186,6 +187,7 @@ template <size_t DimensionNumber>
 std::pair<PoseData, SuperansacStatistics> run_pipeline(
     superansac::estimator::Estimator* estimator,
     const DataMatrix& data,
+    const std::vector<double>& probabilities,
     const superansac::RANSACSettings& settings)
 {
     // Neighborhood graph (lazily initialized for GCRANSAC LO, NAPSAC samplers, GRID scoring)
@@ -209,7 +211,16 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
     if (settings.sampler == S::NAPSAC && neighborhoodGraph)
         dynamic_cast<superansac::samplers::NAPSACSampler*>(sampler.get())
             ->setNeighborhood(neighborhoodGraph.get());
-    sampler->initialize(data);
+    if (!probabilities.empty() && settings.sampler == S::ARSampler) {
+        dynamic_cast<superansac::samplers::AdaptiveReorderingSampler*>(sampler.get())
+            ->initialize(&data, probabilities);
+    } else if (!probabilities.empty() && settings.sampler == S::ImportanceSampler) {
+        dynamic_cast<superansac::samplers::ImportanceSampler*>(sampler.get())
+            ->setProbabilities(probabilities);
+        sampler->initialize(data);
+    } else {
+        sampler->initialize(data);
+    }
 
     // Scoring initialization
     scoring->setThreshold(settings.inlierThreshold);
@@ -277,11 +288,12 @@ std::pair<PoseData, SuperansacStatistics> run_superansac_point(
     const Solver& solver,
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
+    const std::vector<double>& probabilities,
     const superansac::RANSACSettings& settings)
 {
     auto data = detail::pack_point_data(x, y);
     SuperansacPointEstimator<Solver> estimator(solver);
-    auto result = detail::run_pipeline<4>(&estimator, data, settings);
+    auto result = detail::run_pipeline<4>(&estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }
@@ -292,11 +304,12 @@ std::pair<PoseData, SuperansacStatistics> run_superansac_affine(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Matrix2d>& A,
+    const std::vector<double>& probabilities,
     const superansac::RANSACSettings& settings)
 {
     auto data = detail::pack_affine_data(x, y, A);
     SuperansacAffineEstimator<Solver> estimator(solver);
-    auto result = detail::run_pipeline<8>(&estimator, data, settings);
+    auto result = detail::run_pipeline<8>(&estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }
@@ -307,11 +320,12 @@ std::pair<PoseData, SuperansacStatistics> run_superansac_orientation(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Vector2d>& ori,
+    const std::vector<double>& probabilities,
     const superansac::RANSACSettings& settings)
 {
     auto data = detail::pack_orientation_data(x, y, ori);
     SuperansacOrientationEstimator<Solver> estimator(solver);
-    auto result = detail::run_pipeline<6>(&estimator, data, settings);
+    auto result = detail::run_pipeline<6>(&estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }

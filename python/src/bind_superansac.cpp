@@ -9,6 +9,7 @@ static std::pair<HomLib::PoseData, HomLib::SuperansacStatistics> dispatch_supera
     const PySolver& solver,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const std::vector<double>& probabilities,
     const superansac::RANSACSettings& settings)
 {
     std::vector<Eigen::Vector2d> x, y;
@@ -17,7 +18,7 @@ static std::pair<HomLib::PoseData, HomLib::SuperansacStatistics> dispatch_supera
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_superansac_point(s, x, y, settings);
+        return HomLib::run_superansac_point(s, x, y, probabilities, settings);
     });
 }
 
@@ -26,6 +27,7 @@ static std::pair<HomLib::PoseData, HomLib::SuperansacStatistics> dispatch_supera
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const Eigen::Matrix<double, 4, Eigen::Dynamic>& A_,
+    const std::vector<double>& probabilities,
     const superansac::RANSACSettings& settings)
 {
     std::vector<Eigen::Vector2d> x, y;
@@ -35,7 +37,7 @@ static std::pair<HomLib::PoseData, HomLib::SuperansacStatistics> dispatch_supera
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_superansac_affine(s, x, y, A, settings);
+        return HomLib::run_superansac_affine(s, x, y, A, probabilities, settings);
     });
 }
 
@@ -44,6 +46,7 @@ static std::pair<HomLib::PoseData, HomLib::SuperansacStatistics> dispatch_supera
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& ori_,
+    const std::vector<double>& probabilities,
     const superansac::RANSACSettings& settings)
 {
     std::vector<Eigen::Vector2d> x, y, ori;
@@ -52,7 +55,7 @@ static std::pair<HomLib::PoseData, HomLib::SuperansacStatistics> dispatch_supera
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_superansac_orientation(s, x, y, ori, settings);
+        return HomLib::run_superansac_orientation(s, x, y, ori, probabilities, settings);
     });
 }
 
@@ -79,33 +82,68 @@ void bind_superansac(py::module_& m) {
                     ")";
             });
 
+    // --- SupeRANSAC sub-settings structs ---
+    py::class_<superansac::ARSamplerSettings>(m, "SuperansacARSamplerSettings")
+        .def(py::init<>())
+        .def_readwrite("estimator_variance", &superansac::ARSamplerSettings::estimatorVariance)
+        .def_readwrite("randomness", &superansac::ARSamplerSettings::randomness);
+
+    py::class_<superansac::LocalOptimizationSettings>(m, "SuperansacLOSettings")
+        .def(py::init<>())
+        .def_readwrite("max_iterations", &superansac::LocalOptimizationSettings::maxIterations)
+        .def_readwrite("graph_cut_number", &superansac::LocalOptimizationSettings::graphCutNumber)
+        .def_readwrite("sample_size_multiplier", &superansac::LocalOptimizationSettings::sampleSizeMultiplier)
+        .def_readwrite("spatial_coherence_weight", &superansac::LocalOptimizationSettings::spatialCoherenceWeight);
+
+    py::class_<superansac::DegensacSettings>(m, "SuperansacDegensacSettings")
+        .def(py::init<>())
+        .def_readwrite("enabled", &superansac::DegensacSettings::enabled)
+        .def_readwrite("homography_threshold", &superansac::DegensacSettings::homographyThreshold)
+        .def_readwrite("inner_ransac_iterations", &superansac::DegensacSettings::innerRansacIterations);
+
+    py::class_<superansac::NeighborhoodSettings>(m, "SuperansacNeighborhoodSettings")
+        .def(py::init<>())
+        .def_readwrite("neighborhood_size", &superansac::NeighborhoodSettings::neighborhoodSize)
+        .def_readwrite("neighborhood_grid_density", &superansac::NeighborhoodSettings::neighborhoodGridDensity)
+        .def_readwrite("nearest_neighbor_number", &superansac::NeighborhoodSettings::nearestNeighborNumber);
+
+    // --- SupeRANSAC main settings ---
     py::class_<superansac::RANSACSettings>(m, "SuperansacSettings",
         "Settings for SupeRANSAC estimation.")
         .def(py::init<>())
-        .def_readwrite("inlier_threshold", &superansac::RANSACSettings::inlierThreshold,
-            "Inlier threshold.")
-        .def_readwrite("confidence", &superansac::RANSACSettings::confidence,
-            "Desired confidence level.")
-        .def_readwrite("min_iterations", &superansac::RANSACSettings::minIterations,
-            "Minimum number of iterations.")
-        .def_readwrite("max_iterations", &superansac::RANSACSettings::maxIterations,
-            "Maximum number of iterations.")
-        .def_readwrite("top_k", &superansac::RANSACSettings::topKForLocalOptimization,
-            "Number of top models for local optimization.")
-        .def_readwrite("use_sprt", &superansac::RANSACSettings::useSprt,
-            "Whether to use SPRT test.")
-        .def_readwrite("sampler", &superansac::RANSACSettings::sampler,
-            "Sampler type (default: PROSAC). Use SuperansacSamplerType enum.")
-        .def_readwrite("scoring", &superansac::RANSACSettings::scoring,
-            "Scoring type (default: MAGSAC). Use SuperansacScoringType enum.")
-        .def_readwrite("local_optimization", &superansac::RANSACSettings::localOptimization,
-            "Local optimization type. Use SuperansacLocalOptType enum.")
-        .def_readwrite("final_optimization", &superansac::RANSACSettings::finalOptimization,
-            "Final optimization type. Use SuperansacLocalOptType enum.")
-        .def_readwrite("neighborhood", &superansac::RANSACSettings::neighborhood,
-            "Neighborhood type (Grid, FLANN_KNN, FLANN_Radius). Use SuperansacNeighborhoodType enum.")
-        .def_readwrite("neighborhood_settings", &superansac::RANSACSettings::neighborhoodSettings,
-            "Neighborhood settings (grid density, size, etc.).")
+        .def_readwrite("inlier_threshold", &superansac::RANSACSettings::inlierThreshold)
+        .def_readwrite("confidence", &superansac::RANSACSettings::confidence)
+        .def_readwrite("min_iterations", &superansac::RANSACSettings::minIterations)
+        .def_readwrite("max_iterations", &superansac::RANSACSettings::maxIterations)
+        .def_readwrite("top_k", &superansac::RANSACSettings::topKForLocalOptimization)
+        .def_readwrite("use_sprt", &superansac::RANSACSettings::useSprt)
+        .def_readwrite("sampler", &superansac::RANSACSettings::sampler)
+        .def_readwrite("scoring", &superansac::RANSACSettings::scoring)
+        .def_readwrite("local_optimization", &superansac::RANSACSettings::localOptimization)
+        .def_readwrite("final_optimization", &superansac::RANSACSettings::finalOptimization)
+        .def_readwrite("neighborhood", &superansac::RANSACSettings::neighborhood)
+        .def_readwrite("termination_criterion", &superansac::RANSACSettings::terminationCriterion)
+        .def_readwrite("inlier_selector", &superansac::RANSACSettings::inlierSelector)
+        // Bool flags
+        .def_readwrite("local_optimization_inside_loop", &superansac::RANSACSettings::localOptimizationInsideTheLoop)
+        .def_readwrite("fundamental_orientation_check", &superansac::RANSACSettings::fundamentalOrientationCheck)
+        .def_readwrite("fundamental_symmetric_validation", &superansac::RANSACSettings::fundamentalSymmetricValidation)
+        .def_readwrite("final_polish_top_k", &superansac::RANSACSettings::finalPolishTopK)
+        .def_readwrite("final_refinement_weighted", &superansac::RANSACSettings::finalRefinementWeighted)
+        .def_readwrite("homography_bundle_refinement", &superansac::RANSACSettings::homographyBundleRefinement)
+        // Scalar settings
+        .def_readwrite("final_refinement_rounds", &superansac::RANSACSettings::finalRefinementRounds)
+        .def_readwrite("final_refinement_schedule_start", &superansac::RANSACSettings::finalRefinementScheduleStart)
+        .def_readwrite("final_refinement_schedule_end", &superansac::RANSACSettings::finalRefinementScheduleEnd)
+        .def_readwrite("final_refinement_schedule", &superansac::RANSACSettings::finalRefinementSchedule)
+        .def_readwrite("essential_cheirality_point_number", &superansac::RANSACSettings::essentialCheiralityPointNumber)
+        .def_readwrite("homography_bundle_max_iterations", &superansac::RANSACSettings::homographyBundleMaxIterations)
+        // Sub-settings structs
+        .def_readwrite("ar_sampler_settings", &superansac::RANSACSettings::arSamplerSettings)
+        .def_readwrite("lo_settings", &superansac::RANSACSettings::localOptimizationSettings)
+        .def_readwrite("final_opt_settings", &superansac::RANSACSettings::finalOptimizationSettings)
+        .def_readwrite("neighborhood_settings", &superansac::RANSACSettings::neighborhoodSettings)
+        .def_readwrite("degensac_settings", &superansac::RANSACSettings::degensacSettings)
         .def("__repr__",
             [](const superansac::RANSACSettings& s) {
                 return "SuperansacSettings("
@@ -116,6 +154,7 @@ void bind_superansac(py::module_& m) {
                     ")";
             });
 
+    // --- SupeRANSAC enums ---
     py::enum_<superansac::scoring::ScoringType>(m, "SuperansacScoringType")
         .value("RANSAC", superansac::scoring::ScoringType::RANSAC)
         .value("MSAC", superansac::scoring::ScoringType::MSAC)
@@ -134,16 +173,6 @@ void bind_superansac(py::module_& m) {
         .value("ImportanceSampler", superansac::samplers::SamplerType::ImportanceSampler)
         .value("ARSampler", superansac::samplers::SamplerType::ARSampler);
 
-    py::class_<superansac::NeighborhoodSettings>(m, "SuperansacNeighborhoodSettings",
-        "Settings for the spatial neighborhood graph.")
-        .def(py::init<>())
-        .def_readwrite("neighborhood_size", &superansac::NeighborhoodSettings::neighborhoodSize,
-            "Neighborhood size (radius for FLANN, ignored for Grid).")
-        .def_readwrite("neighborhood_grid_density", &superansac::NeighborhoodSettings::neighborhoodGridDensity,
-            "Number of cells along each axis for Grid neighborhood.")
-        .def_readwrite("nearest_neighbor_number", &superansac::NeighborhoodSettings::nearestNeighborNumber,
-            "Number of nearest neighbors for FLANN_KNN.");
-
     py::enum_<superansac::neighborhood::NeighborhoodType>(m, "SuperansacNeighborhoodType")
         .value("Grid", superansac::neighborhood::NeighborhoodType::Grid)
         .value("FLANN_KNN", superansac::neighborhood::NeighborhoodType::FLANN_KNN)
@@ -158,15 +187,22 @@ void bind_superansac(py::module_& m) {
         .value("IteratedLMEDS", superansac::local_optimization::LocalOptimizationType::IteratedLMEDS)
         .value("CrossValidation", superansac::local_optimization::LocalOptimizationType::CrossValidation);
 
+    py::enum_<superansac::termination::TerminationType>(m, "SuperansacTerminationType")
+        .value("RANSAC", superansac::termination::TerminationType::RANSAC);
+
+    py::enum_<superansac::inlier_selector::InlierSelectorType>(m, "SuperansacInlierSelectorType")
+        .value("None_", superansac::inlier_selector::InlierSelectorType::None)
+        .value("SpacePartitioningRANSAC", superansac::inlier_selector::InlierSelectorType::SpacePartitioningRANSAC);
+
     m.def("dispatch_superansac_point", &dispatch_superansac_point,
         "Run a point-based solver within the SupeRANSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
 
     m.def("dispatch_superansac_affine", &dispatch_superansac_affine,
         "Run an affine-covariant solver within the SupeRANSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "A"_a, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "A"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
 
     m.def("dispatch_superansac_orientation", &dispatch_superansac_orientation,
         "Run an orientation-covariant solver within the SupeRANSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "ori"_a, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "ori"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
 }
