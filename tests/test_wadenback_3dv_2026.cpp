@@ -27,6 +27,13 @@
 #include "posedata.hpp"
 #include "wadenback_common.hpp"
 
+// Whether two homographies are the same up to scale (the solvers choose the 4 points they compute
+// H from, which changes its scale)
+static bool same_homography(const Eigen::Matrix3d &H, const Eigen::Matrix3d &expected, double tol) {
+    const Eigen::Matrix3d a = H / H.norm(), b = expected / expected.norm();
+    return a.isApprox(b, tol) || a.isApprox(-b, tol);
+}
+
 
 TEST_CASE("Wadenback 3DV 2026 - one-sided") {
     std::vector<Eigen::Vector2d> p1 = {
@@ -49,35 +56,22 @@ TEST_CASE("Wadenback 3DV 2026 - one-sided") {
 
     double tol = 1e-12;
 
-    // Test size
-    REQUIRE(posedata.size() == 3);
+    // Test size: the cubic has 3 real roots, but k = 5.11091 and k = 2.73767 are false roots: the
+    // homography from 4 of the points misses the fifth, and puts some points behind a camera (see
+    // general_position.hpp). Only the true root is left.
+    REQUIRE(posedata.size() == 1);
 
     // Test distortion parameters
     REQUIRE(posedata[0].distortion_parameter == Catch::Approx(0.0).margin(tol));
-    REQUIRE(posedata[0].distortion_parameter2 == Catch::Approx(5.11091).margin(tol));
-    REQUIRE(posedata[1].distortion_parameter == Catch::Approx(0.0).margin(tol));
-    REQUIRE(posedata[1].distortion_parameter2 == Catch::Approx(2.73767).margin(tol));
-    REQUIRE(posedata[2].distortion_parameter == Catch::Approx(0.0).margin(tol));
-    REQUIRE(posedata[2].distortion_parameter2 == Catch::Approx(-0.3).margin(tol));
+    REQUIRE(posedata[0].distortion_parameter2 == Catch::Approx(-0.3).margin(tol));
 
     // Test homographies
     tol = 1e-7;
     Eigen::Matrix3d expected;
-
-    expected <<  3.24632054513494e-05, -4.95598175719004e-05, -1.87243913120627e-05,
-                -8.71803482662030e-07, -3.24711594819769e-06, -2.28713196044006e-07,
-                -0.000146151989535363,  0.000231387475606354,  8.59648988309500e-05;
-    REQUIRE(posedata[0].homography.isApprox(expected, tol));
-    
-    expected <<  7.88700481939429e-05, -0.000115003527994859, -5.31700374887011e-05,
-                 6.35935433111556e-06, -6.84986213748709e-06, -3.56922455715305e-06,
-                -0.000263190991107698,  0.000381884387848442,  0.000176871066503982;
-    REQUIRE(posedata[1].homography.isApprox(expected, tol));
-    
     expected <<  0.000227753625098076, -7.00643123791218e-05, -0.000525931983848800,
                  0.000429490139445578,  3.06112333501461e-05, -0.000156454396552730,
                  0.000133561563704977, -0.000486333541936380,  0.000545809522795618;
-    REQUIRE(posedata[2].homography.isApprox(expected, tol));
+    REQUIRE(same_homography(posedata[0].homography, expected, tol));
 
 }
 
@@ -117,7 +111,7 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided equal") {
     expected << -5.37070541971519e-06,  5.58776046545164e-06, -8.62056987828971e-07,
 		-5.32137209241095e-06, -4.87624482275744e-06,  3.51720726336518e-06,
 		 1.80217660206107e-06,  2.74275008576624e-06,  7.02453977468668e-06;
-    REQUIRE(posedata[0].homography.isApprox(expected, tol));
+    REQUIRE(same_homography(posedata[0].homography, expected, tol));
 
 }
 
@@ -265,7 +259,7 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided") {
     expected << -5.37070541971519e-06,  5.58776046545164e-06, -8.62056987828971e-07,
 		-5.32137209241095e-06, -4.87624482275744e-06,  3.51720726336518e-06,
 		 1.80217660206107e-06,  2.74275008576624e-06,  7.02453977468668e-06;
-    REQUIRE(posedata[i].homography.isApprox(expected, tol));
+    REQUIRE(same_homography(posedata[i].homography, expected, tol));
 
 }
 
@@ -354,7 +348,7 @@ TEST_CASE("Wadenback 3DV 2026 - two-sided keeps true solutions with small residu
     for (const HomLib::PoseData &pd : posedata) {
         Eigen::Matrix3d H = pd.homography / pd.homography(2, 2) * expected(2, 2);
         if (std::abs(pd.distortion_parameter + 0.16512790385947976) < 1e-9 &&
-            std::abs(pd.distortion_parameter2 + 0.16057618398228576) < 1e-9 && H.isApprox(expected, 1e-7))
+            std::abs(pd.distortion_parameter2 + 0.16057618398228576) < 1e-9 && same_homography(H, expected, 1e-7))
             found = true;
     }
     REQUIRE(found);

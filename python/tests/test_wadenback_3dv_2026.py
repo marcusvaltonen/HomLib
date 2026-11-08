@@ -3,6 +3,8 @@ import unittest
 import numpy as np
 import homlib
 
+from tests.helpers import normalize_H
+
 
 class Wadenback3DV2026OneSidedTestCase(unittest.TestCase):
     def setUp(self):
@@ -19,17 +21,15 @@ class Wadenback3DV2026OneSidedTestCase(unittest.TestCase):
         self.solver = homlib.Wadenback3DV2026OneSided(extra_check=False)
 
     def test_one_sided_length(self):
+        # The cubic has 3 real roots, but k = 5.11091 and k = 2.73767 are false roots: their
+        # homography puts some points behind a camera, so the solver drops them
         sols = self.solver.estimate(self.p1, self.p2)
-        self.assertEqual(len(sols), 3)
+        self.assertEqual(len(sols), 1)
 
     def test_one_sided_distortion(self):
         sols = self.solver.estimate(self.p1, self.p2)
         self.assertAlmostEqual(sols[0].distortion_parameter, 0.0, 12)
-        self.assertAlmostEqual(sols[0].distortion_parameter2, 5.11091, 4)
-        self.assertAlmostEqual(sols[1].distortion_parameter, 0.0, 12)
-        self.assertAlmostEqual(sols[1].distortion_parameter2, 2.73767, 4)
-        self.assertAlmostEqual(sols[2].distortion_parameter, 0.0, 12)
-        self.assertAlmostEqual(sols[2].distortion_parameter2, -0.3, 12)
+        self.assertAlmostEqual(sols[0].distortion_parameter2, -0.3, 12)
 
     def test_one_sided_homography(self):
         sols = self.solver.estimate(self.p1, self.p2)
@@ -38,7 +38,7 @@ class Wadenback3DV2026OneSidedTestCase(unittest.TestCase):
             [0.000429490139445578,  3.06112333501461e-05, -0.000156454396552730],
             [0.000133561563704977, -0.000486333541936380,  0.000545809522795618]
         ])
-        np.testing.assert_allclose(sols[2].homography, expected_2, atol=1e-7)
+        np.testing.assert_allclose(normalize_H(sols[0].homography), normalize_H(expected_2), atol=1e-7)
 
     def test_one_sided_dimensions(self):
         p1 = np.random.randn(2, 5)
@@ -83,7 +83,7 @@ class Wadenback3DV2026TwoSidedEqualTestCase(unittest.TestCase):
             [-5.32137209241095e-06, -4.87624482275744e-06,  3.51720726336518e-06],
             [1.80217660206107e-06,  2.74275008576624e-06,  7.02453977468668e-06]
         ])
-        np.testing.assert_allclose(sols[0].homography, expected, atol=1e-7)
+        np.testing.assert_allclose(normalize_H(sols[0].homography), normalize_H(expected), atol=1e-7)
 
 
 class Wadenback3DV2026TwoSidedTestCase(unittest.TestCase):
@@ -113,12 +113,13 @@ class Wadenback3DV2026TwoSidedTestCase(unittest.TestCase):
         self.assertAlmostEqual(sols[0].distortion_parameter2, -0.3, 12)
 
     def test_two_sided_k_range(self):
-        # The range is in the normalized coordinates (the points divided by mean(|x|)/sqrt(2));
-        # [-1, 0.1] keeps only the true solution, and without a range estimate() returns the
-        # solver's other real roots too
+        # The range is in the normalized coordinates (the points divided by mean(|x|)/sqrt(2)).
+        # The solver's other real roots, (k1, k2) = (-21.2, 4.5) and (-1.0, 12.9), are false roots
+        # that it drops (see general_position.hpp), so the true solution is left with or without
+        # a range
         self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 1)
         self.solver.reset_k_range()   # estimate(): no range by default
-        self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 3)
+        self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 1)
         f02 = (np.mean(np.linalg.norm(self.p1, axis=0)) / np.sqrt(2)) ** 2
         self.solver.set_k_range(-0.5 * f02, -0.2 * f02)   # the true k, -0.3, is -0.3 f02 there
         sols = self.solver.estimate(self.p1, self.p2)
@@ -127,7 +128,7 @@ class Wadenback3DV2026TwoSidedTestCase(unittest.TestCase):
         self.solver.set_k_range(k_min=0.0)
         self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 0)
         self.solver.set_k_range()   # no bounds: no check
-        self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 3)
+        self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 1)
         self.solver.set_k_range(float('inf'), float('inf'))   # an empty range, not "no bounds"
         self.assertEqual(len(self.solver.estimate(self.p1, self.p2)), 0)
 
@@ -138,4 +139,4 @@ class Wadenback3DV2026TwoSidedTestCase(unittest.TestCase):
             [-5.32137209241095e-06, -4.87624482275744e-06,  3.51720726336518e-06],
             [1.80217660206107e-06,  2.74275008576624e-06,  7.02453977468668e-06]
         ])
-        np.testing.assert_allclose(sols[0].homography, expected, atol=1e-7)
+        np.testing.assert_allclose(normalize_H(sols[0].homography), normalize_H(expected), atol=1e-7)

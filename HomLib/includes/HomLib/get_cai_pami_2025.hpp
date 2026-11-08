@@ -34,6 +34,9 @@ namespace CaiPAMI2025 {
 
 // 4-point homography using the ACA (Affine-Core-Affine) decomposition.
 // No distortion estimation; returns 0 or 1 solution.
+// CheckSample = false skips the check of the sample (is_valid_sample): faster, but an invalid
+// sample can then give a wrong homography.
+template <bool CheckSample = true>
 std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y
