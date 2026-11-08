@@ -48,6 +48,11 @@ constexpr double kCollinearTolerance = 1e-10;
 // determine a homography with every point in front of both cameras. That is, no three of the points
 // are collinear in either image (the points are in general position), and the four triangles all
 // keep their orientation or all flip it. False for NaN points.
+//
+// Why the orientations: if H maps x_i to y_i, the area of each triangle (i, j, k) is multiplied by
+// det(H) / (w_i w_j w_k), where w_i is the third coordinate of H x_i. So the four triangles all
+// keep or all flip their orientation exactly when the four w_i have the same sign: the points are
+// on the same side of the vanishing line of H, as the points of a plane seen by two cameras are.
 inline bool is_valid_sample(const Eigen::Vector2d *x, const Eigen::Vector2d *y) {
     const double ax[4] = {signed_area(x[0], x[1], x[2]), signed_area(x[0], x[1], x[3]),
                           signed_area(x[0], x[2], x[3]), signed_area(x[1], x[2], x[3])};
