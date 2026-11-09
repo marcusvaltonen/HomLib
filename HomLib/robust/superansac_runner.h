@@ -181,29 +181,25 @@ void initialize_local_optimizer(
     }
 }
 
-// Initializes the sampler on the data (the probabilities, if any, for the adaptive reordering
-// and importance samplers). SupeRANSAC's UniformRandomSampler::initialize(data) draws indices
-// in [0, rows], one past the last point (danini/superansac#10); its initialize(size_t) takes the
-// largest index, as SupeRANSAC's local optimizers call it, so it gets rows - 1.
-inline void initialize_sampler(
-    superansac::samplers::AbstractSampler& sampler,
-    superansac::samplers::SamplerType type,
-    const DataMatrix& data,
-    const std::vector<double>& probabilities)
-{
-    using S = superansac::samplers::SamplerType;
-    if (!probabilities.empty() && type == S::ARSampler) {
-        dynamic_cast<superansac::samplers::AdaptiveReorderingSampler&>(sampler)
-            .initialize(&data, probabilities);
-    } else if (!probabilities.empty() && type == S::ImportanceSampler) {
-        dynamic_cast<superansac::samplers::ImportanceSampler&>(sampler)
-            .setProbabilities(probabilities);
-        sampler.initialize(data);
-    } else if (type == S::Uniform && data.rows() > 0) {
-        sampler.initialize(static_cast<size_t>(data.rows()) - 1);
-    } else {
-        sampler.initialize(data);
+// SupeRANSAC's UniformRandomSampler, initialized on the data, draws indices in [0, rows], one past
+// the last point (danini/superansac#10): this one draws them in [0, rows - 1]. It sets the range
+// itself, so it stays right whichever fix SupeRANSAC adopts (#9 also changes initialize(size_t),
+// which its local optimizers call with the largest index).
+class UniformSampler : public superansac::samplers::UniformRandomSampler {
+public:
+    void initialize(const DataMatrix& data) override {
+        randomGenerator = std::make_unique<superansac::utils::UniformRandomGenerator<size_t>>();
+        randomGenerator->resetGenerator(0, data.rows() > 0 ? static_cast<size_t>(data.rows()) - 1 : 0);
     }
+};
+
+// The sampler of the given type, with HomLib's uniform sampler instead of SupeRANSAC's
+template <size_t DimensionNumber>
+std::unique_ptr<superansac::samplers::AbstractSampler> create_sampler(superansac::samplers::SamplerType type)
+{
+    if (type == superansac::samplers::SamplerType::Uniform)
+        return std::make_unique<UniformSampler>();
+    return superansac::samplers::createSampler<DimensionNumber>(type);
 }
 
 // Assemble and run the SupeRANSAC pipeline with a given estimator and data.
@@ -224,7 +220,7 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
     if (useNeighborhood)
         initialize_neighborhood<DimensionNumber>(data, neighborhoodGraph, settings);
 
-    auto sampler = superansac::samplers::createSampler<DimensionNumber>(settings.sampler);
+    auto sampler = create_sampler<DimensionNumber>(settings.sampler);
     auto scoring = superansac::scoring::createScoring<DimensionNumber>(settings.scoring, settings.useSprt);
     auto termination = superansac::termination::createTerminationCriterion(settings.terminationCriterion);
 
@@ -236,7 +232,16 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
     if (settings.sampler == S::NAPSAC && neighborhoodGraph)
         dynamic_cast<superansac::samplers::NAPSACSampler*>(sampler.get())
             ->setNeighborhood(neighborhoodGraph.get());
-    initialize_sampler(*sampler, settings.sampler, data, probabilities);
+    if (!probabilities.empty() && settings.sampler == S::ARSampler) {
+        dynamic_cast<superansac::samplers::AdaptiveReorderingSampler*>(sampler.get())
+            ->initialize(&data, probabilities);
+    } else if (!probabilities.empty() && settings.sampler == S::ImportanceSampler) {
+        dynamic_cast<superansac::samplers::ImportanceSampler*>(sampler.get())
+            ->setProbabilities(probabilities);
+        sampler->initialize(data);
+    } else {
+        sampler->initialize(data);
+    }
 
     // Scoring initialization
     scoring->setThreshold(settings.inlierThreshold);
