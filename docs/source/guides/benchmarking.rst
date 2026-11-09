@@ -324,6 +324,13 @@ with the experiments of Wadenbäck et al. [Wadenback2026]_:
    The median time of a call to the solver, in microseconds, measured from
    Python: it includes the overhead of the bindings.
 
+The 4-point solvers (``CaiPAMI2025``, ``DLT``, ``GuoPRL2019``) first check that
+their sample is valid: no three points collinear, and every point in front of
+both cameras (``is_valid_sample``). The check takes a few nanoseconds. In C++,
+code that checks its samples itself can skip it with ``get<false>(x, y)``, for
+example ``HomLib::GuoPRL2019::get<false>(x, y)``. The robust estimators and the
+Python bindings always check.
+
 Each solver gets minimal samples: 4 points for the solvers without distortion,
 5 or 6 for the others. By default, the benchmark solves 2000 problems per
 solver, case and noise level:
