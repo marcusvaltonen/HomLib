@@ -20,10 +20,12 @@ and translation mAAs.
 
 The protocol has two steps:
 - ``tune``: on the training split, with exactly 1000 iterations, a grid search of the inlier
-  threshold and of the SNN threshold of each solver (jointly), for the best main metric; writes
-  them to a settings file;
+  threshold and of the SNN threshold of each solver (jointly; an SNN threshold of 1 keeps every
+  match), for the best main metric; writes them to a settings file. Its scores aren't results:
+  the benchmark's results are those of ``test``;
 - ``test``: on the test split, with these settings, each solver run for exactly N iterations for
-  each N of ``--iterations`` (the paper varies N from 10 to 10000: a time-accuracy curve).
+  each N of ``--iterations`` (by default 10, 100, 1000 and 10000, the range of the paper: a
+  time-accuracy curve).
 Without ``--settings``, ``test`` uses a 4 px threshold and an SNN threshold of 0.8 for every solver.
 
 The points are centred on each image's centre, HomLib's distortion centre; the distortion
@@ -77,7 +79,7 @@ REPROJECTION_THRESHOLDS = np.logspace(0, np.log2(20), 10, base=2.0)   # px
 FAILED = 1e10   # the errors of a run without a model
 # The grid of the tuning
 TUNE_THRESHOLDS = [1, 2, 3, 4, 6, 8, 12]   # px
-TUNE_SNN = [0.7, 0.8, 0.85, 0.9]
+TUNE_SNN = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]   # 1.0: no prefiltering (the paper's best: 0.6 for most methods)
 DEFAULT_SETTINGS = dict(threshold=4.0, snn=0.8)
 
 
@@ -130,7 +132,7 @@ def run_pair(job):
     out = {}
     for key in configs:
         name, threshold, snn, iterations = key.split("|")
-        keep = corr[:, 8] < float(snn)
+        keep = corr[:, 8] < float(snn) if float(snn) < 1 else np.ones(len(corr), bool)
         x = np.ascontiguousarray((corr[keep, 0:2] - c1).T)
         y = np.ascontiguousarray((corr[keep, 2:4] - c2).T)
         solver = homlib.Solver(homlib.solver_ids(names=[name])[0])
@@ -299,8 +301,9 @@ def main():
     test_p.add_argument("--max_pairs", type=int, default=1000,
                         help="Pairs per scene, chosen at random (seeded), 0 for all (default: 1000)")
     test_p.add_argument("--settings", default=None, help="The settings file written by tune")
-    test_p.add_argument("--iterations", type=int, nargs="+", default=[100, 1000],
-                        help="Run each solver for exactly this many iterations, for each value (default: 100 1000)")
+    test_p.add_argument("--iterations", type=int, nargs="+", default=[10, 100, 1000, 10000],
+                        help="Run each solver for exactly this many iterations, for each value (default: 10 100 1000 "
+                             "10000)")
     test_p.add_argument("--per_scene", action="store_true", help="Also print the main mAA of each scene")
     test_p.add_argument("--output", default=None, help="Save the settings and the results to this JSON file")
     cmp_p = sub.add_parser("compare")
