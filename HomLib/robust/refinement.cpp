@@ -13,10 +13,12 @@ namespace {
 // refinements below share: fill(H, J, res) computes the residuals and their Jacobian (in the
 // order h11, h21, h31, h12, h22, h32, h13, h23, then the distortion parameters) at H and p's
 // distortion parameters, and update_dist(dx) adds the steps of the distortion parameters to p.
-template <class Fill, class UpdateDist>
-void refine(size_t n_pts, int n_params, HomLib::PoseData &p, const Fill &fill, const UpdateDist &update_dist) {
+// N, the number of parameters (8 to 10), is a template parameter: JᵀJ, the gradient and the step
+// are fixed-size, which lets Eigen unroll and vectorize them.
+template <int N, class Fill, class UpdateDist>
+void refine(size_t n_pts, HomLib::PoseData &p, const Fill &fill, const UpdateDist &update_dist) {
     double lm_damp = INITIAL_LM_DAMP;
-    Eigen::MatrixXd J = Eigen::MatrixXd::Zero(2 * n_pts, n_params);
+    Eigen::Matrix<double, Eigen::Dynamic, N> J = Eigen::Matrix<double, Eigen::Dynamic, N>::Zero(2 * n_pts, N);
     Eigen::VectorXd res = Eigen::VectorXd::Zero(2 * n_pts);
     for (int iter = 0; iter < MAX_ITER; iter++) {
         Eigen::Matrix3d H = p.homography;
@@ -24,12 +26,12 @@ void refine(size_t n_pts, int n_params, HomLib::PoseData &p, const Fill &fill, c
         fill(H, J, res);
         if (res.norm() < TOL_CONVERGENCE)
             break;
-        Eigen::MatrixXd Hess = J.transpose() * J;
+        Eigen::Matrix<double, N, N> Hess = J.transpose() * J;
         Hess.diagonal().array() += lm_damp;   // LM dampening
-        const Eigen::VectorXd g = -J.transpose() * res;
+        const Eigen::Matrix<double, N, 1> g = -J.transpose() * res;
         if (g.cwiseAbs().maxCoeff() < TOL_CONVERGENCE)
             break;
-        const Eigen::VectorXd dx = Hess.ldlt().solve(g);
+        const Eigen::Matrix<double, N, 1> dx = Hess.ldlt().solve(g);
         if (!dx.allFinite())   // a degenerate model or sample: keep the last finite model
             break;
         Eigen::Map<Eigen::Matrix<double, 8, 1>>(H.data()) += dx.head(8);
@@ -49,7 +51,7 @@ void refinement_no_dist(
     const std::vector<Eigen::Vector2d> &x2,
     HomLib::PoseData &p
 ) {
-    refine(x1.size(), 8, p, [&](const Eigen::Matrix3d &H, Eigen::MatrixXd &J, Eigen::VectorXd &res) {
+    refine<8>(x1.size(), p, [&](const Eigen::Matrix3d &H, auto &J, Eigen::VectorXd &res) {
         const double H0_0 = H(0, 0), H0_1 = H(0, 1), H0_2 = H(0, 2);
         const double H1_0 = H(1, 0), H1_1 = H(1, 1), H1_2 = H(1, 2);
         const double H2_0 = H(2, 0), H2_1 = H(2, 1), H2_2 = H(2, 2);
@@ -93,7 +95,7 @@ void refinement_no_dist(
 
         }
 
-    }, [](const Eigen::VectorXd &) {});
+    }, [](const auto &) {});
 }
 // Non-linear refinement of transfer error |x2(k) - pi(H*x1)|^2, parameterized by fixing H(2,2) = 1
 void refinement_onesided(
@@ -101,7 +103,7 @@ void refinement_onesided(
     const std::vector<Eigen::Vector2d> &x2,
     HomLib::PoseData &p
 ) {
-    refine(x1.size(), 9, p, [&](const Eigen::Matrix3d &H, Eigen::MatrixXd &J, Eigen::VectorXd &res) {
+    refine<9>(x1.size(), p, [&](const Eigen::Matrix3d &H, auto &J, Eigen::VectorXd &res) {
         const double k = p.distortion_parameter2;
 
         const double H0_0 = H(0, 0), H0_1 = H(0, 1), H0_2 = H(0, 2);
@@ -151,7 +153,7 @@ void refinement_onesided(
 
         }
 
-    }, [&p](const Eigen::VectorXd &dx) {
+    }, [&p](const auto &dx) {
         p.distortion_parameter2 += dx(8);
     });
 }
@@ -162,7 +164,7 @@ void refinement_onesided_right(
     const std::vector<Eigen::Vector2d> &x2,
     HomLib::PoseData &p
 ) {
-    refine(x1.size(), 9, p, [&](const Eigen::Matrix3d &H, Eigen::MatrixXd &J, Eigen::VectorXd &res) {
+    refine<9>(x1.size(), p, [&](const Eigen::Matrix3d &H, auto &J, Eigen::VectorXd &res) {
         const double k = p.distortion_parameter;
 
         const double H0_0 = H(0, 0), H0_1 = H(0, 1), H0_2 = H(0, 2);
@@ -212,7 +214,7 @@ void refinement_onesided_right(
             J(2 * i + 1, 8) = H1_2 * r12 * inv_Hx1_2 - z1 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff. k
         }
 
-    }, [&p](const Eigen::VectorXd &dx) {
+    }, [&p](const auto &dx) {
         p.distortion_parameter += dx(8);
     });
 }
@@ -222,7 +224,7 @@ void refinement_twosided_equal(
     const std::vector<Eigen::Vector2d> &x2,
     HomLib::PoseData &p
 ) {
-    refine(x1.size(), 9, p, [&](const Eigen::Matrix3d &H, Eigen::MatrixXd &J, Eigen::VectorXd &res) {
+    refine<9>(x1.size(), p, [&](const Eigen::Matrix3d &H, auto &J, Eigen::VectorXd &res) {
         const double k = p.distortion_parameter;
 
         const double H0_0 = H(0, 0), H0_1 = H(0, 1), H0_2 = H(0, 2);
@@ -274,7 +276,7 @@ void refinement_twosided_equal(
             J(2 * i + 1, 8) = x2_1 * r22 * dist_factor2 * dist_factor2 + H1_2 * r12 * inv_Hx1_2 - z1 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff.
         }
 
-    }, [&p](const Eigen::VectorXd &dx) {
+    }, [&p](const auto &dx) {
         p.distortion_parameter += dx(8);
         p.distortion_parameter2 = p.distortion_parameter;
     });
@@ -285,7 +287,7 @@ void refinement_twosided(
     const std::vector<Eigen::Vector2d> &x2,
     HomLib::PoseData &p
 ) {
-    refine(x1.size(), 10, p, [&](const Eigen::Matrix3d &H, Eigen::MatrixXd &J, Eigen::VectorXd &res) {
+    refine<10>(x1.size(), p, [&](const Eigen::Matrix3d &H, auto &J, Eigen::VectorXd &res) {
         const double k1 = p.distortion_parameter;
         const double k2 = p.distortion_parameter2;
 
@@ -340,7 +342,7 @@ void refinement_twosided(
             J(2 * i + 1, 9) = x2_1 * r22 * dist_factor2 * dist_factor2;  // Dist coeff. k2
         }
 
-    }, [&p](const Eigen::VectorXd &dx) {
+    }, [&p](const auto &dx) {
         p.distortion_parameter += dx(8);
         p.distortion_parameter2 += dx(9);
     });
