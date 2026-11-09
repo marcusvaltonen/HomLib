@@ -90,7 +90,7 @@ the same matches. The script has three matchers:
    is easy to reproduce. With OpenCV 4.8 or later, it uses SIFT's precise
    upscaling, which the accuracy of the keypoints needs. By default, it detects
    4000 keypoints per image (``--num_features``) and keeps the matches with a
-   ratio below 0.8 (``--ratio``): the `Results`_ below use these defaults.
+   ratio below 0.8 (``--ratio``): the :ref:`results <hpatches_results>` below use these defaults.
 
 ``--matcher lightglue``, with ``--features superpoint``, ``disk``, ``aliked`` or ``sift``
    These features, matched with
@@ -276,6 +276,99 @@ For example, with the matches of SuperPoint and LightGlue above:
    python benchmark/hpatches/hpatches_benchmark.py data/hpatches_superpoint_lightglue.npz \
        --protocol gluefactory --threshold 0.5 --output superpoint_lightglue_gf.json
 
+.. _hpatches_results:
+
+Results
+^^^^^^^
+
+The table gives the HPatches results of five solvers with OpenCV SIFT matches,
+LOMSAC, a 3 px threshold and 3 seeds per pair, on an AWS g4dn.xlarge host
+(Linux, Ubuntu 24.04): on macOS, the shares of the true inliers found differ
+slightly (see ``--seeds``). The times depend on the host: compare them within
+a run.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 16 14 9 9 10
+
+   * - Solver
+     - Sequences
+     - Inliers found
+     - AUC@3
+     - AUC@5
+     - Time (ms)
+   * - :class:`~homlib.DLT`
+     - viewpoint
+     - 93.35%
+     - 40.68
+     - 52.90
+     - 8.50
+   * -
+     - illumination
+     - 96.30%
+     - 64.51
+     - 75.58
+     - 6.46
+   * - :class:`~homlib.GuoPRL2019`
+     - viewpoint
+     - 93.29%
+     - 40.65
+     - 52.95
+     - 5.74
+   * -
+     - illumination
+     - 96.22%
+     - 64.52
+     - 75.58
+     - 3.72
+   * - :class:`~homlib.FitzgibbonCVPR2001OneSided`
+     - viewpoint
+     - 93.03%
+     - 20.53
+     - 31.93
+     - 19.24
+   * -
+     - illumination
+     - 95.62%
+     - 60.13
+     - 72.52
+     - 13.47
+   * - :class:`~homlib.Wadenback3DV2026OneSided`
+     - viewpoint
+     - 92.71%
+     - 20.88
+     - 32.47
+     - 13.47
+   * -
+     - illumination
+     - 95.56%
+     - 59.87
+     - 72.08
+     - 8.61
+   * - :class:`~homlib.Wadenback3DV2026TwoSided`
+     - viewpoint
+     - 92.94%
+     - 14.55
+     - 25.23
+     - 18.14
+   * -
+     - illumination
+     - 91.66%
+     - 19.30
+     - 29.70
+     - 8.39
+
+All five solvers find most of the true inliers. The corner error separates
+them: on these undistorted images, the solvers without distortion are the most
+accurate, and the more distortion parameters a solver estimates, the lower
+its AUC. The two-sided solver loses most on the illumination pairs, where any
+equal distortion parameters fit the identity homography.
+
+The full results are in the description of
+`pull request #44 <https://github.com/marcusvaltonen/HomLib/pull/44>`__: every
+point solver on HPatches with SIFT, SuperPoint + LightGlue and LoMa matches,
+the synthetic experiments of Figs. 3, 4 and 5, and the AUC@5 on HPatches for a
+fixed number of iterations (Fig. 6).
 
 Synthetic benchmark
 -------------------
@@ -377,6 +470,65 @@ median errors and of the median times have none: take them as indications.
 Without noise, the median errors are close to the machine precision, and
 their ratio is not given (``n/a``).
 
+.. _synthetic_results:
+
+Results
+^^^^^^^
+
+The table gives a run of five solvers with the default settings (2000
+problems per case and noise level), each on the distortion case it is made
+for, on an AWS g4dn.xlarge host (Linux). *Missed* is the share of the
+noise-free problems where the solver misses the true solution, *No solution*
+the share of the problems with 1 px of noise where it returns none, and the
+*median errors* are the errors of the best solution defined above, for 0.5, 1
+and 2 px of noise. The times include the Python bindings.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Solver
+     - Case
+     - Missed
+     - No solution (1 px)
+     - Median error (0.5, 1, 2 px)
+     - Time
+   * - :class:`~homlib.DLT`
+     - ``NO_DISTORTION``
+     - 0.00%
+     - 1.30%
+     - 0.038, 0.078, 0.154
+     - 25 µs
+   * - :class:`~homlib.GuoPRL2019`
+     - ``NO_DISTORTION``
+     - 0.00%
+     - 1.30%
+     - 0.038, 0.078, 0.154
+     - 7 µs
+   * - :class:`~homlib.FitzgibbonCVPR2001OneSided`
+     - ``ONE_SIDED_LEFT``
+     - 0.00%
+     - 0.00%
+     - 0.076, 0.149, 0.345
+     - 33 µs
+   * - :class:`~homlib.Wadenback3DV2026OneSided`
+     - ``ONE_SIDED_LEFT``
+     - 0.00%
+     - 3.45%
+     - 0.065, 0.132, 0.270
+     - 9 µs
+   * - :class:`~homlib.Wadenback3DV2026TwoSided`
+     - ``TWO_SIDED``
+     - 0.30%
+     - 1.60%
+     - 0.139, 0.265, 0.507
+     - 21 µs
+
+DLT and Guo give the same homography from the same 4 points (it is unique),
+so the same errors; Guo's closed form is faster. The more parameters a solver
+estimates, the larger its error for the same noise. With noise, the 4-point
+solvers sometimes have no solution: their sample check (``is_valid_sample``)
+rejects samples whose triangles don't all keep or all flip their orientation,
+which noise can cause when three points are nearly collinear.
 
 HEB benchmark
 -------------
@@ -400,12 +552,15 @@ thresholds, averaged over the thresholds):
    absolute translation error (the estimated translation scaled to the true
    baseline), over 0.1 to 5 metres.
 
-**mAA of the reprojection error**
-   The mean distance between the ground-truth inliers of image 2 and their
-   mapping by the estimated model, distortion included, over 1 to 20 px.
+**mAA of the transfer error**
+   The transfer error is the mean distance, in image 2, between the
+   ground-truth inliers of image 1 mapped by the estimated model (distortion
+   included) and their matches (the benchmark's code calls it the reprojection
+   error); its mAA is over 10 log2-spaced thresholds from 1 to 20 px.
 
 **Time**
-   The mean time of a run of the estimator, as the paper's Fig. 6.
+   The mean time of a run of the estimator, per scene then averaged over the
+   scenes, as the paper's Fig. 6.
 
 The mAAs are computed per scene, then averaged over the scenes. The protocol
 has two steps, as in the paper:
@@ -416,15 +571,33 @@ has two steps, as in the paper:
    1, where 1 keeps every match) of each solver, jointly, for the best main
    metric (on a tie, the smallest threshold, then the smallest SNN threshold).
    It writes them to a settings file. These scores aren't results: only the test
-   split's are. The paper also tunes parameters specific to each estimator;
-   this script doesn't.
+   split's are.
 
 ``test``
-   On the test split (the 8 other scenes), with these settings, each solver
-   runs for exactly N iterations, for each N of ``--iterations`` (by default
-   10, 100, 1000 and 10000, the range of the paper), for a time-accuracy curve.
-   Without ``--settings``, every solver gets a 4 px threshold and an SNN
-   threshold of 0.8.
+   On the test split (the dataset's 8 test scenes), with these settings, each
+   solver runs for exactly N iterations, for each N of ``--iterations`` (by
+   default 10, 100, 1000 and 10000: the range of the paper's text; its Fig. 6
+   goes to 1000), for a time-accuracy curve. ``--snn 1`` tests without
+   prefiltering, as the paper's other curves. Without ``--settings``, every
+   solver gets a 4 px threshold and an SNN threshold of 0.8.
+
+The differences from the paper and its code:
+
+- Only the two thresholds are tuned (the paper also tunes parameters specific
+  to each estimator), over this script's grid (the paper gives none), on a
+  subset of the homographies (``--max_pairs``, below).
+- LOMSAC's sampling is uniform, so the results compare with the paper's
+  curves without PROSAC (its scripts default to PROSAC on the matches sorted
+  by SNN ratio).
+- A run without an estimation (fewer than 4 matches after the prefiltering)
+  has no time, and is left out of the mean time; the benchmark's scripts count
+  it as 0.
+- HomLib's solvers estimate distortion. The points are centred on each image's
+  centre, HomLib's distortion centre; the pose is decomposed from H without
+  the distortion; and the transfer error is a failure if a ground-truth inlier
+  has no image (H maps it to infinity, or the distortion has no inverse
+  there). HomLib's estimators also keep only the solutions with a distortion
+  in their range (``k_range``).
 
 The dataset (33 GB, of which 25 GB for the test split) is linked from the
 benchmark's README
@@ -448,6 +621,59 @@ all the cores (``--jobs``):
 The benchmark's repository has no license, so the script reimplements its
 metrics: on the same estimates (without distortion), both give the same errors,
 to 1e-10.
+
+.. _heb_results:
+
+Results
+^^^^^^^
+
+The table gives a smoke run of the protocol on four solvers, on part of the
+data: ``tune`` on 50 homographies per training scene, ``test`` on 100 per
+test scene, with LOMSAC, on an AWS g4dn.xlarge host (Linux, 4 processes in
+parallel). Each row has the solver's tuned inlier threshold and SNN threshold,
+then its main metric, mAA (10°, 5 m), in percent, averaged over the 8 test
+scenes, for each number of iterations, and the mean time of a run at 1000
+iterations.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Solver (threshold, SNN)
+     - 10 it.
+     - 100 it.
+     - 1000 it.
+     - 10,000 it.
+     - Time (1000 it.)
+   * - :class:`~homlib.DLT` (6 px, 0.5)
+     - 27.1
+     - 30.6
+     - 33.4
+     - 34.2
+     - 16.1 ms
+   * - :class:`~homlib.GuoPRL2019` (6 px, 0.5)
+     - 27.1
+     - 30.6
+     - 33.4
+     - 34.2
+     - 5.5 ms
+   * - :class:`~homlib.Wadenback3DV2026TwoSidedEqual` (4 px, 0.5)
+     - 21.3
+     - 27.3
+     - 29.8
+     - 31.3
+     - 11.0 ms
+   * - :class:`~homlib.Wadenback3DV2026TwoSided` (3 px, 0.5)
+     - 17.4
+     - 25.0
+     - 28.7
+     - 29.6
+     - 19.4 ms
+
+The accuracy grows with the number of iterations. On these scenes, which have
+little distortion, the solvers without distortion score best (only two
+distortion solvers were run). DLT and Guo score the same because a homography
+through 4 points is unique: from the same samples (the same seed), both give
+the same H, and LOMSAC makes the same choices; Guo is faster.
 
 Regression test
 ---------------
@@ -507,96 +733,3 @@ To change the data, publish it under a new tag (``test-data-v2``), and update
 that its test expects, and downloads it again if the cache has another
 version. HPatches is under the MIT license, which allows publishing these
 matches.
-
-
-Results
--------
-
-The table gives the HPatches results of five solvers with OpenCV SIFT matches,
-LOMSAC, a 3 px threshold and 3 seeds per pair, on an AWS g4dn.xlarge host
-(Linux, Ubuntu 24.04): on macOS, the shares of the true inliers found differ
-slightly (see ``--seeds``). The times depend on the host: compare them within
-a run.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 34 16 14 9 9 10
-
-   * - Solver
-     - Sequences
-     - Inliers found
-     - AUC@3
-     - AUC@5
-     - Time (ms)
-   * - :class:`~homlib.DLT`
-     - viewpoint
-     - 93.35%
-     - 40.68
-     - 52.90
-     - 8.50
-   * -
-     - illumination
-     - 96.30%
-     - 64.51
-     - 75.58
-     - 6.46
-   * - :class:`~homlib.GuoPRL2019`
-     - viewpoint
-     - 93.29%
-     - 40.65
-     - 52.95
-     - 5.74
-   * -
-     - illumination
-     - 96.22%
-     - 64.52
-     - 75.58
-     - 3.72
-   * - :class:`~homlib.FitzgibbonCVPR2001OneSided`
-     - viewpoint
-     - 93.03%
-     - 20.53
-     - 31.93
-     - 19.24
-   * -
-     - illumination
-     - 95.62%
-     - 60.13
-     - 72.52
-     - 13.47
-   * - :class:`~homlib.Wadenback3DV2026OneSided`
-     - viewpoint
-     - 92.71%
-     - 20.88
-     - 32.47
-     - 13.47
-   * -
-     - illumination
-     - 95.56%
-     - 59.87
-     - 72.08
-     - 8.61
-   * - :class:`~homlib.Wadenback3DV2026TwoSided`
-     - viewpoint
-     - 92.94%
-     - 14.55
-     - 25.23
-     - 18.14
-   * -
-     - illumination
-     - 91.66%
-     - 19.30
-     - 29.70
-     - 8.39
-
-All five solvers find most of the true inliers. The corner error separates
-them: on these undistorted images, the solvers without distortion are the most
-accurate, and the more distortion parameters a solver estimates, the lower
-its AUC. The two-sided solver loses most on the illumination pairs, where any
-equal distortion parameters fit the identity homography.
-
-The full results are in the description of
-`pull request #44 <https://github.com/marcusvaltonen/HomLib/pull/44>`__: every
-point solver on HPatches with SIFT, SuperPoint + LightGlue and LoMa matches,
-the synthetic experiments of Figs. 3, 4 and 5, and the AUC@5 on HPatches for a
-fixed number of iterations (Fig. 6).

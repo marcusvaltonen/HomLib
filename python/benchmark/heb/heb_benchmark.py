@@ -15,37 +15,50 @@ paper (Section 4):
   to the true baseline) of the pose decomposed from H with the intrinsics (OpenCV's
   decomposeHomographyMat; the solution minimizing the sum of the rotation error and of the
   direction (both in radians) and absolute (metres) translation errors, as the benchmark);
-- the reprojection error: the mean distance between the ground-truth inliers of image 2 and their
-  mapping by the estimated model (distortion included).
+- the transfer error: the mean distance, in image 2, between the ground-truth inliers of image 1
+  mapped by the estimated model (distortion included) and their matches (the benchmark's code calls
+  it the reprojection error).
 A run with fewer than 4 inliers fails (errors of 1e10). An mAA (mean average accuracy) is, for each
 of its error thresholds, the share of the homographies with an error below it, averaged over the
-thresholds. The metrics are mAAs per scene, averaged
-over the scenes: rotation over 1 to 10 degrees, translation over 0.1 to 5 m, reprojection over 1 to
-20 px (10 thresholds each). The main metric, "mAA (10 deg, 5 m)", is the average of the rotation
-and translation mAAs. The time is the mean time of a run of the estimator, as the paper's Fig. 6.
+thresholds. The metrics are mAAs per scene, averaged over the scenes: rotation over 1 to 10
+degrees, translation over 0.1 to 5 m, transfer error over 1 to 20 px (10 thresholds each, the
+transfer ones log2-spaced, as the benchmark's code). The main metric, "mAA (10 deg, 5 m)", is the
+average of the rotation and translation mAAs. The time is the mean time of a run of the estimator,
+per scene then averaged over the scenes, as the paper's Fig. 6.
 
 The protocol has two steps:
-- ``tune``: on the training split, with exactly 1000 iterations, a grid search of the inlier
-  threshold and of the SNN threshold of each solver (jointly; an SNN threshold of 1 keeps every
-  match), for the best main metric (on a tie, the smallest threshold, then the smallest SNN
-  threshold); writes them to a settings file. With ``--backend magsac``, the threshold is MAGSAC++'s
-  sigma_max, over the same grid. Its scores aren't results:
-  the benchmark's results are those of ``test``;
-- ``test``: on the test split, with these settings, each solver run for exactly N iterations for
-  each N of ``--iterations`` (by default 10, 100, 1000 and 10000, the range of the paper: a
-  time-accuracy curve).
-Without ``--settings``, ``test`` uses a 4 px threshold and an SNN threshold of 0.8 for every solver.
-Unlike the paper, which also tunes parameters specific to each estimator, only these two settings
-are tuned. The training split has 2 scenes, the test split the other 8: the paper's splits are
-disjoint, so the 2 training scenes are left out of the test split (the benchmark's
-dataset_configuration.yaml lists them as test scenes too).
+- ``tune``: on the training split (2 scenes), with exactly 1000 iterations, a grid search of the
+  inlier threshold and of the SNN threshold of each solver (jointly; an SNN threshold of 1 keeps
+  every match), for the best main metric (on a tie, the smallest threshold, then the smallest SNN
+  threshold); writes them to a settings file. With ``--backend magsac``, the threshold is
+  MAGSAC++'s sigma_max, over the same grid. Its scores aren't results: the benchmark's results
+  are those of ``test``;
+- ``test``: on the test split (the dataset's 8 test scenes), with these settings, each solver run
+  for exactly N iterations for each N of ``--iterations`` (by default 10, 100, 1000 and 10000: the
+  range of the paper's text; its Fig. 6 goes to 1000), a time-accuracy curve. ``--snn 1`` tests
+  without prefiltering, as the paper's other curves. Without ``--settings``, every solver gets a
+  4 px threshold and an SNN threshold of 0.8.
+The splits are disjoint, as in the paper: dataset_configuration.yaml also lists the 2 training
+scenes as test scenes, and they are left out of the test split (the paper's text says nine test
+scenes; the dataset's test/ folder has 8).
 
-The points are centred on each image's centre, HomLib's distortion centre; the distortion
-solvers' H is taken without the distortion for the pose. The scenes are large (the test split has 8
-scenes, 25 GB), so ``--max_pairs`` evaluates a random subset of each scene's homographies (despite
-its name, it counts homographies, not image pairs; seeded:
-the same ones in every run); the paper uses them all (``--max_pairs 0``: days on 4 cores, and
-several GB of memory for ``tune``, which keeps the results of every setting).
+Differences from the paper and its code:
+- Only the two thresholds are tuned (the paper also tunes parameters specific to each estimator),
+  over our grid (the paper gives none), on a subset of the homographies (``--max_pairs``).
+- The samplers are uniform (LOMSAC's), so the results compare with the paper's curves without
+  PROSAC (its scripts default to PROSAC on the SNN-sorted matches).
+- A run without an estimation (fewer than 4 matches after prefiltering) has no time, and is left
+  out of the mean time; the benchmark's scripts count it as 0. The runs use all the cores
+  (``--jobs``), so their times compare within a run.
+- The solvers estimate distortion: the points are centred on each image's centre, HomLib's
+  distortion centre; the pose is decomposed from H without the distortion; the transfer error maps
+  the points with the distortion, and is a failure if a ground-truth inlier has no image (H maps it
+  to infinity, or the distortion has no inverse there). HomLib's estimators also keep only the
+  solutions with a distortion in their range (k_range).
+- The scenes are large (the test split has 8 scenes, 25 GB), so ``--max_pairs`` evaluates a
+  random subset of each scene's homographies (despite its name, it counts homographies, not image
+  pairs; seeded: the same ones in every run); the paper uses them all (``--max_pairs 0``: days on 4
+  cores, and several GB of memory for ``tune``, which keeps the results of every setting).
 
 Requirements: h5py, opencv-python, tqdm, and the dataset from the benchmark's README, in a
 directory with ``test/`` and ``training_and_validation/`` (or ``train/``).
@@ -89,7 +102,7 @@ SCENES = {
 # The thresholds of the mAAs, as the benchmark's code
 ROTATION_THRESHOLDS = np.linspace(1, 10, 10)   # degrees
 TRANSLATION_THRESHOLDS = np.linspace(0.1, 5, 10)   # metres
-REPROJECTION_THRESHOLDS = np.logspace(0, np.log2(20), 10, base=2.0)   # px
+TRANSFER_THRESHOLDS = np.logspace(0, np.log2(20), 10, base=2.0)   # px
 FAILED = 1e10   # the errors of a run without a model
 # The grid of the tuning
 TUNE_THRESHOLDS = [1, 2, 3, 4, 6, 8, 12]   # px
@@ -135,7 +148,7 @@ def pose_errors(H, pose, K1, K2, scale):
 
 def run_pair(job):
     """For each configuration (solver, threshold, SNN threshold, iterations): per seed, (rotation
-    error, translation error, reprojection error, number of inliers, time)"""
+    error, translation error, transfer error, number of inliers, time)"""
     path, split, scene, pair, configs, backend, seeds = job
     with h5py.File(scene_file(path, split, scene), "r") as f:
         corr, pose, K1, K2, size1, size2 = read_pair(f, pair)
@@ -160,14 +173,14 @@ def run_pair(job):
             model, stats = estimator.estimate(x, y)
             elapsed = time.perf_counter() - t0
             n_in = len(inlier_indices(stats))
-            err_R = err_t = reproj = FAILED
+            err_R = err_t = transfer = FAILED
             if n_in >= 4:
                 err_R, err_t = pose_errors(T2i @ np.array(model.homography) @ T1, pose, K1, K2, SCENES[split][scene])
                 if gt.sum() > 1:
                     mapped, ok = map_points(model, (corr[gt, 0:2] - c1).T)
                     if ok.all():
-                        reproj = np.mean(np.linalg.norm(mapped - (corr[gt, 2:4] - c2).T, axis=0))
-            runs.append((float(err_R), float(err_t), float(reproj), n_in, elapsed))
+                        transfer = np.mean(np.linalg.norm(mapped - (corr[gt, 2:4] - c2).T, axis=0))
+            runs.append((float(err_R), float(err_t), float(transfer), n_in, elapsed))
         out[key] = runs
     return scene, pair, out
 
@@ -179,22 +192,23 @@ def accuracy(errors, thresholds):
 
 
 def scores(runs):
-    """Per run: the accuracies (main, rotation, translation, reprojection), and the times"""
-    err_R, err_t, reproj, _, t = (np.array(v, dtype=float) for v in zip(*runs))
+    """Per run: the accuracies (main, rotation, translation, transfer), and the times"""
+    err_R, err_t, transfer, _, t = (np.array(v, dtype=float) for v in zip(*runs))
     a_R, a_t = accuracy(err_R, ROTATION_THRESHOLDS), accuracy(err_t, TRANSLATION_THRESHOLDS)
-    return np.stack([(a_R + a_t) / 2, a_R, a_t, accuracy(reproj, REPROJECTION_THRESHOLDS)]), t
+    return np.stack([(a_R + a_t) / 2, a_R, a_t, accuracy(transfer, TRANSFER_THRESHOLDS)]), t
 
 
 def summarize(per_scene):
-    """The mAAs (main, rotation, translation, reprojection; %) averaged over the scenes, the
-    per-scene main mAA, and the mean time of a run (as the paper's Fig. 6)"""
+    """The mAAs (main, rotation, translation, transfer; %) averaged over the scenes, the
+    per-scene main mAA, and the mean time of a run, per scene then averaged over the scenes (as
+    the paper's Fig. 6)"""
     means, mains, times = [], {}, []
     for scene, per_pair in per_scene.items():
         acc, t = scores([r for rs in per_pair.values() for r in rs])
         means.append(acc.mean(1))
         mains[scene] = 100 * acc[0].mean()
-        times.append(t)
-    return 100 * np.mean(means, 0), mains, np.nanmean(np.concatenate(times))
+        times.append(np.nanmean(t))
+    return 100 * np.mean(means, 0), mains, np.nanmean(times)
 
 
 def make_jobs(args, split, configs):
@@ -210,7 +224,7 @@ def make_jobs(args, split, configs):
 
 def run(jobs, configs, processes):
     """results[configuration][scene][pair] = per seed: (rotation error, translation error,
-    reprojection error, inliers, time)"""
+    transfer error, inliers, time)"""
     results = {key: {} for key in configs}
     with Pool(processes) as pool:
         for scene, pair, out in tqdm(pool.imap_unordered(run_pair, jobs, chunksize=4), total=len(jobs), desc="Pairs"):
@@ -252,7 +266,8 @@ def test(args):
     configs = []
     for name in args.solvers:
         s = tuned.get(name, DEFAULT_SETTINGS)
-        configs += [f"{name}|{s['threshold']}|{s['snn']}|{n}" for n in args.iterations]
+        snn = args.snn if args.snn is not None else s['snn']
+        configs += [f"{name}|{s['threshold']}|{snn}|{n}" for n in args.iterations]
     results = run(make_jobs(args, "test", configs), configs, args.jobs)
     if args.output:
         settings = dict(vars_settings(args, "test"), settings_file=args.settings)
@@ -265,7 +280,7 @@ def print_results(results, per_scene=False):
     for n in sorted({int(k.split("|")[3]) for k in results}):
         print(f"\n{n} iterations: mAA (%) averaged over the scenes, mean time of a run")
         print(f"{'Solver':<36s} {'Thr.':>5s} {'SNN':>5s} {'(10°, 5 m)':>10s} {'Rot.':>6s} {'Transl.':>7s} "
-              f"{'Reproj.':>7s} {'Time (ms)':>9s}")
+              f"{'Transfer':>8s} {'Time (ms)':>9s}")
         for key in sorted(k for k in results if int(k.split("|")[3]) == n):
             name, th, snn, _ = key.split("|")
             m, mains, t = summarize(results[key])
@@ -277,7 +292,7 @@ def print_results(results, per_scene=False):
 
 def compare(path_a, path_b):
     """For the configurations of both runs (same solver, settings and iterations): the differences
-    B - A of the main and reprojection mAAs, per scene then averaged over the scenes as the mAAs,
+    B - A of the main and transfer mAAs, per scene then averaged over the scenes as the mAAs,
     with their standard errors (from the per-homography differences), and the ratio of the mean
     times"""
     with open(path_a) as f:
@@ -291,19 +306,21 @@ def compare(path_a, path_b):
     if other:
         print("Warning: no configuration (threshold, SNN, iterations) in common in the two runs, not compared: "
               + ", ".join(other))
-    print(f"{'Solver':<36s} {'Iter.':>6s} {'mAA (10°, 5 m)':>18s} {'Reproj.':>18s} {'Time':>6s}")
+    print(f"{'Solver':<36s} {'Iter.':>6s} {'mAA (10°, 5 m)':>18s} {'Transfer':>18s} {'Time':>6s}")
     for key in sorted(set(ra) & set(rb), key=lambda k: (k.split("|")[0], int(k.split("|")[3]))):
         means, variances, ta, tb = [], [], [], []
         scenes = sorted(set(ra[key]) & set(rb[key]))
         for scene in scenes:
-            d = []
+            d, sa, sb = [], [], []
             for pair in sorted(set(ra[key][scene]) & set(rb[key][scene])):
                 (acc_a, t_a), (acc_b, t_b) = scores(ra[key][scene][pair]), scores(rb[key][scene][pair])
                 d.append(acc_b.mean(1) - acc_a.mean(1))
-                ta += list(t_a)
-                tb += list(t_b)
+                sa += list(t_a)
+                sb += list(t_b)
             if not d:   # no homography of this scene in both runs
                 continue
+            ta.append(np.nanmean(sa))   # the mean times per scene, averaged over the scenes as in summarize
+            tb.append(np.nanmean(sb))
             d = 100 * np.array(d)
             means.append(d.mean(0))
             variances.append(d.var(0, ddof=1) / len(d) if len(d) > 1 else np.zeros(4))
@@ -333,6 +350,9 @@ def main():
     test_p.add_argument("--max_pairs", type=int, default=1000,
                         help="Homographies per scene, chosen at random (seeded), 0 for all (default: 1000)")
     test_p.add_argument("--settings", default=None, help="The settings file written by tune")
+    test_p.add_argument("--snn", type=float, default=None,
+                        help="SNN threshold for every solver, instead of the tuned one (1: no prefiltering, as the "
+                             "paper's curves without it)")
     test_p.add_argument("--iterations", type=int, nargs="+", default=[10, 100, 1000, 10000],
                         help="Run each solver for exactly this many iterations, for each value (default: 10 100 1000 "
                              "10000)")
