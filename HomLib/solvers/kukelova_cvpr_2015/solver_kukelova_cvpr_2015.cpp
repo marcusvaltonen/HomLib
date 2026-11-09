@@ -130,7 +130,8 @@ namespace KukelovaCVPR2015 {
             // with unknowns lam and v
             double l = lam;
             for (int it = 0; it < 2; it++) {
-                const Eigen::Matrix<double, 5, 1> w(1.0, l, v(0), v(1), v(2));
+                Eigen::Matrix<double, 5, 1> w;   // (Eigen 3.3 has no 5-value constructor)
+                w << 1.0, l, v(0), v(1), v(2);
                 Eigen::Vector4d F;
                 Eigen::Matrix4d J;
                 for (int r = 1; r < 5; r++) {
