@@ -386,40 +386,58 @@ HEB, the Homography Estimation Benchmark of Barath, Mishkin et al.
 their SIFT matches, the matches that are inliers of the ground-truth
 homography, and the intrinsics and relative pose of the cameras. Unlike
 HPatches, the scenes aren't planar: each pair's homography maps one plane of
-the scene, so most matches are outliers. ``heb_benchmark.py`` evaluates the
-point solvers on it as the benchmark's own scripts do
-(`homography-benchmark <https://github.com/danini/homography-benchmark>`__):
-it keeps the matches with an SNN ratio below 0.8 (``--snn``), runs a robust
-estimator (``--backend``, ``--threshold`` 4 px by default), and reports, for
-each solver:
+the scene, so most matches are outliers. ``heb_benchmark.py`` follows the
+protocol of the paper (Section 4). For each pair and solver, it keeps the
+matches with an SNN ratio below a threshold, runs a robust estimator
+(``--backend``), and measures:
+
+**mAA (10°, 5 m)**, the main metric
+   The average of two mAAs of the pose decomposed from H with the intrinsics:
+   of its rotation error, over the thresholds 1 to 10 degrees, and of its
+   absolute translation error (the estimated translation scaled to the true
+   baseline), over 0.1 to 5 metres.
 
 **mAA of the reprojection error**
    The mean distance between the ground-truth inliers of image 2 and their
-   mapping by the estimated model, distortion included, averaged over 10
-   thresholds from 1 to 20 px.
-
-**mAA of the pose error**
-   The larger of the rotation and translation errors of the pose decomposed
-   from H with the intrinsics, averaged over the thresholds 1 to 10 degrees.
+   mapping by the estimated model, distortion included, over 1 to 20 px.
 
 **Time**
    The median time of a run of the estimator.
 
+The mAAs are computed per scene, then averaged over the scenes. The protocol
+has two steps, as in the paper:
+
+``tune``
+   On the training split (2 scenes), with exactly 1000 iterations, a grid
+   search of the inlier threshold (1 to 12 px) and of the SNN threshold (0.7 to
+   0.9) of each solver, jointly, for the best main metric. It writes them to a
+   settings file.
+
+``test``
+   On the test split (8 scenes), with these settings, each solver runs for
+   exactly N iterations, for each N of ``--iterations``: the paper varies N
+   from 10 to 10000, for a time-accuracy curve. Without ``--settings``, every
+   solver gets a 4 px threshold and an SNN threshold of 0.8.
+
 The dataset (33 GB, of which 25 GB for the test split) is linked from the
-benchmark's README; put it in a directory with ``test/`` and
-``training_and_validation/``. The script needs ``h5py`` too. The scenes have
-thousands of pairs each: ``--max_pairs`` (1000 by default, 0 for all)
-evaluates a random subset of each scene, the same in every run, and the runs
-use all the cores (``--jobs``):
+benchmark's README
+(`homography-benchmark <https://github.com/danini/homography-benchmark>`__);
+put it in a directory with ``test/`` and ``training_and_validation/``. The
+script needs ``h5py`` too. The scenes have thousands of pairs each, so
+``--max_pairs`` evaluates a random subset of each scene, the same in every run
+(250 for ``tune`` and 1000 for ``test`` by default; ``0`` for all, as the
+paper). The runs use all the cores (``--jobs``):
 
 .. code-block:: bash
 
    pip install h5py
-   python benchmark/heb/heb_benchmark.py /path/to/heb --output heb.json
-   python benchmark/heb/heb_benchmark.py --compare before.json after.json
+   python benchmark/heb/heb_benchmark.py tune /path/to/heb --output settings.json
+   python benchmark/heb/heb_benchmark.py test /path/to/heb --settings settings.json \
+       --iterations 10 100 1000 --output heb.json
+   python benchmark/heb/heb_benchmark.py compare before.json after.json
 
-``--split train`` uses the two training scenes, and ``--scene NAME`` one scene.
-
+The benchmark's repository has no license, so the script reimplements its
+metrics: on the same estimates, both give the same errors, to 1e-10.
 
 Regression test
 ---------------

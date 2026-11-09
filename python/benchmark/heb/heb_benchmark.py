@@ -1,38 +1,49 @@
 """
 HEB benchmark of HomLib's point solvers: the Homography Estimation Benchmark of Barath, Mishkin,
 Polic, Förstner and Matas ("A Large Scale Homography Benchmark", CVPR 2023,
-https://github.com/danini/homography-benchmark).
+https://github.com/danini/homography-benchmark), with the protocol of its paper.
 
 The dataset gives, for image pairs of 10 scenes of the 1DSfM photo collections, the SIFT matches
 with their SNN ratios, which of them are inliers of the ground-truth homography, and the camera
-intrinsics and relative pose of each pair (from COLMAP). Like the benchmark's own scripts, this
-one keeps the matches with an SNN ratio below ``--snn`` (0.8), runs a robust estimator on them,
-and reports, for each solver:
-- mAA of the reprojection error: the mean distance between the ground-truth inliers of image 2 and
-  their mapping by the estimated model (distortion included), averaged over the thresholds
-  2^linspace(0, log2(20), 10) px, as the benchmark;
-- mAA of the pose error: the larger of the rotation and translation (direction) errors of the
-  pose decomposed from H (OpenCV's decomposeHomographyMat, with the intrinsics; the best of its
-  solutions), over the thresholds 1, 2, ..., 10 degrees, as the benchmark;
-- the median time of a run of the estimator.
-A run with fewer than 4 inliers gets errors of 1e10, as in the benchmark. The points are centred on each image's
-centre, HomLib's distortion centre; the distortion solvers' H is taken without the distortion for
-the pose.
+intrinsics and relative pose of each pair (from COLMAP). For each pair and solver, the script keeps
+the matches with an SNN ratio below a threshold, runs a robust estimator, and measures, as the
+paper (Section 4):
+- the rotation error and the absolute translation error (metres, the estimated translation scaled
+  to the true baseline) of the pose decomposed from H with the intrinsics (OpenCV's
+  decomposeHomographyMat; the solution minimizing the sum of the rotation and translation errors);
+- the reprojection error: the mean distance between the ground-truth inliers of image 2 and their
+  mapping by the estimated model (distortion included).
+A run with fewer than 4 inliers fails (errors of 1e10). The metrics are mAAs per scene, averaged
+over the scenes: rotation over 1 to 10 degrees, translation over 0.1 to 5 m, reprojection over 1 to
+20 px (10 thresholds each). The main metric, "mAA (10 deg, 5 m)", is the average of the rotation
+and translation mAAs.
 
-The scenes are large (the test split has 8 scenes, 25 GB), so ``--max_pairs`` evaluates a random
-subset of each scene's pairs (seeded: the same pairs in every run).
+The protocol has two steps:
+- ``tune``: on the training split, with exactly 1000 iterations, a grid search of the inlier
+  threshold and of the SNN threshold of each solver (jointly), for the best main metric; writes
+  them to a settings file;
+- ``test``: on the test split, with these settings, each solver run for exactly N iterations for
+  each N of ``--iterations`` (the paper varies N from 10 to 10000: a time-accuracy curve).
+Without ``--settings``, ``test`` uses a 4 px threshold and an SNN threshold of 0.8 for every solver.
+
+The points are centred on each image's centre, HomLib's distortion centre; the distortion
+solvers' H is taken without the distortion for the pose. The scenes are large (the test split has 8
+scenes, 25 GB), so ``--max_pairs`` evaluates a random subset of each scene's pairs (seeded: the
+same pairs in every run); the paper uses them all (``--max_pairs 0``).
 
 Requirements: h5py, opencv-python, tqdm, and the dataset from the benchmark's README, in a
 directory with ``test/`` and ``training_and_validation/`` (or ``train/``).
 
 Usage
 -----
-    python heb_benchmark.py /path/to/heb [--split test] [--scene NAME] [--max_pairs 1000]
-                            [--backend lomsac] [--threshold 4] [--solvers ...] [--output heb.json]
-    python heb_benchmark.py --compare before.json after.json
+    python heb_benchmark.py tune /path/to/heb --output settings.json [--max_pairs 250]
+    python heb_benchmark.py test /path/to/heb [--settings settings.json] [--iterations 10 100 1000 10000]
+                                 [--scene NAME] [--max_pairs 1000] [--backend lomsac] [--output heb.json]
+    python heb_benchmark.py compare before.json after.json
 """
 
 import argparse
+import itertools
 import json
 import os
 import sys
@@ -59,9 +70,15 @@ SCENES = {
              "Ellis_Island": 0.94967, "Roman_Forum": 24.38904, "Vienna_Cathedral": 15.07437,
              "Piazza_del_Popolo": 6.25074, "Union_Square": 6.85125},
 }
+# The thresholds of the mAAs, as the benchmark's code
+ROTATION_THRESHOLDS = np.linspace(1, 10, 10)   # degrees
+TRANSLATION_THRESHOLDS = np.linspace(0.1, 5, 10)   # metres
 REPROJECTION_THRESHOLDS = np.logspace(0, np.log2(20), 10, base=2.0)   # px
-POSE_THRESHOLDS = np.linspace(1, 10, 10)   # degrees
 FAILED = 1e10   # the errors of a run without a model
+# The grid of the tuning
+TUNE_THRESHOLDS = [1, 2, 3, 4, 6, 8, 12]   # px
+TUNE_SNN = [0.7, 0.8, 0.85, 0.9]
+DEFAULT_SETTINGS = dict(threshold=4.0, snn=0.8)
 
 
 def scene_file(path, split, scene):
@@ -80,13 +97,13 @@ def read_pair(f, pair):
             np.ravel(f[f"size_{a}"][()]), np.ravel(f[f"size_{b}"][()]))
 
 
-def pose_error(H, pose, K1, K2, scale):
-    """The larger of the rotation and translation errors (degrees) of the best pose decomposed from
-    H (pixels), as the benchmark: the decomposition minimizing the sum of the rotation and
-    translation errors (radians) and of the absolute translation error (metres)."""
+def pose_errors(H, pose, K1, K2, scale):
+    """The rotation error (degrees) and the absolute translation error (metres) of the pose
+    decomposed from H (pixels), as the benchmark: the decomposition minimizing the sum of the
+    rotation and translation-direction errors (radians) and of the absolute translation error"""
     R_gt, t_gt = pose[:, :3], scale * pose[:, 3]
     _, Rs, ts, _ = cv2.decomposeHomographyMat(np.linalg.inv(K2) @ H @ K1, np.eye(3))
-    best, err = np.inf, FAILED
+    best, errs = np.inf, (FAILED, FAILED)
     for R, t in zip(Rs, ts):
         t = t.ravel()
         if not (np.all(np.isfinite(R)) and np.all(np.isfinite(t))):
@@ -96,143 +113,206 @@ def pose_error(H, pose, K1, K2, scale):
         err_t = np.arccos(min(1.0, abs(t @ t_gt) / (n * n_gt + 1e-15)))   # the direction, up to sign
         err_abs_t = np.linalg.norm(n_gt * t / (n + 1e-15) - t_gt)
         if err_R + err_t + err_abs_t < best:
-            best, err = err_R + err_t + err_abs_t, np.degrees(max(err_R, err_t))
-    return err
+            best, errs = err_R + err_t + err_abs_t, (np.degrees(err_R), err_abs_t)
+    return errs
 
 
 def run_pair(job):
-    """Per solver: per seed, (reprojection error, pose error, number of inliers, time)"""
-    path, split, scene, pair, args = job
+    """For each configuration (solver, threshold, SNN threshold, iterations): per seed, (rotation
+    error, translation error, reprojection error, number of inliers, time)"""
+    path, split, scene, pair, configs, backend, seeds = job
     with h5py.File(scene_file(path, split, scene), "r") as f:
         corr, pose, K1, K2, size1, size2 = read_pair(f, pair)
     c1, c2 = size1[:2] / 2, size2[:2] / 2   # the sizes are (width, height)
     gt = corr[:, 9].astype(bool)
-    keep = corr[:, 8] < args.snn
-    x = np.ascontiguousarray((corr[keep, 0:2] - c1).T)
-    y = np.ascontiguousarray((corr[keep, 2:4] - c2).T)
     T1 = np.array([[1, 0, -c1[0]], [0, 1, -c1[1]], [0, 0, 1.0]])
     T2i = np.array([[1, 0, c2[0]], [0, 1, c2[1]], [0, 0, 1.0]])
     out = {}
-    for name in args.solvers:
+    for key in configs:
+        name, threshold, snn, iterations = key.split("|")
+        keep = corr[:, 8] < float(snn)
+        x = np.ascontiguousarray((corr[keep, 0:2] - c1).T)
+        y = np.ascontiguousarray((corr[keep, 2:4] - c2).T)
+        solver = homlib.Solver(homlib.solver_ids(names=[name])[0])
         runs = []
-        for seed in range(1, args.seeds + 1):
+        for seed in range(1, seeds + 1):
             if x.shape[1] < 4:
-                runs.append((FAILED, FAILED, 0, 0.0))
+                runs.append((FAILED, FAILED, FAILED, 0, 0.0))
                 continue
-            estimator = make_estimator(args.backend, homlib.Solver(homlib.solver_ids(names=[name])[0]),
-                                       args.threshold, args.iterations, seed)
+            estimator = make_estimator(backend, solver, float(threshold), int(iterations), seed)
             t0 = time.perf_counter()
             model, stats = estimator.estimate(x, y)
             elapsed = time.perf_counter() - t0
             n_in = len(inlier_indices(stats))
-            reproj = perr = FAILED
-            if n_in >= 4 and gt.sum() > 1:
-                mapped, ok = map_points(model, (corr[gt, 0:2] - c1).T)
-                if ok.all():
-                    reproj = np.mean(np.linalg.norm(mapped - (corr[gt, 2:4] - c2).T, axis=0))
-                perr = pose_error(T2i @ np.array(model.homography) @ T1, pose, K1, K2, SCENES[split][scene])
-            runs.append((float(reproj), float(perr), n_in, elapsed))
-        out[name] = runs
+            err_R = err_t = reproj = FAILED
+            if n_in >= 4:
+                err_R, err_t = pose_errors(T2i @ np.array(model.homography) @ T1, pose, K1, K2, SCENES[split][scene])
+                if gt.sum() > 1:
+                    mapped, ok = map_points(model, (corr[gt, 0:2] - c1).T)
+                    if ok.all():
+                        reproj = np.mean(np.linalg.norm(mapped - (corr[gt, 2:4] - c2).T, axis=0))
+            runs.append((float(err_R), float(err_t), float(reproj), n_in, elapsed))
+        out[key] = runs
     return scene, pair, out
 
 
-def mAA(errors, thresholds):
-    """The mean over the pairs of the share of the thresholds that each error is below, in %"""
-    e = np.asarray(errors, dtype=float)
-    return 100 * np.mean([(e <= th).mean() for th in thresholds]) if e.size else np.nan
+def accuracy(errors, thresholds):
+    """The share of the thresholds that each error is below, per run"""
+    e = np.asarray(errors, dtype=float)[:, None]
+    return (e <= thresholds[None, :]).mean(1)
 
 
-def summarize(results):
-    """Per solver: (mAA of the reprojection error, mAA of the pose error, mean inliers, median time)"""
-    rows = {}
-    for name, per_pair in results.items():
-        runs = [r for rs in per_pair.values() for r in rs]
-        reproj, perr, n_in, t = (np.array(v, dtype=float) for v in zip(*runs))
-        rows[name] = (mAA(reproj, REPROJECTION_THRESHOLDS), mAA(perr, POSE_THRESHOLDS), n_in.mean(), np.median(t))
-    return rows
+def scores(runs):
+    """Per run: the accuracies (main, rotation, translation, reprojection), and the times"""
+    err_R, err_t, reproj, _, t = (np.array(v, dtype=float) for v in zip(*runs))
+    a_R, a_t = accuracy(err_R, ROTATION_THRESHOLDS), accuracy(err_t, TRANSLATION_THRESHOLDS)
+    return np.stack([(a_R + a_t) / 2, a_R, a_t, accuracy(reproj, REPROJECTION_THRESHOLDS)]), t
 
 
-def print_results(results):
-    n = len(next(iter(results.values()), {}))
-    print(f"\n{n} pairs")
-    print(f"{'Solver':<36s} {'mAA reproj.':>11s} {'mAA pose':>9s} {'Inliers':>8s} {'Time (ms)':>9s}")
-    for name, (ar, ap, n_in, t) in sorted(summarize(results).items()):
-        print(f"{name:<36s} {ar:11.2f} {ap:9.2f} {n_in:8.1f} {t * 1e3:9.2f}")
+def summarize(per_scene):
+    """The mAAs (main, rotation, translation, reprojection; % ) averaged over the scenes, the
+    per-scene main mAA, and the median time"""
+    means, mains, times = [], {}, []
+    for scene, per_pair in per_scene.items():
+        acc, t = scores([r for rs in per_pair.values() for r in rs])
+        means.append(acc.mean(1))
+        mains[scene] = 100 * acc[0].mean()
+        times.append(t)
+    return 100 * np.mean(means, 0), mains, np.median(np.concatenate(times))
+
+
+def make_jobs(args, split, configs):
+    jobs = []
+    for scene in ([args.scene] if args.scene else SCENES[split]):
+        with h5py.File(scene_file(args.path, split, scene), "r") as f:
+            pairs = sorted(k[len("corr_"):] for k in f.keys() if k.startswith("corr_"))
+        if 0 < args.max_pairs < len(pairs):
+            pairs = sorted(np.random.default_rng(0).choice(pairs, args.max_pairs, replace=False))
+        jobs += [(args.path, split, scene, p, configs, args.backend, args.seeds) for p in pairs]
+    return jobs
+
+
+def run(jobs, configs, processes):
+    """results[configuration][scene][pair] = per seed: (rotation error, translation error,
+    reprojection error, inliers, time)"""
+    results = {key: {} for key in configs}
+    with Pool(processes) as pool:
+        for scene, pair, out in tqdm(pool.imap_unordered(run_pair, jobs, chunksize=4), total=len(jobs), desc="Pairs"):
+            for key, runs in out.items():
+                results[key].setdefault(scene, {})[pair] = runs
+    return results
+
+
+def tune(args):
+    configs = [f"{s}|{th}|{snn}|1000" for s, th, snn in itertools.product(args.solvers, TUNE_THRESHOLDS, TUNE_SNN)]
+    results = run(make_jobs(args, "train", configs), configs, args.jobs)
+    settings = {}
+    for name in args.solvers:
+        best = max(((summarize(results[f"{name}|{th}|{snn}|1000"])[0][0], th, snn)
+                    for th, snn in itertools.product(TUNE_THRESHOLDS, TUNE_SNN)))
+        settings[name] = dict(threshold=float(best[1]), snn=float(best[2]), train_mAA=float(best[0]))
+        print(f"{name:<36s} threshold {best[1]:>4} px, SNN {best[2]:.2f}: mAA (10 deg, 5 m) {best[0]:.2f}")
+    with open(args.output, "w") as f:
+        json.dump(dict(settings=vars_settings(args, "train"), solvers=settings), f, indent=1)
+
+
+def vars_settings(args, split):
+    return dict(split=split, scene=args.scene, max_pairs=args.max_pairs, backend=args.backend, seeds=args.seeds)
+
+
+def test(args):
+    tuned = {}
+    if args.settings:
+        with open(args.settings) as f:
+            tuned = json.load(f)["solvers"]
+    configs = []
+    for name in args.solvers:
+        s = tuned.get(name, DEFAULT_SETTINGS)
+        configs += [f"{name}|{s['threshold']}|{s['snn']}|{n}" for n in args.iterations]
+    results = run(make_jobs(args, "test", configs), configs, args.jobs)
+    if args.output:
+        settings = dict(vars_settings(args, "test"), settings_file=args.settings)
+        with open(args.output, "w") as f:
+            json.dump(dict(settings=settings, results=results), f)
+    print_results(results, args.per_scene)
+
+
+def print_results(results, per_scene=False):
+    for n in sorted({int(k.split("|")[3]) for k in results}):
+        print(f"\n{n} iterations: mAA (%) averaged over the scenes, median time")
+        print(f"{'Solver':<36s} {'Thr.':>5s} {'SNN':>5s} {'(10°, 5 m)':>10s} {'Rot.':>6s} {'Transl.':>7s} "
+              f"{'Reproj.':>7s} {'Time (ms)':>9s}")
+        for key in sorted(k for k in results if int(k.split("|")[3]) == n):
+            name, th, snn, _ = key.split("|")
+            m, mains, t = summarize(results[key])
+            print(f"{name:<36s} {float(th):5.1f} {float(snn):5.2f} {m[0]:10.2f} {m[1]:6.2f} {m[2]:7.2f} {m[3]:7.2f} "
+                  f"{t * 1e3:9.2f}")
+            if per_scene:
+                print("    " + ", ".join(f"{s} {v:.1f}" for s, v in sorted(mains.items())))
 
 
 def compare(path_a, path_b):
-    """The differences B - A of the two mAAs, with their standard errors over the pairs, and the
-    ratio of the median times"""
+    """For the configurations of both runs (same solver and iterations): the differences B - A of
+    the main and reprojection mAAs, with their standard errors over the pairs, and the ratio of the
+    median times"""
     with open(path_a) as f:
         a = json.load(f)
     with open(path_b) as f:
         b = json.load(f)
     warn_settings(a.get("settings"), b.get("settings"))
-    ra, rb = a["results"], b["results"]
-    print(f"{'Solver':<36s} {'mAA reproj.':>18s} {'mAA pose':>18s} {'Time':>6s}")
-    for name in sorted(set(ra) & set(rb)):
-        keys = sorted(set(ra[name]) & set(rb[name]))
-        cols = []
-        for i, ths in ((0, REPROJECTION_THRESHOLDS), (1, POSE_THRESHOLDS)):
-            d = np.array([np.mean([mAA([r[i] for r in rb[name][k]], ths)]) -
-                          np.mean([mAA([r[i] for r in ra[name][k]], ths)]) for k in keys])
-            cols.append(f"{d.mean():+8.2f} ±{d.std(ddof=1) / np.sqrt(len(d)) if len(d) > 1 else 0:5.2f} pts")
-        ta = np.median([r[3] for k in keys for r in ra[name][k]])
-        tb = np.median([r[3] for k in keys for r in rb[name][k]])
-        print(f"{name:<36s} {cols[0]:>18s} {cols[1]:>18s} {tb / ta:5.2f}x")
+
+    def by_solver(results):
+        return {(k.split("|")[0], k.split("|")[3]): v for k, v in results.items()}
+    ra, rb = by_solver(a["results"]), by_solver(b["results"])
+    print(f"{'Solver':<36s} {'Iter.':>6s} {'mAA (10°, 5 m)':>18s} {'Reproj.':>18s} {'Time':>6s}")
+    for name, n in sorted(set(ra) & set(rb), key=lambda k: (k[0], int(k[1]))):
+        d, ta, tb = [], [], []
+        for scene in sorted(set(ra[name, n]) & set(rb[name, n])):
+            for pair in sorted(set(ra[name, n][scene]) & set(rb[name, n][scene])):
+                (acc_a, t_a), (acc_b, t_b) = scores(ra[name, n][scene][pair]), scores(rb[name, n][scene][pair])
+                d.append(acc_b.mean(1) - acc_a.mean(1))
+                ta += list(t_a)
+                tb += list(t_b)
+        d = 100 * np.array(d)
+        se = d.std(0, ddof=1) / np.sqrt(len(d)) if len(d) > 1 else np.zeros(4)
+        print(f"{name:<36s} {n:>6s} {d[:, 0].mean():+8.2f} ±{se[0]:5.2f} pts {d[:, 3].mean():+8.2f} ±{se[3]:5.2f} pts "
+              f"{np.median(tb) / np.median(ta):5.2f}x")
 
 
 def main():
     parser = argparse.ArgumentParser(description="HEB benchmark of HomLib's point solvers")
-    parser.add_argument("path", nargs="?", help="The dataset directory (with test/ and training_and_validation/)")
-    parser.add_argument("--split", choices=["test", "train"], default="test")
-    parser.add_argument("--scene", choices=sorted(set(SCENES["test"]) | set(SCENES["train"])), default=None,
-                        help="One scene (default: every scene of the split)")
-    parser.add_argument("--max_pairs", type=int, default=1000,
-                        help="Pairs per scene, chosen at random (seeded), 0 for all (default: 1000)")
-    parser.add_argument("--snn", type=float, default=0.8, help="SNN ratio threshold of the matches (default: 0.8)")
-    parser.add_argument("--threshold", type=float, default=4.0, help="Inlier threshold in pixels (default: 4)")
-    parser.add_argument("--backend", choices=sorted(BACKENDS), default="lomsac",
-                        help="Robust estimator (default: lomsac). The others need HomLib built with them")
-    parser.add_argument("--seeds", type=int, default=1, help="Runs per pair (random seeds, for LOMSAC)")
-    parser.add_argument("--iterations", type=int, default=None,
-                        help="Run the estimator for exactly this many iterations")
+    sub = parser.add_subparsers(dest="command", required=True)
     point_solvers = [s.name for s in homlib.solver_ids(homlib.FeatureType.Points)]
-    parser.add_argument("--solvers", nargs="+", choices=point_solvers, default=point_solvers)
-    parser.add_argument("--jobs", type=int, default=os.cpu_count(), help="Processes (default: one per core)")
-    parser.add_argument("--output", type=str, default=None, help="Save the settings and the results to this JSON file")
-    parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
-                        help="Print the differences B - A between two saved runs, and exit")
+    for name in ("tune", "test"):
+        p = sub.add_parser(name)
+        p.add_argument("path", help="The dataset directory (with test/ and training_and_validation/)")
+        p.add_argument("--scene", default=None, help="One scene of the split (default: all)")
+        p.add_argument("--backend", choices=sorted(BACKENDS), default="lomsac",
+                       help="Robust estimator (default: lomsac). The others need HomLib built with them")
+        p.add_argument("--seeds", type=int, default=1, help="Runs per pair (random seeds, for LOMSAC)")
+        p.add_argument("--solvers", nargs="+", choices=point_solvers, default=point_solvers)
+        p.add_argument("--jobs", type=int, default=os.cpu_count(), help="Processes (default: one per core)")
+    tune_p, test_p = sub.choices["tune"], sub.choices["test"]
+    tune_p.add_argument("--max_pairs", type=int, default=250,
+                        help="Pairs per scene, chosen at random (seeded), 0 for all (default: 250)")
+    tune_p.add_argument("--output", required=True, help="The settings file to write")
+    test_p.add_argument("--max_pairs", type=int, default=1000,
+                        help="Pairs per scene, chosen at random (seeded), 0 for all (default: 1000)")
+    test_p.add_argument("--settings", default=None, help="The settings file written by tune")
+    test_p.add_argument("--iterations", type=int, nargs="+", default=[100, 1000],
+                        help="Run each solver for exactly this many iterations, for each value (default: 100 1000)")
+    test_p.add_argument("--per_scene", action="store_true", help="Also print the main mAA of each scene")
+    test_p.add_argument("--output", default=None, help="Save the settings and the results to this JSON file")
+    cmp_p = sub.add_parser("compare")
+    cmp_p.add_argument("files", nargs=2, metavar=("A", "B"), help="Print the differences B - A between two test runs")
     args = parser.parse_args()
-    if args.compare:
-        compare(*args.compare)
+    if args.command == "compare":
+        compare(*args.files)
         return
-    if not args.path:
-        parser.error("the dataset directory is required")
-    if args.scene and args.scene not in SCENES[args.split]:
-        parser.error(f"{args.scene} isn't in the {args.split} split")
-
-    jobs = []
-    for scene in ([args.scene] if args.scene else SCENES[args.split]):
-        with h5py.File(scene_file(args.path, args.split, scene), "r") as f:
-            pairs = sorted(k[len("corr_"):] for k in f.keys() if k.startswith("corr_"))
-        if 0 < args.max_pairs < len(pairs):
-            rng = np.random.default_rng(0)
-            pairs = sorted(rng.choice(pairs, args.max_pairs, replace=False))
-        jobs += [(args.path, args.split, scene, p, args) for p in pairs]
-
-    # results[solver][scene/pair] = per seed: (reprojection error, pose error, inliers, time)
-    results = {name: {} for name in args.solvers}
-    with Pool(args.jobs) as pool:
-        for scene, pair, out in tqdm(pool.imap_unordered(run_pair, jobs, chunksize=4), total=len(jobs), desc="Pairs"):
-            for name, runs in out.items():
-                results[name][f"{scene}/{pair}"] = runs
-    if args.output:
-        settings = dict(split=args.split, scene=args.scene, max_pairs=args.max_pairs, snn=args.snn,
-                        threshold=args.threshold, backend=args.backend, seeds=args.seeds, iterations=args.iterations)
-        with open(args.output, "w") as f:
-            json.dump(dict(settings=settings, results=results), f)
-    print_results(results)
+    split = "train" if args.command == "tune" else "test"
+    if args.scene and args.scene not in SCENES[split]:
+        parser.error(f"{args.scene} isn't in the {split} split: {', '.join(SCENES[split])}")
+    tune(args) if args.command == "tune" else test(args)
 
 
 if __name__ == "__main__":
