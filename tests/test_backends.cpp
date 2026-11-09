@@ -145,7 +145,8 @@ TEST_CASE("Residual - a point without a residual is an outlier") {
     HomLib::PoseData pose;   // H = I, no distortion in the first image
     pose.distortion_parameter2 = 0.1;
     const Eigen::Vector2d x1(1.0, 0.0);
-    const Eigen::Vector2d y1 = HomLib::radialdistort(x1, pose.distortion_parameter2);
+    Eigen::Vector2d y1;
+    REQUIRE(HomLib::try_radialdistort(x1, pose.distortion_parameter2, y1));
     REQUIRE(HomLib::detail::compute_squared_residual(solver, pose, x1, y1) < 1e-24);
     REQUIRE(HomLib::detail::compute_squared_residual(solver, pose, x1, x1)
             == (y1 - x1).squaredNorm());
@@ -196,7 +197,7 @@ TEST_CASE("LOMSAC - outliers where the true distortion can't be inverted") {
         const Eigen::Vector2d xi = r * Eigen::Vector2d(std::cos(a), std::sin(a));
         Eigen::Vector2d yi;
         if (i < n_inliers) {
-            yi = HomLib::radialdistort((H * xi.homogeneous()).hnormalized(), k2);
+            REQUIRE(HomLib::try_radialdistort((H * xi.homogeneous()).hnormalized(), k2, yi));
         } else {
             const double b = angle(rng), rb = std::sqrt(unit(rng));
             yi = rb * Eigen::Vector2d(std::cos(b), std::sin(b));

@@ -87,7 +87,10 @@ namespace FitzgibbonCVPR2001 {
                 }
                 Eigen::Matrix3d H = Eigen::Map<Eigen::Matrix3d>(X.col(i).data(), 3, 3).transpose();
                 // Measure reprojection error in undistorted space
-                Eigen::Vector2d y4u_est1 = HomLib::radialundistort(y[4], k);
+                Eigen::Vector2d y4u_est1;
+                if (!HomLib::try_radialundistort(y[4], k, y4u_est1)) {   // no undistorted point
+                    continue;
+                }
                 Eigen::Vector3d tmp = H * x[4].homogeneous();
                 Eigen::Vector2d y4u_est2 = tmp.hnormalized();
                 double res = (y4u_est1 - y4u_est2).squaredNorm();

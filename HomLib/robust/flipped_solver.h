@@ -5,6 +5,7 @@
 #include <cmath>
 #include <type_traits>
 #include <vector>
+#include "invert_homography.hpp"
 #include "posedata.hpp"
 #include "radial.hpp"
 #include "distortion_range.h"
@@ -23,15 +24,19 @@ constexpr DistortionCase flipped_case(DistortionCase c) {
 }
 
 inline void flip_poses(std::vector<PoseData>& poses) {
-    auto it = std::remove_if(poses.begin(), poses.end(),
-        [](const PoseData& p) {
-            return !(std::abs((p.homography / p.homography.norm()).determinant()) > 1e-12);
-        });
-    poses.erase(it, poses.end());
-    for (auto& p : poses) {
-        p.homography = p.homography.inverse().eval();
+    // A nearly singular H (|det| of the unit-norm H below 1e-12), or one without a finite inverse,
+    // gives no solution
+    size_t n = 0;
+    for (PoseData& p : poses) {
+        Eigen::Matrix3d H_inv;
+        if (!(std::abs((p.homography / p.homography.norm()).determinant()) > 1e-12) ||
+            !invert_homography(p.homography, &H_inv))
+            continue;
+        p.homography = H_inv;
         std::swap(p.distortion_parameter, p.distortion_parameter2);
+        poses[n++] = p;
     }
+    poses.resize(n);
 }
 
 template <DistortionCase DC>
