@@ -451,4 +451,20 @@ TEST_CASE("SupeRANSAC - orientation features") {
     REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
 }
 
+TEST_CASE("SupeRANSAC - the uniform sampler draws only indices of points") {
+    // SupeRANSAC's UniformRandomSampler, initialized on the data, can draw the index of the row
+    // after the last point; create_sampler gives HomLib's
+    const DataMatrix data = DataMatrix::Zero(5, 4);
+    auto sampler = HomLib::detail::create_sampler<4>(superansac::samplers::SamplerType::Uniform);
+    sampler->initialize(data);
+    size_t sample[4];
+    bool in_range = true;
+    for (int i = 0; i < 1000 && in_range; i++) {
+        REQUIRE(sampler->sample(data, 4, sample));
+        for (size_t j : sample)
+            in_range = in_range && j < 5;
+    }
+    REQUIRE(in_range);
+}
+
 #endif // HOMLIB_HAS_SUPERANSAC

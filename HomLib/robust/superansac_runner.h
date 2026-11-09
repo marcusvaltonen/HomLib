@@ -181,6 +181,27 @@ void initialize_local_optimizer(
     }
 }
 
+// SupeRANSAC's UniformRandomSampler, initialized on the data, draws indices in [0, rows], one past
+// the last point (danini/superansac#10): this one draws them in [0, rows - 1]. It sets the range
+// itself, so it stays right whichever fix SupeRANSAC adopts (#9 also changes initialize(size_t),
+// which its local optimizers call with the largest index).
+class UniformSampler : public superansac::samplers::UniformRandomSampler {
+public:
+    void initialize(const DataMatrix& data) override {
+        randomGenerator = std::make_unique<superansac::utils::UniformRandomGenerator<size_t>>();
+        randomGenerator->resetGenerator(0, data.rows() > 0 ? static_cast<size_t>(data.rows()) - 1 : 0);
+    }
+};
+
+// The sampler of the given type, with HomLib's uniform sampler instead of SupeRANSAC's
+template <size_t DimensionNumber>
+std::unique_ptr<superansac::samplers::AbstractSampler> create_sampler(superansac::samplers::SamplerType type)
+{
+    if (type == superansac::samplers::SamplerType::Uniform)
+        return std::make_unique<UniformSampler>();
+    return superansac::samplers::createSampler<DimensionNumber>(type);
+}
+
 // Assemble and run the SupeRANSAC pipeline with a given estimator and data.
 // DimensionNumber is the number of columns in the DataMatrix (4, 6, or 8).
 template <size_t DimensionNumber>
@@ -199,7 +220,7 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
     if (useNeighborhood)
         initialize_neighborhood<DimensionNumber>(data, neighborhoodGraph, settings);
 
-    auto sampler = superansac::samplers::createSampler<DimensionNumber>(settings.sampler);
+    auto sampler = create_sampler<DimensionNumber>(settings.sampler);
     auto scoring = superansac::scoring::createScoring<DimensionNumber>(settings.scoring, settings.useSprt);
     auto termination = superansac::termination::createTerminationCriterion(settings.terminationCriterion);
 
