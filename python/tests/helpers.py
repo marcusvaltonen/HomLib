@@ -2,6 +2,7 @@ import functools
 import hashlib
 import http.client
 import os
+import time
 import unittest
 import urllib.request
 from pathlib import Path
@@ -52,13 +53,19 @@ def fetch_test_data(name, url, sha256):
     if cache.exists() and has_sha256(cache):
         return cache
     error = None
-    try:
-        with urllib.request.urlopen(url, timeout=60) as f:
-            data = f.read()
-        if hashlib.sha256(data).hexdigest() != sha256:
-            error = f"{name}: the download from {url} doesn't have the SHA-256 that the test expects"
-    except (OSError, ValueError, http.client.HTTPException) as e:
-        error = f"{name}: {e}"
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as f:
+                data = f.read()
+            if hashlib.sha256(data).hexdigest() != sha256:
+                error = f"{name}: the download from {url} doesn't have the SHA-256 that the test expects"
+                break
+            error = None
+            break
+        except (OSError, ValueError, http.client.HTTPException) as e:
+            error = f"{name}: {e}"
+            if attempt < 2:
+                time.sleep(2)
     if error is None:
         cache.parent.mkdir(parents=True, exist_ok=True)
         tmp = cache.with_suffix(".tmp")
