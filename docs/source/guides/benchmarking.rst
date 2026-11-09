@@ -409,7 +409,7 @@ has two steps, as in the paper:
 
 ``tune``
    On the training split (2 scenes), with exactly 1000 iterations, a grid
-   search of the inlier threshold (1 to 12 px) and of the SNN threshold (0.5 to
+   search of the inlier threshold (1 to 12 px) and of the SNN threshold (0.4 to
    1, where 1 keeps every match) of each solver, jointly, for the best main
    metric. It writes them to a settings file. These scores aren't results:
    only the test split's are.

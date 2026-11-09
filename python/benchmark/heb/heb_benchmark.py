@@ -79,7 +79,7 @@ REPROJECTION_THRESHOLDS = np.logspace(0, np.log2(20), 10, base=2.0)   # px
 FAILED = 1e10   # the errors of a run without a model
 # The grid of the tuning
 TUNE_THRESHOLDS = [1, 2, 3, 4, 6, 8, 12]   # px
-TUNE_SNN = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]   # 1.0: no prefiltering (the paper's best: 0.6 for most methods)
+TUNE_SNN = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]   # 1.0: no prefiltering (the paper's best: 0.6 for most methods)
 DEFAULT_SETTINGS = dict(threshold=4.0, snn=0.8)
 
 
