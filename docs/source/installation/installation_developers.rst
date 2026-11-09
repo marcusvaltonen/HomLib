@@ -79,7 +79,9 @@ Pull the graph-cut-ransac submodule:
 
    git submodule update --init thirdparty/graph-cut-ransac
 
-Then build with ``-DHOMLIB_USE_GCRANSAC=ON`` and/or ``-DHOMLIB_USE_MAGSAC=ON``:
+Then build with ``-DHOMLIB_USE_GCRANSAC=ON`` and/or ``-DHOMLIB_USE_MAGSAC=ON``
+(MAGSAC++ uses GC-RANSAC's code, so ``-DHOMLIB_USE_MAGSAC=ON`` also enables
+GC-RANSAC):
 
 .. code-block:: bash
 

@@ -65,7 +65,13 @@ endfunction()
 
 option(HOMLIB_USE_SUPERANSAC "Enable SupeRANSAC backend (requires Boost, OpenCV)" ON)
 option(HOMLIB_USE_GCRANSAC "Enable GC-RANSAC backend (requires OpenCV)" ON)
-option(HOMLIB_USE_MAGSAC "Enable MAGSAC backend (requires OpenCV, gflags)" ON)
+option(HOMLIB_USE_MAGSAC "Enable MAGSAC backend (requires OpenCV, gflags; enables GC-RANSAC)" ON)
+# MAGSAC++ uses GC-RANSAC's code, and its Python bindings use GC-RANSAC's (GCSamplerType,
+# NonMinimalStrategy): it needs no other dependency, so it enables the GC-RANSAC backend too
+if(HOMLIB_USE_MAGSAC AND NOT HOMLIB_USE_GCRANSAC)
+    message(STATUS "HOMLIB_USE_MAGSAC needs GC-RANSAC: enabling HOMLIB_USE_GCRANSAC")
+    set(HOMLIB_USE_GCRANSAC ON)
+endif()
 option(HOMLIB_NATIVE_ARCH "Use -march=native for CPU-specific optimizations (not portable)" OFF)
 
 find_package(Eigen3 REQUIRED)
