@@ -18,14 +18,13 @@ namespace HomLib {
 			return static_cast<const Solver*>(this)->minimal_sample_size();
 		}
 
-		// Distortion functions using the pose's parameters
-        inline Eigen::Vector2d undistort(const HomLib::PoseData pose, const Eigen::Vector2d &xd) const {
-            Eigen::Vector2d xu = HomLib::radialundistort(xd, pose.distortion_parameter);
-            return xu;
+        // xu: xd undistorted with the pose's parameters, yd: yu distorted; false where there is
+        // none (see radial.hpp)
+        inline bool undistort(const HomLib::PoseData &pose, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
+            return HomLib::try_radialundistort(xd, pose.distortion_parameter, xu);
         }
-        inline Eigen::Vector2d distort(const HomLib::PoseData pose, const Eigen::Vector2d &yu) const {
-            Eigen::Vector2d yd = HomLib::radialdistort(yu, pose.distortion_parameter2);
-            return yd;
+        inline bool distort(const HomLib::PoseData &pose, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
+            return HomLib::try_radialdistort(yu, pose.distortion_parameter2, yd);
         }
 
 		// Public, not protected: since C++20, Solver{} for a solver that declares no constructor
@@ -42,9 +41,11 @@ int HomLib::PoseEstimator<Solver>::estimate(const std::vector<Eigen::Vector2d> &
     std::vector<Eigen::Vector2d> y = y_;
     const double f0 = normalize(x, y);
     poses->clear();
-    int n_sols = static_cast<const Solver*>(this)->solve(x, y, poses, k_range);
+    if (f0 == 0.0)
+        return 0;
+    static_cast<const Solver*>(this)->solve(x, y, poses, k_range);
     denormalize(poses, f0);
-    return n_sols;
+    return static_cast<int>(poses->size());
 }
 
 

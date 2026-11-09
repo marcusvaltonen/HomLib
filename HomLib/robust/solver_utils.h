@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <cmath>
 #include <limits>
 #include <random>
 #include <algorithm>
@@ -19,11 +20,20 @@ inline double compute_squared_residual(
     const Solver& solver, const PoseData& pose,
     const Eigen::Vector2d& x, const Eigen::Vector2d& y)
 {
-    Eigen::Vector2d z = solver.undistort(pose, x);
-    Eigen::Vector3d Z = pose.homography * z.homogeneous();
-    z = Z.hnormalized();
-    z = solver.distort(pose, z);
-    return (y - z).squaredNorm();
+    // max() (an outlier for every backend) where x can't be undistorted, H z is at infinity, H z
+    // can't be distorted, or r2 overflows; tested before the operations, so that nothing traps with
+    // floating-point exceptions enabled (for a finite H). A NaN would fail every comparison. Not
+    // inf: sqrt(r2), 0 * r2 and r2 - r2 stay finite.
+    constexpr double kOutlier = std::numeric_limits<double>::max();
+    Eigen::Vector2d z, w;
+    if (!solver.undistort(pose, x, z))
+        return kOutlier;
+    const Eigen::Vector3d Z = pose.homography * z.homogeneous();
+    if (Z(2) == 0.0 || !solver.distort(pose, Z.hnormalized(), w))
+        return kOutlier;
+    const double r2 = (y - w).squaredNorm();
+    // r2 >= 0: false only for an overflow (inf) or a NaN (a NaN in H); a quiet comparison
+    return std::islessequal(r2, kOutlier) ? r2 : kOutlier;
 }
 
 template <class Solver>

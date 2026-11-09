@@ -19,7 +19,6 @@
 // SOFTWARE.
 
 #include <Eigen/Dense>
-#include <math.h>  // copysign
 #include <cmath>
 
 #include "radial.hpp"
@@ -27,24 +26,36 @@
 namespace HomLib {
     Eigen::Vector2d radialdistort(const Eigen::Vector2d &x, double kappa) {
         // We expect inhomogenous input data
-
-        double ru2 = x.squaredNorm();
-        double ru = std::sqrt(ru2);
-
-        double rd;
-        // Compute distorted radius
-        if (kappa == 0) {
-            rd = ru;
-        } else {
-            rd = 0.5 / kappa / ru - copysign(1.0, kappa) * std::sqrt(0.25 / std::pow(kappa, 2) / ru2 - 1.0 / kappa);
-        }
-
-        // Compute distorted coordinates
-        Eigen::Vector2d y = (rd / ru) * x;
-
-        return y;
+        // The inverse of radialundistort, ru = rd / (1 + kappa rd^2): rd is the root of
+        // kappa ru rd^2 - rd + ru = 0 that tends to ru as kappa -> 0,
+        // rd = (1 - sqrt(1 - 4 kappa ru^2)) / (2 kappa ru) = 2 ru / (1 + sqrt(1 - 4 kappa ru^2)).
+        // The second form has no cancellation, and no division by kappa or ru. NaN when
+        // 4 kappa ru^2 > 1: no real solution.
+        return (2.0 / (1.0 + std::sqrt(1.0 - 4.0 * kappa * x.squaredNorm()))) * x;
     }
     
+    bool try_radialdistort(const Eigen::Vector2d &x, double kappa, Eigen::Vector2d &out) {
+        const double r2 = x.squaredNorm();
+        if (!std::isfinite(r2))
+            return false;
+        const double d = 1.0 - 4.0 * kappa * r2;
+        if (!std::isgreaterequal(d, 0.0))   // quiet comparison: no exception if d is NaN
+            return false;
+        out = (2.0 / (1.0 + std::sqrt(d))) * x;
+        return true;
+    }
+
+    bool try_radialundistort(const Eigen::Vector2d &x, double kappa, Eigen::Vector2d &out) {
+        const double r2 = x.squaredNorm();
+        if (!std::isfinite(r2))
+            return false;
+        const double w = 1.0 + kappa * r2;
+        if (!std::isfinite(w) || w == 0.0)
+            return false;
+        out = x / w;
+        return true;
+    }
+
     std::vector<Eigen::Vector2d> radialdistort(const std::vector<Eigen::Vector2d> &x, double kappa) {
         // We expect inhomogenous input data
         std::vector<Eigen::Vector2d> out;

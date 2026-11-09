@@ -99,6 +99,8 @@ void refinement_no_dist(
 	    //std::cout << res << "\n";
 
 	    dx = Hess.ldlt().solve(g);
+	    if (!dx.allFinite())   // a degenerate model or sample: keep the last finite model
+		    break;
 	    
 	    Eigen::Matrix3d H_new = H;
 	    Eigen::Map<Eigen::Matrix<double, 8, 1>>(H_new.data()) += dx.head(8);
@@ -205,6 +207,8 @@ void refinement_onesided(
 	    //std::cout << res << "\n";
 
 	    dx = Hess.ldlt().solve(g);
+	    if (!dx.allFinite())   // a degenerate model or sample: keep the last finite model
+		    break;
 	    
 	    Eigen::Matrix3d H_new = H;
 	    Eigen::Map<Eigen::Matrix<double, 8, 1>>(H_new.data()) += dx.head(8);
@@ -313,6 +317,8 @@ void refinement_onesided_right(
 	    //std::cout << res << "\n";
 
 	    dx = Hess.ldlt().solve(g);
+	    if (!dx.allFinite())   // a degenerate model or sample: keep the last finite model
+		    break;
 	    
 	    Eigen::Matrix3d H_new = H;
 	    Eigen::Map<Eigen::Matrix<double, 8, 1>>(H_new.data()) += dx.head(8);
@@ -421,6 +427,8 @@ void refinement_twosided_equal(
 	    //std::cout << res << "\n";
 
 	    dx = Hess.ldlt().solve(g);
+	    if (!dx.allFinite())   // a degenerate model or sample: keep the last finite model
+		    break;
 	    
 	    Eigen::Matrix3d H_new = H;
 	    Eigen::Map<Eigen::Matrix<double, 8, 1>>(H_new.data()) += dx.head(8);
@@ -533,6 +541,8 @@ void refinement_twosided(
 	    //std::cout << res << "\n";
 
 	    dx = Hess.ldlt().solve(g);
+	    if (!dx.allFinite())   // a degenerate model or sample: keep the last finite model
+		    break;
 	    
 	    Eigen::Matrix3d H_new = H;
 	    Eigen::Map<Eigen::Matrix<double, 8, 1>>(H_new.data()) += dx.head(8);

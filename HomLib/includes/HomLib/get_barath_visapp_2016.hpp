@@ -52,13 +52,14 @@ class AffineSolver : public AffinePoseEstimator<AffineSolver> {
         int minimal_sample_size() const {
             return 2;
         }
-        inline Eigen::Vector2d undistort(const HomLib::PoseData pose, const Eigen::Vector2d &xd) const {
-            Eigen::Vector2d xu = xd;  // No dist
-            return xu;
+        // xu: xd undistorted, yd: yu distorted; false where there is none (see radial.hpp)
+        inline bool undistort(const HomLib::PoseData &, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
+            xu = xd;
+            return true;
         }
-        inline Eigen::Vector2d distort(const HomLib::PoseData pose, const Eigen::Vector2d &yu) const {
-            Eigen::Vector2d yd = yu;  // No dist
-            return yd;
+        inline bool distort(const HomLib::PoseData &, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
+            yd = yu;
+            return true;
         }
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_no_dist(x, y, pose);

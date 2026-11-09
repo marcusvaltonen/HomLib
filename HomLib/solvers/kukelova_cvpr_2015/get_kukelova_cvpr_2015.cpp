@@ -137,7 +137,7 @@ namespace KukelovaCVPR2015 {
             const double s2 = std::pow(scale, 2);
             const double k1 = dist_equal ? 0.5 * (xx(0) + xx(1)) * s2 : xx(0) * s2;
             const double k2 = dist_equal ? k1 : xx(1) * s2;
-            if (!range.contains(k1, k2)) {
+            if (!std::isfinite(k1) || !std::isfinite(k2) || !range.contains(k1, k2)) {
                 continue;
             }
 
@@ -147,6 +147,9 @@ namespace KukelovaCVPR2015 {
 
             // Construct putative homography
             Htmp = S.inverse() * HomLib::KukelovaCVPR2015::construct_homography_from_sols(xx, d, N) * S;
+            if (!Htmp.allFinite()) {
+                continue;
+            }
 
             // Package output
             HomLib::PoseData pd;

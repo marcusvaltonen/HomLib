@@ -38,7 +38,10 @@ std::vector<HomLib::PoseData> get_one_sided(
     const double c1 = -rhs(1)*d[8] + rhs(2)*d[7];
     const double c0 = -rhs(1)*d[11] + rhs(2)*d[10];
 
-    // Find real roots
+    // Find real roots. c3 = 0 for a degenerate sample (a point at the origin): no solution
+    if (c3 == 0.0) {
+        return {};
+    }
     double inv_c3 = 1.0 / c3;
     double roots[3];
     int nroots = poselib::univariate::solve_cubic_real(c2 * inv_c3, c1 * inv_c3, c0 * inv_c3, roots);

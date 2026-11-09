@@ -26,6 +26,7 @@
 #include <Eigen/Eigenvalues>
 #include "posedata.hpp"
 
+#include "invert_homography.hpp"
 #include "radial.hpp"
 #include "get_valtonenornhag_icpr_2026.hpp"
 
@@ -171,6 +172,11 @@ namespace ValtonenOrnhagICPR2026 {
             Eigen::Matrix3d B;
             B << N.row(3), N.row(7), N.row(11);
             
+            // Eigen's RealQZ doesn't terminate when A = 0 (and B is singular), as with all the
+            // points at the origin
+            if (A.isZero(0.0)) {
+                return {};
+            }
             Eigen::GeneralizedEigenSolver<Eigen::Matrix3d> ges;
             ges.compute(A, B, true);
             // Without convergence, the eigenvalues and eigenvectors are not computed
@@ -189,9 +195,11 @@ namespace ValtonenOrnhagICPR2026 {
                     Eigen::Matrix<double, 3, 4> G = Eigen::Map<const Eigen::Matrix<double, 4, 3>>(g.data()).transpose();
                     Eigen::Matrix3d H = G.bottomRightCorner(3, 3);
                     
-                    // Package output
+                    // Package output; a singular H gives no solution
                     HomLib::PoseData pd;
-                    pd.homography = H.inverse();
+                    if (!HomLib::invert_homography(H, &pd.homography)) {
+                        continue;
+                    }
                     pd.distortion_parameter = k;
                     output.push_back(pd);
                 }
@@ -224,6 +232,9 @@ namespace ValtonenOrnhagICPR2026 {
             Eigen::Matrix<double, 3, 4> G = Eigen::Map<const Eigen::Matrix<double, 4, 3>>(g.data()).transpose();
             Eigen::Matrix3d H = G.bottomRightCorner(3, 3);
             // Package output
+            if (!(G.col(3).squaredNorm() > 0.0) || !H.allFinite()) {   // degenerate sample
+                return output;
+            }
             HomLib::PoseData pd;
             pd.homography = H;  // Note: not inverse now
             pd.distortion_parameter = (double) (G.col(0).transpose() * G.col(3)) / G.col(3).squaredNorm();

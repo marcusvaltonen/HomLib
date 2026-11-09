@@ -35,19 +35,23 @@ inline void flip_poses(std::vector<PoseData>& poses) {
 }
 
 template <DistortionCase DC>
-inline Eigen::Vector2d flipped_undistort(const PoseData& pose, const Eigen::Vector2d& xd) {
-    if constexpr (DC == ONE_SIDED_RIGHT)
-        return radialundistort(xd, pose.distortion_parameter);
-    else
-        return xd;
+inline bool flipped_undistort(const PoseData& pose, const Eigen::Vector2d& xd, Eigen::Vector2d& xu) {
+    if constexpr (DC == ONE_SIDED_RIGHT) {
+        return try_radialundistort(xd, pose.distortion_parameter, xu);
+    } else {
+        xu = xd;
+        return true;
+    }
 }
 
 template <DistortionCase DC>
-inline Eigen::Vector2d flipped_distort(const PoseData& pose, const Eigen::Vector2d& yu) {
-    if constexpr (DC == ONE_SIDED_LEFT)
-        return radialdistort(yu, pose.distortion_parameter2);
-    else
-        return yu;
+inline bool flipped_distort(const PoseData& pose, const Eigen::Vector2d& yu, Eigen::Vector2d& yd) {
+    if constexpr (DC == ONE_SIDED_LEFT) {
+        return try_radialdistort(yu, pose.distortion_parameter2, yd);
+    } else {
+        yd = yu;
+        return true;
+    }
 }
 
 template <DistortionCase DC>
@@ -87,11 +91,11 @@ public:
 
     int minimal_sample_size() const { return minimal_sample_size_value; }
 
-    inline Eigen::Vector2d undistort(const PoseData pose, const Eigen::Vector2d& xd) const {
-        return detail::flipped_undistort<DISTORTION_CASE>(pose, xd);
+    inline bool undistort(const PoseData& pose, const Eigen::Vector2d& xd, Eigen::Vector2d& xu) const {
+        return detail::flipped_undistort<DISTORTION_CASE>(pose, xd, xu);
     }
-    inline Eigen::Vector2d distort(const PoseData pose, const Eigen::Vector2d& yu) const {
-        return detail::flipped_distort<DISTORTION_CASE>(pose, yu);
+    inline bool distort(const PoseData& pose, const Eigen::Vector2d& yu, Eigen::Vector2d& yd) const {
+        return detail::flipped_distort<DISTORTION_CASE>(pose, yu, yd);
     }
     inline void refine(PoseData& pose, const std::vector<Eigen::Vector2d>& x,
                        const std::vector<Eigen::Vector2d>& y) const {
@@ -130,11 +134,11 @@ public:
 
     int minimal_sample_size() const { return minimal_sample_size_value; }
 
-    inline Eigen::Vector2d undistort(const PoseData pose, const Eigen::Vector2d& xd) const {
-        return detail::flipped_undistort<DISTORTION_CASE>(pose, xd);
+    inline bool undistort(const PoseData& pose, const Eigen::Vector2d& xd, Eigen::Vector2d& xu) const {
+        return detail::flipped_undistort<DISTORTION_CASE>(pose, xd, xu);
     }
-    inline Eigen::Vector2d distort(const PoseData pose, const Eigen::Vector2d& yu) const {
-        return detail::flipped_distort<DISTORTION_CASE>(pose, yu);
+    inline bool distort(const PoseData& pose, const Eigen::Vector2d& yu, Eigen::Vector2d& yd) const {
+        return detail::flipped_distort<DISTORTION_CASE>(pose, yu, yd);
     }
     inline void refine(PoseData& pose, const std::vector<Eigen::Vector2d>& x,
                        const std::vector<Eigen::Vector2d>& y) const {
@@ -173,11 +177,11 @@ public:
 
     int minimal_sample_size() const { return minimal_sample_size_value; }
 
-    inline Eigen::Vector2d undistort(const PoseData pose, const Eigen::Vector2d& xd) const {
-        return detail::flipped_undistort<DISTORTION_CASE>(pose, xd);
+    inline bool undistort(const PoseData& pose, const Eigen::Vector2d& xd, Eigen::Vector2d& xu) const {
+        return detail::flipped_undistort<DISTORTION_CASE>(pose, xd, xu);
     }
-    inline Eigen::Vector2d distort(const PoseData pose, const Eigen::Vector2d& yu) const {
-        return detail::flipped_distort<DISTORTION_CASE>(pose, yu);
+    inline bool distort(const PoseData& pose, const Eigen::Vector2d& yu, Eigen::Vector2d& yd) const {
+        return detail::flipped_distort<DISTORTION_CASE>(pose, yu, yd);
     }
     inline void refine(PoseData& pose, const std::vector<Eigen::Vector2d>& x,
                        const std::vector<Eigen::Vector2d>& y) const {

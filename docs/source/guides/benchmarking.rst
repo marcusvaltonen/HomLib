@@ -161,10 +161,6 @@ Its options:
    ``superansac``. GC-RANSAC, MAGSAC++ and SupeRANSAC need HomLib built with
    them (see :ref:`backend_availability`). MAGSAC++ has no inlier threshold:
    it gets ``--threshold`` as its largest noise level, ``sigma_max``.
-   With a distortion solver, GC-RANSAC can hang on some pairs until HomLib
-   includes `pull request #52 <https://github.com/marcusvaltonen/HomLib/pull/52>`__:
-   a model whose distortion can't be inverted at a point gave that point a NaN
-   residual, on which GC-RANSAC's graph cut never terminates.
 
 ``--threshold PX``
    The inlier threshold, in pixels (default: 3): of the original images, or of

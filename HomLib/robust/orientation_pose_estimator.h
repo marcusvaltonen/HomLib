@@ -32,9 +32,11 @@ int HomLib::OrientationPoseEstimator<Solver>::estimate(const std::vector<Eigen::
     std::vector<Eigen::Vector2d> y = y_;
     const double f0 = normalize(x, y);
     poses->clear();
-    int n_sols = static_cast<const Solver*>(this)->solve(x, y, ori_, poses, k_range);
+    if (f0 == 0.0)
+        return 0;
+    static_cast<const Solver*>(this)->solve(x, y, ori_, poses, k_range);
     denormalize(poses, f0);
-    return n_sols;
+    return static_cast<int>(poses->size());
 }
 
 

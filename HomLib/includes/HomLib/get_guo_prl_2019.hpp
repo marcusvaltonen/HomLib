@@ -55,7 +55,9 @@ inline std::vector<HomLib::PoseData> get(
             return output;
         }
     }
-    Eigen::Matrix3d H = HomLib::Wadenback3DV2026::homography_4pt_guo(x, y);
+    Eigen::Matrix3d H;
+    if (!HomLib::Wadenback3DV2026::homography_4pt_guo(x, y, H))
+        return output;
 
     H.normalize();
     // After the normalization, a non-finite entry makes the determinant NaN, which fails the quiet
@@ -86,11 +88,14 @@ class Solver : public PoseEstimator<Solver> {
         int minimal_sample_size() const {
             return 4;
         }
-        inline Eigen::Vector2d undistort(const HomLib::PoseData, const Eigen::Vector2d &xd) const {
-            return xd;
+        // xu: xd undistorted, yd: yu distorted; false where there is none (see radial.hpp)
+        inline bool undistort(const HomLib::PoseData &, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
+            xu = xd;
+            return true;
         }
-        inline Eigen::Vector2d distort(const HomLib::PoseData, const Eigen::Vector2d &yu) const {
-            return yu;
+        inline bool distort(const HomLib::PoseData &, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
+            yd = yu;
+            return true;
         }
         inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
             HomLib::refinement_no_dist(x, y, pose);

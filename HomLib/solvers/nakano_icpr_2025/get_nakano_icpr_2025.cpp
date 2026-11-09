@@ -26,6 +26,7 @@
 #include <Eigen/Eigenvalues>
 #include "posedata.hpp"
 
+#include "invert_homography.hpp"
 #include "radial.hpp"
 #include "get_nakano_icpr_2025.hpp"
 
@@ -68,6 +69,11 @@ namespace NakanoICPR2025 {
         Eigen::Matrix3d B;
         B << N.row(3), N.row(7), N.row(11);
         
+        // Eigen's RealQZ doesn't terminate when A = 0 (and B is singular), as with all the points at
+        // the origin
+        if (A.isZero(0.0)) {
+            return {};
+        }
         Eigen::GeneralizedEigenSolver<Eigen::Matrix3d> ges;
         ges.compute(A, B, true);
         // Without convergence, the eigenvalues and eigenvectors are not computed
@@ -91,9 +97,10 @@ namespace NakanoICPR2025 {
                 Eigen::Matrix<double, 3, 4> G = Eigen::Map<const Eigen::Matrix<double, 4, 3>>(g.data()).transpose();
                 Eigen::Matrix3d H = G.bottomRightCorner(3, 3);
                 
-                // Package output
+                // Package output; a singular H gives no solution
                 HomLib::PoseData pd;
-                pd.homography = H.inverse();
+                if (!HomLib::invert_homography(H, &pd.homography))
+                    continue;
                 pd.distortion_parameter2 = k;
                 output.push_back(pd);
             }

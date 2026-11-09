@@ -467,7 +467,8 @@ int main(int argc, char *argv[]) {
     
     for (int i = 0; i < n_prob; i++) {
         auto start = std::chrono::high_resolution_clock::now();
-        Eigen::Matrix3d H1 = HomLib::Wadenback3DV2026::homography_4pt_guo(inst.x1, inst.x2);
+        Eigen::Matrix3d H1 = Eigen::Matrix3d::Zero();
+        HomLib::Wadenback3DV2026::homography_4pt_guo(inst.x1, inst.x2, H1);
         auto end = std::chrono::high_resolution_clock::now();
         runtimes_guo.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
         err_guo.push_back(inst.hom_error(H1));

@@ -21,6 +21,8 @@
 #include <Eigen/Dense>
 #include <catch2/catch_test_macros.hpp>
 #include <vector>
+#include <cmath>
+#include <limits>
 #include "radial.hpp"
 #include "roots.hpp"
 
@@ -55,4 +57,46 @@ TEST_CASE("Helpers - radial distortion: the overloads with an output vector") {
     REQUIRE(xd.size() == x.size());
     for (size_t i = 0; i < x.size(); i++)
         REQUIRE(xd[i].isApprox(x[i], 1e-12));
+}
+
+TEST_CASE("Helpers - radial distortion: radialdistort inverts radialundistort, also at the centre") {
+    for (double k : {-0.5, -0.1, 0.0, 0.1, 0.2}) {
+        REQUIRE(HomLib::radialdistort(Eigen::Vector2d(0, 0), k) == Eigen::Vector2d(0, 0));
+        for (double r : {1e-9, 1e-4, 0.3, 1.0}) {
+            const Eigen::Vector2d xd(0.6 * r, -0.8 * r);
+            const Eigen::Vector2d xu = HomLib::radialundistort(xd, k);
+            REQUIRE((HomLib::radialdistort(xu, k) - xd).norm() <= 1e-15 * r);
+        }
+    }
+    // No real solution where 4 k r^2 > 1
+    REQUIRE(std::isnan(HomLib::radialdistort(Eigen::Vector2d(2.0, 0.0), 0.1)(0)));
+}
+
+TEST_CASE("Helpers - radial distortion: the versions that report failure") {
+    const Eigen::Vector2d unchanged(7, 7);
+    for (double k : {-0.5, 0.0, 0.2}) {
+        for (const Eigen::Vector2d x : {Eigen::Vector2d(0, 0), Eigen::Vector2d(0.3, -0.4), Eigen::Vector2d(1.0, 0.0)}) {
+            Eigen::Vector2d out = unchanged;
+            REQUIRE(HomLib::try_radialundistort(x, k, out));
+            REQUIRE(out == HomLib::radialundistort(x, k));
+            out = unchanged;
+            REQUIRE(HomLib::try_radialdistort(x, k, out));
+            REQUIRE(out == HomLib::radialdistort(x, k));
+        }
+    }
+    Eigen::Vector2d out = unchanged;
+    // At the radius 1 / sqrt(-k) where the model folds: 1 + k |x|^2 = 0. Beyond it, the
+    // undistorted point is finite (the same projective point as (-x, -w)).
+    REQUIRE_FALSE(HomLib::try_radialundistort(Eigen::Vector2d(1.0, 0.0), -1.0, out));
+    REQUIRE_FALSE(HomLib::try_radialundistort(Eigen::Vector2d(4.0, 0.0), -0.0625, out));
+    Eigen::Vector2d beyond;
+    REQUIRE(HomLib::try_radialundistort(Eigen::Vector2d(2.0, 0.0), -0.5, beyond));
+    REQUIRE(beyond == HomLib::radialundistort(Eigen::Vector2d(2.0, 0.0), -0.5));
+    // No distorted point maps to x: 4 k |x|^2 > 1
+    REQUIRE_FALSE(HomLib::try_radialdistort(Eigen::Vector2d(2.0, 0.0), 0.1, out));
+    // |x|^2 overflows, or a NaN
+    REQUIRE_FALSE(HomLib::try_radialundistort(Eigen::Vector2d(1e200, 0.0), 0.0, out));
+    REQUIRE_FALSE(HomLib::try_radialdistort(Eigen::Vector2d(1e200, 0.0), 0.0, out));
+    REQUIRE_FALSE(HomLib::try_radialdistort(Eigen::Vector2d(0.5, 0.0), std::numeric_limits<double>::quiet_NaN(), out));
+    REQUIRE(out == unchanged);
 }

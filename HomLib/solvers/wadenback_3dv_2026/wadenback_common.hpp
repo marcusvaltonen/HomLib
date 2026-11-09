@@ -66,9 +66,12 @@ int bisect_sturm_scaled(const double *p, double *roots) {
     return nroots;
 }
 // Guo's method (2019) for computing a homography from four points using an explicit method.
-Eigen::Matrix3d homography_4pt_guo(
+// False, H unchanged, if three of the first four points of x are collinear (H can still be
+// non-finite, on overflow).
+bool homography_4pt_guo(
     const std::vector<Eigen::Vector2d> &x,
-    const std::vector<Eigen::Vector2d> &y
+    const std::vector<Eigen::Vector2d> &y,
+    Eigen::Matrix3d &H
 );
 // The homography of a root, from the first 5 points of x and y undistorted with k1 and k2: Guo's
 // method on the 4 of them in the best general position (see general_position.hpp). Returns false
