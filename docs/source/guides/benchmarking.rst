@@ -402,7 +402,7 @@ matches with an SNN ratio below a threshold, runs a robust estimator
    mapping by the estimated model, distortion included, over 1 to 20 px.
 
 **Time**
-   The median time of a run of the estimator.
+   The mean time of a run of the estimator, as the paper's Fig. 6.
 
 The mAAs are computed per scene, then averaged over the scenes. The protocol
 has two steps, as in the paper:
@@ -411,11 +411,13 @@ has two steps, as in the paper:
    On the training split (2 scenes), with exactly 1000 iterations, a grid
    search of the inlier threshold (1 to 12 px) and of the SNN threshold (0.4 to
    1, where 1 keeps every match) of each solver, jointly, for the best main
-   metric. It writes them to a settings file. These scores aren't results:
-   only the test split's are.
+   metric (on a tie, the smallest threshold, then the smallest SNN threshold).
+   It writes them to a settings file. These scores aren't results: only the test
+   split's are. The paper also tunes parameters specific to each estimator;
+   this script doesn't.
 
 ``test``
-   On the test split (8 scenes), with these settings, each solver runs for
+   On the test split (the 8 other scenes), with these settings, each solver runs for
    exactly N iterations, for each N of ``--iterations`` (by default 10, 100,
    1000 and 10000, the range of the paper), for a time-accuracy curve. Without ``--settings``, every
    solver gets a 4 px threshold and an SNN threshold of 0.8.
@@ -424,10 +426,11 @@ The dataset (33 GB, of which 25 GB for the test split) is linked from the
 benchmark's README
 (`homography-benchmark <https://github.com/danini/homography-benchmark>`__);
 put it in a directory with ``test/`` and ``training_and_validation/``. The
-script needs ``h5py`` too. The scenes have thousands of pairs each, so
-``--max_pairs`` evaluates a random subset of each scene, the same in every run
-(250 for ``tune`` and 1000 for ``test`` by default; ``0`` for all, as the
-paper). The runs use all the cores (``--jobs``):
+script needs ``h5py`` too. The scenes have thousands of homographies each (a
+pair of images can have several, of different planes), so ``--max_pairs``
+evaluates a random subset of each scene, the same in every run (250 for
+``tune`` and 1000 for ``test`` by default; ``0`` for all, as the paper, which
+takes days on 4 cores). The runs use all the cores (``--jobs``):
 
 .. code-block:: bash
 
@@ -438,7 +441,8 @@ paper). The runs use all the cores (``--jobs``):
    python benchmark/heb/heb_benchmark.py compare before.json after.json
 
 The benchmark's repository has no license, so the script reimplements its
-metrics: on the same estimates, both give the same errors, to 1e-10.
+metrics: on the same estimates (without distortion), both give the same errors,
+to 1e-10.
 
 Regression test
 ---------------

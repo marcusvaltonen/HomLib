@@ -3,9 +3,10 @@ HEB benchmark of HomLib's point solvers: the Homography Estimation Benchmark of 
 Polic, Förstner and Matas ("A Large Scale Homography Benchmark", CVPR 2023,
 https://github.com/danini/homography-benchmark), with the protocol of its paper.
 
-The dataset gives, for image pairs of 10 scenes of the 1DSfM photo collections, the SIFT matches
-with their SNN ratios, which of them are inliers of the ground-truth homography, and the camera
-intrinsics and relative pose of each pair (from COLMAP). For each pair and solver, the script keeps
+The dataset gives, for homographies between image pairs of 10 scenes of the 1DSfM photo
+collections (a pair can have several, of different planes), the SIFT matches with their SNN ratios,
+which of them are inliers of the ground-truth homography, and the camera intrinsics and relative
+pose of each pair (from COLMAP). For each homography and solver, the script keeps
 the matches with an SNN ratio below a threshold, runs a robust estimator, and measures, as the
 paper (Section 4):
 - the rotation error and the absolute translation error (metres, the estimated translation scaled
@@ -16,7 +17,7 @@ paper (Section 4):
 A run with fewer than 4 inliers fails (errors of 1e10). The metrics are mAAs per scene, averaged
 over the scenes: rotation over 1 to 10 degrees, translation over 0.1 to 5 m, reprojection over 1 to
 20 px (10 thresholds each). The main metric, "mAA (10 deg, 5 m)", is the average of the rotation
-and translation mAAs.
+and translation mAAs. The time is the mean time of a run of the estimator, as the paper's Fig. 6.
 
 The protocol has two steps:
 - ``tune``: on the training split, with exactly 1000 iterations, a grid search of the inlier
@@ -27,11 +28,16 @@ The protocol has two steps:
   each N of ``--iterations`` (by default 10, 100, 1000 and 10000, the range of the paper: a
   time-accuracy curve).
 Without ``--settings``, ``test`` uses a 4 px threshold and an SNN threshold of 0.8 for every solver.
+Unlike the paper, which also tunes parameters specific to each estimator, only these two settings
+are tuned. The training split has 2 scenes, the test split the other 8 (the paper's splits are
+disjoint; the benchmark's dataset_configuration.yaml also lists the 2 training scenes as test
+scenes).
 
 The points are centred on each image's centre, HomLib's distortion centre; the distortion
 solvers' H is taken without the distortion for the pose. The scenes are large (the test split has 8
-scenes, 25 GB), so ``--max_pairs`` evaluates a random subset of each scene's pairs (seeded: the
-same pairs in every run); the paper uses them all (``--max_pairs 0``).
+scenes, 25 GB), so ``--max_pairs`` evaluates a random subset of each scene's homographies (seeded:
+the same ones in every run); the paper uses them all (``--max_pairs 0``: days on 4 cores, and
+several GB of memory for ``tune``, which keeps the results of every setting).
 
 Requirements: h5py, opencv-python, tqdm, and the dataset from the benchmark's README, in a
 directory with ``test/`` and ``training_and_validation/`` (or ``train/``).
@@ -172,15 +178,15 @@ def scores(runs):
 
 
 def summarize(per_scene):
-    """The mAAs (main, rotation, translation, reprojection; % ) averaged over the scenes, the
-    per-scene main mAA, and the median time"""
+    """The mAAs (main, rotation, translation, reprojection; %) averaged over the scenes, the
+    per-scene main mAA, and the mean time of a run (as the paper's Fig. 6)"""
     means, mains, times = [], {}, []
     for scene, per_pair in per_scene.items():
         acc, t = scores([r for rs in per_pair.values() for r in rs])
         means.append(acc.mean(1))
         mains[scene] = 100 * acc[0].mean()
         times.append(t)
-    return 100 * np.mean(means, 0), mains, np.median(np.concatenate(times))
+    return 100 * np.mean(means, 0), mains, np.mean(np.concatenate(times))
 
 
 def make_jobs(args, split, configs):
@@ -210,10 +216,15 @@ def tune(args):
     results = run(make_jobs(args, "train", configs), configs, args.jobs)
     settings = {}
     for name in args.solvers:
-        best = max(((summarize(results[f"{name}|{th}|{snn}|1000"])[0][0], th, snn)
-                    for th, snn in itertools.product(TUNE_THRESHOLDS, TUNE_SNN)))
+        # The best main mAA; on a tie, the first in the order of the grid (the smallest threshold,
+        # then the smallest SNN threshold)
+        grid = [(summarize(results[f"{name}|{th}|{snn}|1000"])[0][0], th, snn)
+                for th, snn in itertools.product(TUNE_THRESHOLDS, TUNE_SNN)]
+        best = max(grid, key=lambda g: g[0])
+        ties = sum(g[0] == best[0] for g in grid) - 1
         settings[name] = dict(threshold=float(best[1]), snn=float(best[2]), train_mAA=float(best[0]))
-        print(f"{name:<36s} threshold {best[1]:>4} px, SNN {best[2]:.2f}: mAA (10 deg, 5 m) {best[0]:.2f}")
+        print(f"{name:<36s} threshold {best[1]:>4} px, SNN {best[2]:.2f}: mAA (10 deg, 5 m) {best[0]:.2f}"
+              + (f" ({ties} other settings as good)" if ties else ""))
     with open(args.output, "w") as f:
         json.dump(dict(settings=vars_settings(args, "train"), solvers=settings), f, indent=1)
 
@@ -227,6 +238,9 @@ def test(args):
     if args.settings:
         with open(args.settings) as f:
             tuned = json.load(f)["solvers"]
+    missing = [name for name in args.solvers if args.settings and name not in tuned]
+    if missing:
+        sys.exit(f"{args.settings} has no settings for {', '.join(missing)}: run tune with these solvers")
     configs = []
     for name in args.solvers:
         s = tuned.get(name, DEFAULT_SETTINGS)
@@ -241,7 +255,7 @@ def test(args):
 
 def print_results(results, per_scene=False):
     for n in sorted({int(k.split("|")[3]) for k in results}):
-        print(f"\n{n} iterations: mAA (%) averaged over the scenes, median time")
+        print(f"\n{n} iterations: mAA (%) averaged over the scenes, mean time of a run")
         print(f"{'Solver':<36s} {'Thr.':>5s} {'SNN':>5s} {'(10°, 5 m)':>10s} {'Rot.':>6s} {'Transl.':>7s} "
               f"{'Reproj.':>7s} {'Time (ms)':>9s}")
         for key in sorted(k for k in results if int(k.split("|")[3]) == n):
@@ -254,31 +268,38 @@ def print_results(results, per_scene=False):
 
 
 def compare(path_a, path_b):
-    """For the configurations of both runs (same solver and iterations): the differences B - A of
-    the main and reprojection mAAs, with their standard errors over the pairs, and the ratio of the
-    median times"""
+    """For the configurations of both runs (same solver, settings and iterations): the differences
+    B - A of the main and reprojection mAAs, per scene then averaged over the scenes as the mAAs,
+    with their standard errors (from the per-homography differences), and the ratio of the mean
+    times"""
     with open(path_a) as f:
         a = json.load(f)
     with open(path_b) as f:
         b = json.load(f)
     warn_settings(a.get("settings"), b.get("settings"))
-
-    def by_solver(results):
-        return {(k.split("|")[0], k.split("|")[3]): v for k, v in results.items()}
-    ra, rb = by_solver(a["results"]), by_solver(b["results"])
+    ra, rb = a["results"], b["results"]
+    other = sorted({k.split("|")[0] for k in ra} & {k.split("|")[0] for k in rb}
+                   - {k.split("|")[0] for k in set(ra) & set(rb)})
+    if other:
+        print("Warning: different settings (threshold, SNN) in the two runs, not compared: " + ", ".join(other))
     print(f"{'Solver':<36s} {'Iter.':>6s} {'mAA (10°, 5 m)':>18s} {'Reproj.':>18s} {'Time':>6s}")
-    for name, n in sorted(set(ra) & set(rb), key=lambda k: (k[0], int(k[1]))):
-        d, ta, tb = [], [], []
-        for scene in sorted(set(ra[name, n]) & set(rb[name, n])):
-            for pair in sorted(set(ra[name, n][scene]) & set(rb[name, n][scene])):
-                (acc_a, t_a), (acc_b, t_b) = scores(ra[name, n][scene][pair]), scores(rb[name, n][scene][pair])
+    for key in sorted(set(ra) & set(rb), key=lambda k: (k.split("|")[0], int(k.split("|")[3]))):
+        means, variances, ta, tb = [], [], [], []
+        scenes = sorted(set(ra[key]) & set(rb[key]))
+        for scene in scenes:
+            d = []
+            for pair in sorted(set(ra[key][scene]) & set(rb[key][scene])):
+                (acc_a, t_a), (acc_b, t_b) = scores(ra[key][scene][pair]), scores(rb[key][scene][pair])
                 d.append(acc_b.mean(1) - acc_a.mean(1))
                 ta += list(t_a)
                 tb += list(t_b)
-        d = 100 * np.array(d)
-        se = d.std(0, ddof=1) / np.sqrt(len(d)) if len(d) > 1 else np.zeros(4)
-        print(f"{name:<36s} {n:>6s} {d[:, 0].mean():+8.2f} ±{se[0]:5.2f} pts {d[:, 3].mean():+8.2f} ±{se[3]:5.2f} pts "
-              f"{np.median(tb) / np.median(ta):5.2f}x")
+            d = 100 * np.array(d)
+            means.append(d.mean(0))
+            variances.append(d.var(0, ddof=1) / len(d) if len(d) > 1 else np.zeros(4))
+        mean, se = np.mean(means, 0), np.sqrt(np.sum(variances, 0)) / len(scenes)
+        name, n = key.split("|")[0], key.split("|")[3]
+        print(f"{name:<36s} {n:>6s} {mean[0]:+8.2f} ±{se[0]:5.2f} pts {mean[3]:+8.2f} ±{se[3]:5.2f} pts "
+              f"{np.mean(tb) / np.mean(ta):5.2f}x")
 
 
 def main():
@@ -296,10 +317,10 @@ def main():
         p.add_argument("--jobs", type=int, default=os.cpu_count(), help="Processes (default: one per core)")
     tune_p, test_p = sub.choices["tune"], sub.choices["test"]
     tune_p.add_argument("--max_pairs", type=int, default=250,
-                        help="Pairs per scene, chosen at random (seeded), 0 for all (default: 250)")
+                        help="Homographies per scene, chosen at random (seeded), 0 for all (default: 250)")
     tune_p.add_argument("--output", required=True, help="The settings file to write")
     test_p.add_argument("--max_pairs", type=int, default=1000,
-                        help="Pairs per scene, chosen at random (seeded), 0 for all (default: 1000)")
+                        help="Homographies per scene, chosen at random (seeded), 0 for all (default: 1000)")
     test_p.add_argument("--settings", default=None, help="The settings file written by tune")
     test_p.add_argument("--iterations", type=int, nargs="+", default=[10, 100, 1000, 10000],
                         help="Run each solver for exactly this many iterations, for each value (default: 10 100 1000 "
