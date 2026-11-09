@@ -181,6 +181,31 @@ void initialize_local_optimizer(
     }
 }
 
+// Initializes the sampler on the data (the probabilities, if any, for the adaptive reordering
+// and importance samplers). SupeRANSAC's UniformRandomSampler::initialize(data) draws indices
+// in [0, rows], one past the last point (danini/superansac#10); its initialize(size_t) takes the
+// largest index, as SupeRANSAC's local optimizers call it, so it gets rows - 1.
+inline void initialize_sampler(
+    superansac::samplers::AbstractSampler& sampler,
+    superansac::samplers::SamplerType type,
+    const DataMatrix& data,
+    const std::vector<double>& probabilities)
+{
+    using S = superansac::samplers::SamplerType;
+    if (!probabilities.empty() && type == S::ARSampler) {
+        dynamic_cast<superansac::samplers::AdaptiveReorderingSampler&>(sampler)
+            .initialize(&data, probabilities);
+    } else if (!probabilities.empty() && type == S::ImportanceSampler) {
+        dynamic_cast<superansac::samplers::ImportanceSampler&>(sampler)
+            .setProbabilities(probabilities);
+        sampler.initialize(data);
+    } else if (type == S::Uniform && data.rows() > 0) {
+        sampler.initialize(static_cast<size_t>(data.rows()) - 1);
+    } else {
+        sampler.initialize(data);
+    }
+}
+
 // Assemble and run the SupeRANSAC pipeline with a given estimator and data.
 // DimensionNumber is the number of columns in the DataMatrix (4, 6, or 8).
 template <size_t DimensionNumber>
@@ -211,16 +236,7 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
     if (settings.sampler == S::NAPSAC && neighborhoodGraph)
         dynamic_cast<superansac::samplers::NAPSACSampler*>(sampler.get())
             ->setNeighborhood(neighborhoodGraph.get());
-    if (!probabilities.empty() && settings.sampler == S::ARSampler) {
-        dynamic_cast<superansac::samplers::AdaptiveReorderingSampler*>(sampler.get())
-            ->initialize(&data, probabilities);
-    } else if (!probabilities.empty() && settings.sampler == S::ImportanceSampler) {
-        dynamic_cast<superansac::samplers::ImportanceSampler*>(sampler.get())
-            ->setProbabilities(probabilities);
-        sampler->initialize(data);
-    } else {
-        sampler->initialize(data);
-    }
+    initialize_sampler(*sampler, settings.sampler, data, probabilities);
 
     // Scoring initialization
     scoring->setThreshold(settings.inlierThreshold);
