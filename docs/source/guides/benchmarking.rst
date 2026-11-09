@@ -387,9 +387,12 @@ their SIFT matches, the matches that are inliers of the ground-truth
 homography, and the intrinsics and relative pose of the cameras. Unlike
 HPatches, the scenes aren't planar: each pair's homography maps one plane of
 the scene, so most matches are outliers. ``heb_benchmark.py`` follows the
-protocol of the paper (Section 4). For each pair and solver, it keeps the
-matches with an SNN ratio below a threshold, runs a robust estimator
-(``--backend``), and measures:
+protocol of the paper (Section 4). For each homography and solver, it keeps
+the matches with an SNN ratio below a threshold (Lowe's ratio: the descriptor
+distance to the nearest neighbour over the distance to the second nearest),
+runs a robust estimator (``--backend``), and measures (an mAA, mean average
+accuracy, is the share of the homographies with an error below each of its
+thresholds, averaged over the thresholds):
 
 **mAA (10°, 5 m)**, the main metric
    The average of two mAAs of the pose decomposed from H with the intrinsics:
@@ -417,10 +420,11 @@ has two steps, as in the paper:
    this script doesn't.
 
 ``test``
-   On the test split (the 8 other scenes), with these settings, each solver runs for
-   exactly N iterations, for each N of ``--iterations`` (by default 10, 100,
-   1000 and 10000, the range of the paper), for a time-accuracy curve. Without ``--settings``, every
-   solver gets a 4 px threshold and an SNN threshold of 0.8.
+   On the test split (the 8 other scenes), with these settings, each solver
+   runs for exactly N iterations, for each N of ``--iterations`` (by default
+   10, 100, 1000 and 10000, the range of the paper), for a time-accuracy curve.
+   Without ``--settings``, every solver gets a 4 px threshold and an SNN
+   threshold of 0.8.
 
 The dataset (33 GB, of which 25 GB for the test split) is linked from the
 benchmark's README
@@ -430,7 +434,8 @@ script needs ``h5py`` too. The scenes have thousands of homographies each (a
 pair of images can have several, of different planes), so ``--max_pairs``
 evaluates a random subset of each scene, the same in every run (250 for
 ``tune`` and 1000 for ``test`` by default; ``0`` for all, as the paper, which
-takes days on 4 cores). The runs use all the cores (``--jobs``):
+takes days on 4 cores, and several GB of memory for ``tune``). The runs use
+all the cores (``--jobs``):
 
 .. code-block:: bash
 

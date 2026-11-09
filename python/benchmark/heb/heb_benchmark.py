@@ -4,17 +4,22 @@ Polic, Förstner and Matas ("A Large Scale Homography Benchmark", CVPR 2023,
 https://github.com/danini/homography-benchmark), with the protocol of its paper.
 
 The dataset gives, for homographies between image pairs of 10 scenes of the 1DSfM photo
-collections (a pair can have several, of different planes), the SIFT matches with their SNN ratios,
+collections (a pair can have several, of different planes), the SIFT matches with their SNN ratios
+(Lowe's ratio: the descriptor distance to the nearest neighbour over the distance to the second
+nearest),
 which of them are inliers of the ground-truth homography, and the camera intrinsics and relative
 pose of each pair (from COLMAP). For each homography and solver, the script keeps
 the matches with an SNN ratio below a threshold, runs a robust estimator, and measures, as the
 paper (Section 4):
 - the rotation error and the absolute translation error (metres, the estimated translation scaled
   to the true baseline) of the pose decomposed from H with the intrinsics (OpenCV's
-  decomposeHomographyMat; the solution minimizing the sum of the rotation and translation errors);
+  decomposeHomographyMat; the solution minimizing the sum of the rotation error and of the
+  direction (both in radians) and absolute (metres) translation errors, as the benchmark);
 - the reprojection error: the mean distance between the ground-truth inliers of image 2 and their
   mapping by the estimated model (distortion included).
-A run with fewer than 4 inliers fails (errors of 1e10). The metrics are mAAs per scene, averaged
+A run with fewer than 4 inliers fails (errors of 1e10). An mAA (mean average accuracy) is, for each
+of its error thresholds, the share of the homographies with an error below it, averaged over the
+thresholds. The metrics are mAAs per scene, averaged
 over the scenes: rotation over 1 to 10 degrees, translation over 0.1 to 5 m, reprojection over 1 to
 20 px (10 thresholds each). The main metric, "mAA (10 deg, 5 m)", is the average of the rotation
 and translation mAAs. The time is the mean time of a run of the estimator, as the paper's Fig. 6.
@@ -22,20 +27,23 @@ and translation mAAs. The time is the mean time of a run of the estimator, as th
 The protocol has two steps:
 - ``tune``: on the training split, with exactly 1000 iterations, a grid search of the inlier
   threshold and of the SNN threshold of each solver (jointly; an SNN threshold of 1 keeps every
-  match), for the best main metric; writes them to a settings file. Its scores aren't results:
+  match), for the best main metric (on a tie, the smallest threshold, then the smallest SNN
+  threshold); writes them to a settings file. With ``--backend magsac``, the threshold is MAGSAC++'s
+  sigma_max, over the same grid. Its scores aren't results:
   the benchmark's results are those of ``test``;
 - ``test``: on the test split, with these settings, each solver run for exactly N iterations for
   each N of ``--iterations`` (by default 10, 100, 1000 and 10000, the range of the paper: a
   time-accuracy curve).
 Without ``--settings``, ``test`` uses a 4 px threshold and an SNN threshold of 0.8 for every solver.
 Unlike the paper, which also tunes parameters specific to each estimator, only these two settings
-are tuned. The training split has 2 scenes, the test split the other 8 (the paper's splits are
-disjoint; the benchmark's dataset_configuration.yaml also lists the 2 training scenes as test
-scenes).
+are tuned. The training split has 2 scenes, the test split the other 8: the paper's splits are
+disjoint, so the 2 training scenes are left out of the test split (the benchmark's
+dataset_configuration.yaml lists them as test scenes too).
 
 The points are centred on each image's centre, HomLib's distortion centre; the distortion
 solvers' H is taken without the distortion for the pose. The scenes are large (the test split has 8
-scenes, 25 GB), so ``--max_pairs`` evaluates a random subset of each scene's homographies (seeded:
+scenes, 25 GB), so ``--max_pairs`` evaluates a random subset of each scene's homographies (despite
+its name, it counts homographies, not image pairs; seeded:
 the same ones in every run); the paper uses them all (``--max_pairs 0``: days on 4 cores, and
 several GB of memory for ``tune``, which keeps the results of every setting).
 
@@ -144,8 +152,8 @@ def run_pair(job):
         solver = homlib.Solver(homlib.solver_ids(names=[name])[0])
         runs = []
         for seed in range(1, seeds + 1):
-            if x.shape[1] < 4:
-                runs.append((FAILED, FAILED, FAILED, 0, 0.0))
+            if x.shape[1] < 4:   # no estimation, so no time (NaN, left out of the mean time)
+                runs.append((FAILED, FAILED, FAILED, 0, None))
                 continue
             estimator = make_estimator(backend, solver, float(threshold), int(iterations), seed)
             t0 = time.perf_counter()
@@ -186,7 +194,7 @@ def summarize(per_scene):
         means.append(acc.mean(1))
         mains[scene] = 100 * acc[0].mean()
         times.append(t)
-    return 100 * np.mean(means, 0), mains, np.mean(np.concatenate(times))
+    return 100 * np.mean(means, 0), mains, np.nanmean(np.concatenate(times))
 
 
 def make_jobs(args, split, configs):
@@ -281,7 +289,8 @@ def compare(path_a, path_b):
     other = sorted({k.split("|")[0] for k in ra} & {k.split("|")[0] for k in rb}
                    - {k.split("|")[0] for k in set(ra) & set(rb)})
     if other:
-        print("Warning: different settings (threshold, SNN) in the two runs, not compared: " + ", ".join(other))
+        print("Warning: no configuration (threshold, SNN, iterations) in common in the two runs, not compared: "
+              + ", ".join(other))
     print(f"{'Solver':<36s} {'Iter.':>6s} {'mAA (10°, 5 m)':>18s} {'Reproj.':>18s} {'Time':>6s}")
     for key in sorted(set(ra) & set(rb), key=lambda k: (k.split("|")[0], int(k.split("|")[3]))):
         means, variances, ta, tb = [], [], [], []
@@ -293,13 +302,15 @@ def compare(path_a, path_b):
                 d.append(acc_b.mean(1) - acc_a.mean(1))
                 ta += list(t_a)
                 tb += list(t_b)
+            if not d:   # no homography of this scene in both runs
+                continue
             d = 100 * np.array(d)
             means.append(d.mean(0))
             variances.append(d.var(0, ddof=1) / len(d) if len(d) > 1 else np.zeros(4))
-        mean, se = np.mean(means, 0), np.sqrt(np.sum(variances, 0)) / len(scenes)
+        mean, se = np.mean(means, 0), np.sqrt(np.sum(variances, 0)) / len(means)
         name, n = key.split("|")[0], key.split("|")[3]
         print(f"{name:<36s} {n:>6s} {mean[0]:+8.2f} ±{se[0]:5.2f} pts {mean[3]:+8.2f} ±{se[3]:5.2f} pts "
-              f"{np.mean(tb) / np.mean(ta):5.2f}x")
+              f"{np.nanmean(tb) / np.nanmean(ta):5.2f}x")
 
 
 def main():
