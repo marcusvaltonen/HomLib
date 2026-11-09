@@ -90,14 +90,37 @@ endif()
 
 if(HOMLIB_USE_GCRANSAC OR HOMLIB_USE_MAGSAC)
     find_package(OpenCV REQUIRED)
-    set(GCRANSAC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/graph-cut-ransac/src/pygcransac/include)
+    set(_gcransac_dir ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/graph-cut-ransac/src/pygcransac/include)
+    set(GCRANSAC_INCLUDE_DIR ${_gcransac_dir})
+
+    # GCRANSAC::run reads models[0] when the final least-squares fit returns no model
+    # ("if (models.size() == 0) so_far_the_best_model.descriptor = models[0].descriptor;"): a
+    # destroyed element of an empty vector, which aborts at random on macOS. A fixed copy of
+    # GCRANSAC.h without these two lines (the best model stays the one of the minimal samples)
+    # is searched before the original one. Its includes resolve to the original directory.
+    set(_gcransac_fixed_dir ${CMAKE_CURRENT_BINARY_DIR}/gcransac_fixed)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_gcransac_dir}/GCRANSAC.h)
+    file(READ ${_gcransac_dir}/GCRANSAC.h _gcransac)
+    string(REGEX REPLACE "if \\(models\\.size\\(\\) == 0\\)[ \t\r\n]*so_far_the_best_model\\.descriptor = models\\[0\\]\\.descriptor;"
+        "// (HomLib: removed the copy of models[0] when models is empty)" _gcransac_fixed "${_gcransac}")
+    if(_gcransac_fixed STREQUAL _gcransac)
+        file(REMOVE_RECURSE ${_gcransac_fixed_dir})
+        message(STATUS "GC-RANSAC: GCRANSAC.h no longer reads models[0] of an empty vector, using it as is "
+            "(the workaround in ${CMAKE_CURRENT_LIST_FILE} is no longer needed)")
+    else()
+        # configure_file only writes GCRANSAC.h when its content changes
+        file(WRITE ${_gcransac_fixed_dir}/GCRANSAC.h.in "${_gcransac_fixed}")
+        configure_file(${_gcransac_fixed_dir}/GCRANSAC.h.in ${_gcransac_fixed_dir}/GCRANSAC.h COPYONLY)
+        message(STATUS "GC-RANSAC: using a fixed copy of GCRANSAC.h in ${_gcransac_fixed_dir}")
+        set(GCRANSAC_INCLUDE_DIR ${_gcransac_fixed_dir} ${_gcransac_dir})
+    endif()
 
     # GCoptimization sources needed by GCRANSAC headers
     set(GCOPTIMIZATION_SOURCES
-        ${GCRANSAC_INCLUDE_DIR}/GCoptimization.cpp
-        ${GCRANSAC_INCLUDE_DIR}/LinkedBlockList.cpp
-        ${GCRANSAC_INCLUDE_DIR}/graph.cpp
-        ${GCRANSAC_INCLUDE_DIR}/maxflow.cpp
+        ${_gcransac_dir}/GCoptimization.cpp
+        ${_gcransac_dir}/LinkedBlockList.cpp
+        ${_gcransac_dir}/graph.cpp
+        ${_gcransac_dir}/maxflow.cpp
     )
     add_library(GCoptimization STATIC ${GCOPTIMIZATION_SOURCES})
     target_include_directories(GCoptimization PUBLIC ${GCRANSAC_INCLUDE_DIR})
