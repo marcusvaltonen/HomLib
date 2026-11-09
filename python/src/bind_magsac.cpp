@@ -89,6 +89,9 @@ void bind_magsac(py::module_& m) {
         .def_readwrite("use_magsac_plus_plus", &HomLib::MAGSACSettings::use_magsac_plus_plus)
         .def_readwrite("sampler", &HomLib::MAGSACSettings::sampler)
         .def_readwrite("non_minimal_strategy", &HomLib::MAGSACSettings::non_minimal_strategy)
+        .def_readwrite("seed", &HomLib::MAGSACSettings::seed,
+            "Seed of the samplers (None: from std::random_device, a different run each time). "
+            "The same seed gives the same results on the same platform.")
         .def("__repr__",
             [](const HomLib::MAGSACSettings& s) {
                 return "MAGSACSettings("

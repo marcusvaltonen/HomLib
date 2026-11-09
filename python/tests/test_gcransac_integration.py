@@ -108,6 +108,16 @@ class GCRANSACIntegrationTestCase(unittest.TestCase):
         print(f"  {'GC-RANSAC':<14s} {np.mean(gc_times)*1000:14.2f} {np.mean(gc_inliers):12.1f}")
         print(f"  {'LOMSAC':<14s} {np.mean(lomsac_times)*1000:14.2f} {np.mean(lomsac_inliers):12.1f}")
 
+    def test_same_seed_same_results(self):
+        # Fewer iterations than needed, so that the result depends on the samples
+        solver = homlib.Wadenback3DV2026OneSided()
+        est = homlib.GCRANSAC(solver, threshold=0.07, max_iterations=20, min_iterations=20, seed=3)
+        self.assertIsNone(homlib.GCRANSAC(solver).settings.seed)   # by default, no seed
+        (e1, s1), (e2, s2) = est.estimate(self.x, self.y), est.estimate(self.x, self.y)
+        np.testing.assert_array_equal(e1.homography, e2.homography)
+        self.assertEqual(s1.inliers, s2.inliers)
+        self.assertEqual(s1.num_iterations, s2.num_iterations)
+
 
 @unittest.skipIf(homlib._HAS_GCRANSAC, "GC-RANSAC IS built — skip negative test")
 class GCRANSACImportErrorTestCase(unittest.TestCase):

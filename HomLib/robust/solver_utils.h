@@ -8,6 +8,7 @@
 #include <numeric>
 #include <Eigen/Dense>
 #include "posedata.hpp"
+#include "backend_seed.h"
 
 namespace HomLib {
 
@@ -95,7 +96,7 @@ inline bool multi_sample_estimate(
     if (n < ss)
         return false;
 
-    thread_local std::mt19937 rng{std::random_device{}()};
+    std::mt19937 rng = backend_seed::next_generator();   // the backend's seed, if any
     std::vector<size_t> indices(n);
     std::iota(indices.begin(), indices.end(), 0);
 
@@ -224,7 +225,7 @@ inline bool non_minimal_dispatch_point(
             // Shuffle before taking first-N: backends (GC-RANSAC, SupeRANSAC)
             // may provide inlier indices in fixed order, unlike LOMSAC which
             // provides random samples from RansacLib.
-            thread_local std::mt19937 rng{std::random_device{}()};
+            std::mt19937 rng = backend_seed::next_generator();   // the backend's seed, if any
             std::vector<size_t> idx(n);
             std::iota(idx.begin(), idx.end(), 0);
             std::shuffle(idx.begin(), idx.end(), rng);
@@ -241,7 +242,7 @@ inline bool non_minimal_dispatch_point(
             // Estimate on first-N (shuffled) like Lomsac, then refine on all.
             // Point solvers handle small samples better than large overdetermined
             // systems; the Gauss-Newton refine step recovers accuracy.
-            thread_local std::mt19937 rng2{std::random_device{}()};
+            std::mt19937 rng2 = backend_seed::next_generator();   // the backend's seed, if any
             std::vector<size_t> idx(n);
             std::iota(idx.begin(), idx.end(), 0);
             std::shuffle(idx.begin(), idx.end(), rng2);

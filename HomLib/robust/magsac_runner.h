@@ -18,6 +18,7 @@
 #include "posedata.hpp"
 #include "gcransac_model_utils.h"
 #include "gcransac_estimator.h"
+#include "backend_seed.h"
 #include "gcransac_solver.h"
 #include "cv_data_utils.h"
 
@@ -38,6 +39,8 @@ struct MAGSACSettings {
     bool use_magsac_plus_plus = true;
     NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::SelectAndRefine;
     GCSamplerType sampler = GCSamplerType::Uniform;
+    // The seed of the samplers (none: from std::random_device, a different run each time)
+    std::optional<uint64_t> seed;
 };
 
 namespace detail {
@@ -49,6 +52,7 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_pipeline(
     const std::vector<double>& probabilities,
     const MAGSACSettings& opts)
 {
+    const backend_seed::Scope seed_scope(opts.seed);
     using MAGSACType = MAGSAC<cv::Mat, Estimator>;
     using Version = typename MAGSACType::Version;
     using SamplerBase = gcransac::sampler::Sampler<cv::Mat, size_t>;

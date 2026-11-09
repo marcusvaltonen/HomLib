@@ -162,6 +162,9 @@ Requires building with ``-DHOMLIB_USE_GCRANSAC=ON``. Check availability:
    * - ``do_final_least_squares``
      - ``True``
      - Final refinement on inliers
+   * - ``seed``
+     - ``None``
+     - Seed of the samplers (``None``: a different run each time)
 
 **When to use:** When spatially coherent inlier selection matters — e.g.
 natural images with clustered outlier distributions.
@@ -209,6 +212,9 @@ Requires building with ``-DHOMLIB_USE_MAGSAC=ON``. Check availability:
    * - ``partition_number``
      - 5
      - Partitions in the sigma consensus integral
+   * - ``seed``
+     - ``None``
+     - Seed of the samplers (``None``: a different run each time)
 
 **When to use:** When you want to avoid tuning a precise inlier threshold.
 The sigma consensus scoring is more forgiving of threshold mis-specification.

@@ -12,6 +12,7 @@
 #include "settings.h"
 #include "statistics.h"
 #include "scoring_function.h"
+#include "backend_seed.h"
 #include "samplers/uniform_sampler.h"
 #include "neighborhood/grid_neighborhood_graph.h"
 #include "preemption/preemption_empty.h"
@@ -47,6 +48,8 @@ struct GCRANSACSettings {
     bool do_final_least_squares = true;
     NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::SelectAndRefine;
     GCSamplerType sampler = GCSamplerType::Uniform;
+    // The seed of the samplers (none: from std::random_device, a different run each time)
+    std::optional<uint64_t> seed;
 };
 
 namespace detail {
@@ -58,6 +61,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_pipeline(
     const std::vector<double>& probabilities,
     const GCRANSACSettings& opts)
 {
+    const backend_seed::Scope seed_scope(opts.seed);
     using NeighborhoodGraph = gcransac::neighborhood::GridNeighborhoodGraph<DimensionNumber>;
     using SamplerBase = gcransac::sampler::Sampler<cv::Mat, size_t>;
 

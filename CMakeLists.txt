@@ -93,26 +93,46 @@ if(HOMLIB_USE_GCRANSAC OR HOMLIB_USE_MAGSAC)
     set(_gcransac_dir ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/graph-cut-ransac/src/pygcransac/include)
     set(GCRANSAC_INCLUDE_DIR ${_gcransac_dir})
 
+    # Fixed copies of GC-RANSAC headers, written in _gcransac_fixed_dir, which is searched before
+    # the original directory (their own includes resolve there). Each fix is a regular
+    # expression and its replacement; when a header no longer matches (fixed upstream), the
+    # original is used and CMake says so.
+    set(_gcransac_fixed_dir ${CMAKE_CURRENT_BINARY_DIR}/gcransac_fixed)
+    set(_gcransac_fixed_any FALSE)
+    function(homlib_fix_gcransac_header name regex replacement why)
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_gcransac_dir}/${name})
+        file(READ ${_gcransac_dir}/${name} _original)
+        string(REGEX REPLACE "${regex}" "${replacement}" _fixed "${_original}")
+        if(_fixed STREQUAL _original)
+            file(REMOVE ${_gcransac_fixed_dir}/${name} ${_gcransac_fixed_dir}/${name}.in)
+            message(STATUS "GC-RANSAC: ${name} no longer ${why}, using it as is "
+                "(the workaround in ${CMAKE_CURRENT_LIST_FILE} is no longer needed)")
+        else()
+            # configure_file only writes the header when its content changes
+            file(WRITE ${_gcransac_fixed_dir}/${name}.in "${_fixed}")
+            configure_file(${_gcransac_fixed_dir}/${name}.in ${_gcransac_fixed_dir}/${name} COPYONLY)
+            message(STATUS "GC-RANSAC: using a fixed copy of ${name} in ${_gcransac_fixed_dir}")
+            set(_gcransac_fixed_any TRUE PARENT_SCOPE)
+        endif()
+    endfunction()
     # GCRANSAC::run reads models[0] when the final least-squares fit returns no model
     # ("if (models.size() == 0) so_far_the_best_model.descriptor = models[0].descriptor;"): a
-    # destroyed element of an empty vector, which aborts at random on macOS. A fixed copy of
-    # GCRANSAC.h without these two lines (the best model stays the one of the minimal samples)
-    # is searched before the original one. Its includes resolve to the original directory.
-    set(_gcransac_fixed_dir ${CMAKE_CURRENT_BINARY_DIR}/gcransac_fixed)
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_gcransac_dir}/GCRANSAC.h)
-    file(READ ${_gcransac_dir}/GCRANSAC.h _gcransac)
-    string(REGEX REPLACE "if \\(models\\.size\\(\\) == 0\\)[ \t\r\n]*so_far_the_best_model\\.descriptor = models\\[0\\]\\.descriptor;"
-        "// (HomLib: removed the copy of models[0] when models is empty)" _gcransac_fixed "${_gcransac}")
-    if(_gcransac_fixed STREQUAL _gcransac)
-        file(REMOVE_RECURSE ${_gcransac_fixed_dir})
-        message(STATUS "GC-RANSAC: GCRANSAC.h no longer reads models[0] of an empty vector, using it as is "
-            "(the workaround in ${CMAKE_CURRENT_LIST_FILE} is no longer needed)")
-    else()
-        # configure_file only writes GCRANSAC.h when its content changes
-        file(WRITE ${_gcransac_fixed_dir}/GCRANSAC.h.in "${_gcransac_fixed}")
-        configure_file(${_gcransac_fixed_dir}/GCRANSAC.h.in ${_gcransac_fixed_dir}/GCRANSAC.h COPYONLY)
-        message(STATUS "GC-RANSAC: using a fixed copy of GCRANSAC.h in ${_gcransac_fixed_dir}")
+    # destroyed element of an empty vector, which aborts at random on macOS. The fixed copy
+    # removes these two lines (the best model stays the one of the minimal samples).
+    homlib_fix_gcransac_header(GCRANSAC.h
+        "if \\(models\\.size\\(\\) == 0\\)[ \t\r\n]*so_far_the_best_model\\.descriptor = models\\[0\\]\\.descriptor;"
+        "// (HomLib: removed the copy of models[0] when models is empty)"
+        "reads models[0] of an empty vector")
+    # Each generator of GC-RANSAC's samplers is seeded from std::random_device: the fixed copy
+    # seeds it from HomLib's seed setting, if any (HomLib/robust/backend_seed.h)
+    homlib_fix_gcransac_header(uniform_random_generator.h
+        "#include <random>(.*)std::random_device rand_dev;[ \t\r\n]*generator = std::mt19937\\(rand_dev\\(\\)\\);"
+        "#include <random>\n#include \"backend_seed.h\"  // (HomLib)\\1generator = HomLib::backend_seed::next_generator();  // (HomLib)"
+        "seeds its generators from std::random_device")
+    if(_gcransac_fixed_any)
         set(GCRANSAC_INCLUDE_DIR ${_gcransac_fixed_dir} ${_gcransac_dir})
+    else()
+        file(REMOVE_RECURSE ${_gcransac_fixed_dir})
     endif()
 
     # GCoptimization sources needed by GCRANSAC headers

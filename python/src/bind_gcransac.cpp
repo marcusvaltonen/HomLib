@@ -103,6 +103,9 @@ void bind_gcransac(py::module_& m) {
         .def_readwrite("do_final_least_squares", &HomLib::GCRANSACSettings::do_final_least_squares)
         .def_readwrite("sampler", &HomLib::GCRANSACSettings::sampler)
         .def_readwrite("non_minimal_strategy", &HomLib::GCRANSACSettings::non_minimal_strategy)
+        .def_readwrite("seed", &HomLib::GCRANSACSettings::seed,
+            "Seed of the samplers (None: from std::random_device, a different run each time). "
+            "The same seed gives the same results on the same platform.")
         .def("__repr__",
             [](const HomLib::GCRANSACSettings& s) {
                 return "GCRANSACSettings("
