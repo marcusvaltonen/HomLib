@@ -10,6 +10,7 @@ from ._core import (
     LORansacOptions,
     RansacStatistics,
     DistortionCase,
+    NonMinimalStrategy,
     ProblemConfig,
     ProblemInstance,
     generate_problem_instance,
@@ -26,7 +27,7 @@ from ._core import (
 
 # pybind11 enums share a metaclass that lacks __iter__; patch it once so
 # `for val in SomeEnum` works on any pybind11 enum in this package.
-_pb11_meta = type(_core.SolverId)
+_pb11_meta = type(_core.NonMinimalStrategy)
 if not hasattr(_pb11_meta, '__iter__'):
     _pb11_meta.__iter__ = lambda cls: iter(cls.__members__.values())
 
@@ -77,12 +78,13 @@ def solver_ids(feature_type=None, names=None):
     ...     lomsac = homlib.LOMSAC(homlib.Solver(solver_id), inlier_threshold=3.0)
     """
     if names is not None:
-        unknown = sorted(set(names) - set(SolverId.__members__))
+        known = {s.name for s in SolverId}
+        unknown = sorted(set(names) - known)
         if unknown:
             raise ValueError(f"unknown solvers: {', '.join(unknown)}")
-    return [s for name, s in SolverId.__members__.items()
+    return [s for s in SolverId
             if (feature_type is None or Solver(s).feature_type == feature_type)
-            and (names is None or name in names)]
+            and (names is None or s.name in names)]
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +330,28 @@ class RobustEstimator(ABC):
         """
 
 
+_NON_MINIMAL_STRATEGY_STRINGS = {
+    "sample": NonMinimalStrategy.Sample,
+    "overdetermined": NonMinimalStrategy.Overdetermined,
+}
+
+
+def _parse_non_minimal_strategy(value):
+    if value is None or isinstance(value, NonMinimalStrategy):
+        return value
+    if isinstance(value, str):
+        key = value.lower()
+        if key not in _NON_MINIMAL_STRATEGY_STRINGS:
+            raise ValueError(
+                f"Unknown non_minimal_strategy {value!r}; "
+                f"expected one of {list(_NON_MINIMAL_STRATEGY_STRINGS)}"
+            )
+        return _NON_MINIMAL_STRATEGY_STRINGS[key]
+    raise TypeError(
+        f"non_minimal_strategy must be a str or NonMinimalStrategy, got {type(value).__name__}"
+    )
+
+
 class LOMSAC(RobustEstimator):
     """Locally Optimized MSAC (LOMSAC) robust estimation backend.
 
@@ -349,6 +373,11 @@ class LOMSAC(RobustEstimator):
     def __init__(self, solver, options=None, **kwargs):
         super().__init__(solver)
         self._options = options if options is not None else LORansacOptions()
+        self._non_minimal_strategy = _parse_non_minimal_strategy(
+            kwargs.pop("non_minimal_strategy", None))
+        self._non_minimal_sample_size = kwargs.pop("non_minimal_sample_size", 0)
+        self._refine_non_minimal = kwargs.pop("refine_non_minimal", -1)
+        self._non_minimal_solver = kwargs.pop("non_minimal_solver", None)
         if "inlier_threshold" in kwargs:
             if "squared_inlier_threshold" in kwargs:
                 raise ValueError(
@@ -370,7 +399,11 @@ class LOMSAC(RobustEstimator):
     def estimate(self, x, y, A=None, ori=None, scores=None):
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
-            return _dispatch_lomsac_point(self._solver, x, y, self._options)
+            nms = self._non_minimal_strategy if self._non_minimal_strategy is not None else NonMinimalStrategy.Sample
+            return _dispatch_lomsac_point(
+                self._solver, x, y, self._options, nms,
+                self._non_minimal_sample_size, self._refine_non_minimal,
+                self._non_minimal_solver)
         elif ft == FeatureType.Affine:
             if A is None:
                 raise ValueError("Affine solver requires A parameter")
@@ -450,6 +483,9 @@ class SupeRANSAC(RobustEstimator):
             )
         super().__init__(solver)
         self._settings = settings if settings is not None else SuperansacSettings()
+        self._non_minimal_strategy = _parse_non_minimal_strategy(
+            kwargs.pop("non_minimal_strategy", None))
+        self._non_minimal_solver = kwargs.pop("non_minimal_solver", None)
         for key, value in kwargs.items():
             if not hasattr(self._settings, key):
                 raise ValueError(f"Unknown SupeRANSAC setting: {key}")
@@ -464,7 +500,10 @@ class SupeRANSAC(RobustEstimator):
         probs = list(scores) if scores is not None else []
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
-            return _dispatch_superansac_point(self._solver, x, y, probs, self._settings)
+            nms = self._non_minimal_strategy if self._non_minimal_strategy is not None else NonMinimalStrategy.Sample
+            return _dispatch_superansac_point(
+                self._solver, x, y, probs, self._settings,
+                nms, self._non_minimal_solver)
         elif ft == FeatureType.Affine:
             if A is None:
                 raise ValueError("Affine solver requires A parameter")
@@ -491,7 +530,6 @@ if _HAS_GCRANSAC:
         GCRANSACSettings,
         GCRANSACStatistics,
         GCSamplerType,
-        NonMinimalStrategy,
         dispatch_gcransac_point as _dispatch_gcransac_point,
         dispatch_gcransac_affine as _dispatch_gcransac_affine,
         dispatch_gcransac_orientation as _dispatch_gcransac_orientation,
@@ -528,6 +566,10 @@ class GCRANSAC(RobustEstimator):
             )
         super().__init__(solver)
         self._settings = settings if settings is not None else GCRANSACSettings()
+        self._non_minimal_solver = kwargs.pop("non_minimal_solver", None)
+        if "non_minimal_strategy" in kwargs:
+            kwargs["non_minimal_strategy"] = _parse_non_minimal_strategy(
+                kwargs["non_minimal_strategy"])
         for key, value in kwargs.items():
             if not hasattr(self._settings, key):
                 raise ValueError(f"Unknown GC-RANSAC setting: {key}")
@@ -542,7 +584,9 @@ class GCRANSAC(RobustEstimator):
         probs = list(scores) if scores is not None else []
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
-            return _dispatch_gcransac_point(self._solver, x, y, probs, self._settings)
+            return _dispatch_gcransac_point(
+                self._solver, x, y, probs, self._settings,
+                self._non_minimal_solver)
         elif ft == FeatureType.Affine:
             if A is None:
                 raise ValueError("Affine solver requires A parameter")
@@ -605,6 +649,10 @@ class MAGSAC(RobustEstimator):
             )
         super().__init__(solver)
         self._settings = settings if settings is not None else MAGSACSettings()
+        self._non_minimal_solver = kwargs.pop("non_minimal_solver", None)
+        if "non_minimal_strategy" in kwargs:
+            kwargs["non_minimal_strategy"] = _parse_non_minimal_strategy(
+                kwargs["non_minimal_strategy"])
         for key, value in kwargs.items():
             if not hasattr(self._settings, key):
                 raise ValueError(f"Unknown MAGSAC setting: {key}")
@@ -619,7 +667,9 @@ class MAGSAC(RobustEstimator):
         probs = list(scores) if scores is not None else []
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
-            return _dispatch_magsac_point(self._solver, x, y, probs, self._settings)
+            return _dispatch_magsac_point(
+                self._solver, x, y, probs, self._settings,
+                self._non_minimal_solver)
         elif ft == FeatureType.Affine:
             if A is None:
                 raise ValueError("Affine solver requires A parameter")
@@ -646,6 +696,7 @@ __all__ = [
     "SolverId",
     "FeatureType",
     "DistortionCase",
+    "NonMinimalStrategy",
     # Base class
     "Solver",
     "solver_ids",

@@ -1,5 +1,7 @@
 #include "binding_utils.h"
+#include <optional>
 #include <magsac_runner.h>
+#include <solver_dispatch.h>
 
 using namespace pybind11::literals;
 
@@ -10,15 +12,20 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_poi
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const std::vector<double>& probabilities,
-    const HomLib::MAGSACSettings& settings)
+    const HomLib::MAGSACSettings& settings,
+    std::optional<HomLib::SolverId> non_minimal_solver_id = std::nullopt)
 {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
 
+    HomLib::NonMinimalEstimateFn nm_fn;
+    if (non_minimal_solver_id)
+        nm_fn = HomLib::resolve_non_minimal_fn(*non_minimal_solver_id);
+
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_magsac_point(s, x, y, probabilities, settings);
+        return HomLib::run_magsac_point(s, x, y, probabilities, settings, nm_fn);
     });
 }
 
@@ -99,7 +106,8 @@ void bind_magsac(py::module_& m) {
 
     m.def("dispatch_magsac_point", &dispatch_magsac_point,
         "Run a point-based solver within the MAGSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{}, "settings"_a,
+        "non_minimal_solver"_a = py::none());
     m.def("dispatch_magsac_affine", &dispatch_magsac_affine,
         "Run an affine-covariant solver within the MAGSAC framework.",
         "solver"_a, "x"_a, "y"_a, "A"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);

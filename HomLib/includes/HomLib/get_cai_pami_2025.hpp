@@ -28,6 +28,7 @@
 #include "pose_estimator.h"
 #include "distortion_range.h"
 #include "refinement.hpp"
+#include "get_dlt.hpp"
 
 namespace HomLib {
 namespace CaiPAMI2025 {
@@ -42,33 +43,17 @@ std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &y
 );
 
-class Solver : public PoseEstimator<Solver> {
+class Solver : public NoDistortionPointSolver<Solver> {
     public:
         static constexpr int minimal_sample_size_value = 4;
-        static constexpr DistortionCase DISTORTION_CASE = NO_DISTORTION;
         Solver() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
-                  const HomLib::DistortionRange & = HomLib::DistortionRange()) const {   // no distortion (k = 0 passes)
+                  const HomLib::DistortionRange & = HomLib::DistortionRange()) const {
             std::vector<HomLib::PoseData> output = HomLib::CaiPAMI2025::get(x, y);
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
             return output.size();
-        }
-        int minimal_sample_size() const {
-            return 4;
-        }
-        // xu: xd undistorted, yd: yu distorted; false where there is none (see radial.hpp)
-        inline bool undistort(const HomLib::PoseData &, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
-            xu = xd;
-            return true;
-        }
-        inline bool distort(const HomLib::PoseData &, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
-            yd = yu;
-            return true;
-        }
-        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-            HomLib::refinement_no_dist(x, y, pose);
         }
     };
 

@@ -20,6 +20,9 @@ public:
 		return solver.minimal_sample_size();
 	}
 	inline int non_minimal_sample_size() const {
+		if (non_minimal_sample_size_override > 0)
+			return std::max(non_minimal_sample_size_override,
+			                solver.minimal_sample_size() + 1);
 		return solver.minimal_sample_size() * 2;
 	}
 	inline int num_data() const {
@@ -52,7 +55,18 @@ public:
 			yy.push_back(y[sample[i]]);
 		}
 
-		return detail::lomsac_non_minimal_point(solver, xx, yy, *pose) ? 1 : 0;
+		auto est_fn = [](const Solver& s, const std::vector<Eigen::Vector2d>& xv,
+		                  const std::vector<Eigen::Vector2d>& yv,
+		                  const std::vector<size_t>& idx, size_t count,
+		                  std::vector<HomLib::PoseData>* poses) {
+			std::vector<Eigen::Vector2d> xs(count), ys(count);
+			for (size_t i = 0; i < count; ++i) {
+				xs[i] = xv[idx[i]];
+				ys[i] = yv[idx[i]];
+			}
+			s.estimate(xs, ys, poses);
+		};
+		return detail::non_minimal_dispatch_point(non_minimal_strategy, solver, xx, yy, est_fn, *pose, refine_override, non_minimal_fn) ? 1 : 0;
 	}
 
 	double EvaluateModelOnPoint(const HomLib::PoseData& pose, int i) const {
@@ -76,6 +90,10 @@ public:
 
 	bool use_non_minimal = true;
 	bool use_local_opt = true;
+	NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::Sample;
+	int non_minimal_sample_size_override = 0;
+	int refine_override = -1;
+	NonMinimalEstimateFn non_minimal_fn;
 private:
 	Solver solver;
 	std::vector<Eigen::Vector2d> x;

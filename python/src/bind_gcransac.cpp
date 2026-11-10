@@ -1,5 +1,7 @@
 #include "binding_utils.h"
+#include <optional>
 #include <gcransac_runner.h>
+#include <solver_dispatch.h>
 
 using namespace pybind11::literals;
 
@@ -10,15 +12,20 @@ static std::pair<HomLib::PoseData, HomLib::GCRANSACStatistics> dispatch_gcransac
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const std::vector<double>& probabilities,
-    const HomLib::GCRANSACSettings& settings)
+    const HomLib::GCRANSACSettings& settings,
+    std::optional<HomLib::SolverId> non_minimal_solver_id = std::nullopt)
 {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
 
+    HomLib::NonMinimalEstimateFn nm_fn;
+    if (non_minimal_solver_id)
+        nm_fn = HomLib::resolve_non_minimal_fn(*non_minimal_solver_id);
+
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_gcransac_point(s, x, y, probabilities, settings);
+        return HomLib::run_gcransac_point(s, x, y, probabilities, settings, nm_fn);
     });
 }
 
@@ -84,11 +91,6 @@ void bind_gcransac(py::module_& m) {
         .value("ImportanceSampler", HomLib::GCSamplerType::ImportanceSampler)
         .value("ARSampler", HomLib::GCSamplerType::ARSampler);
 
-    py::enum_<HomLib::NonMinimalStrategy>(m, "NonMinimalStrategy")
-        .value("Lomsac", HomLib::NonMinimalStrategy::Lomsac)
-        .value("SelectAndRefine", HomLib::NonMinimalStrategy::SelectAndRefine)
-        .value("MultiSample", HomLib::NonMinimalStrategy::MultiSample);
-
     py::class_<HomLib::GCRANSACSettings>(m, "GCRANSACSettings",
         "Settings for GC-RANSAC estimation.")
         .def(py::init<>())
@@ -113,7 +115,8 @@ void bind_gcransac(py::module_& m) {
 
     m.def("dispatch_gcransac_point", &dispatch_gcransac_point,
         "Run a point-based solver within the GC-RANSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{}, "settings"_a,
+        "non_minimal_solver"_a = py::none());
     m.def("dispatch_gcransac_affine", &dispatch_gcransac_affine,
         "Run an affine-covariant solver within the GC-RANSAC framework.",
         "solver"_a, "x"_a, "y"_a, "A"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);

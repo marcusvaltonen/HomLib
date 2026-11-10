@@ -27,6 +27,7 @@
 #include "radial.hpp"
 #include "pose_estimator.h"
 #include "refinement.hpp"
+#include "get_fitzgibbon_cvpr_2001.hpp"
 
 namespace HomLib {
 namespace KukelovaCVPR2015 {
@@ -46,10 +47,9 @@ std::vector<HomLib::PoseData> get_6pt(
     bool dist_equal,
     const HomLib::DistortionRange &range = HomLib::DistortionRange()
 );
-class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
+class SolverTwoSidedEqual : public TwoSidedEqualPointSolver<SolverTwoSidedEqual> {
     public:
         static constexpr int minimal_sample_size_value = 5;
-        static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED_EQUAL;
         SolverTwoSidedEqual() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -59,19 +59,12 @@ class SolverTwoSidedEqual : public PoseEstimator<SolverTwoSidedEqual> {
             }
             return output.size();
         }
-        int minimal_sample_size() const {
-            return 5;
-        }
-        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-            HomLib::refinement_twosided_equal(x, y, pose);
-        }
     private:
         bool dist_equal = true;
     };
-class SolverTwoSidedEqual6Pt : public PoseEstimator<SolverTwoSidedEqual6Pt> {
+class SolverTwoSidedEqual6Pt : public TwoSidedEqualPointSolver<SolverTwoSidedEqual6Pt> {
     public:
         static constexpr int minimal_sample_size_value = 6;
-        static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED_EQUAL;
         SolverTwoSidedEqual6Pt() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -81,19 +74,12 @@ class SolverTwoSidedEqual6Pt : public PoseEstimator<SolverTwoSidedEqual6Pt> {
             }
             return output.size();
         }
-        int minimal_sample_size() const {
-            return 6;
-        }
-        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-            HomLib::refinement_twosided_equal(x, y, pose);
-        }
     private:
         bool dist_equal = true;
     };
-class SolverTwoSided : public PoseEstimator<SolverTwoSided> {
+class SolverTwoSided : public TwoSidedPointSolver<SolverTwoSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
-        static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED;
         SolverTwoSided() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -103,19 +89,12 @@ class SolverTwoSided : public PoseEstimator<SolverTwoSided> {
             }
             return output.size();
         }
-        int minimal_sample_size() const {
-            return 5;
-        }
-        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-            HomLib::refinement_twosided(x, y, pose);
-        }
     private:
         bool dist_equal = false;
     };
-class SolverTwoSided6Pt : public PoseEstimator<SolverTwoSided6Pt> {
+class SolverTwoSided6Pt : public TwoSidedPointSolver<SolverTwoSided6Pt> {
     public:
         static constexpr int minimal_sample_size_value = 6;
-        static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED;
         SolverTwoSided6Pt() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -124,12 +103,6 @@ class SolverTwoSided6Pt : public PoseEstimator<SolverTwoSided6Pt> {
                 poses->push_back(output[i]);
             }
             return output.size();
-        }
-        int minimal_sample_size() const {
-            return 6;
-        }
-        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-            HomLib::refinement_twosided(x, y, pose);
         }
     private:
         bool dist_equal = false;

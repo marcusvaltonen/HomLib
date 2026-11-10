@@ -188,6 +188,9 @@ def main():
     point_solvers = homlib.solver_ids(homlib.FeatureType.Points)
     parser.add_argument("--solvers", nargs="+", choices=[s.name for s in point_solvers], default=None,
                         help="SolverId names (default: every point solver)")
+    nms_choices = [e.name for e in homlib.NonMinimalStrategy] if hasattr(homlib, "NonMinimalStrategy") else []
+    parser.add_argument("--non_minimal_strategy", choices=nms_choices or None, default=None,
+                        help="Non-minimal strategy for GC-RANSAC/MAGSAC (default: backend's default)")
     parser.add_argument("--output", type=str, default=None, help="Save the settings and the results to this JSON file")
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
                         help="Print the differences B - A between two saved runs, and exit")
@@ -207,6 +210,7 @@ def main():
         except (ValueError, OSError) as e:
             parser.error(f"{e} (--data_dir: the directory that contains {HPATCHES_DIRNAME})")
 
+    nms = getattr(homlib.NonMinimalStrategy, args.non_minimal_strategy) if args.non_minimal_strategy else None
     solvers = homlib.solver_ids(names=args.solvers) if args.solvers else point_solvers
     # results[solver][pair] = per seed: (share of the true inliers found, corner error, time)
     results = {s.name: {} for s in solvers}
@@ -218,7 +222,7 @@ def main():
         for s in solvers:
             runs = []
             for seed in range(1, args.seeds + 1):
-                estimator = make_estimator(args.backend, homlib.Solver(s), args.threshold, args.iterations, seed)
+                estimator = make_estimator(args.backend, homlib.Solver(s), args.threshold, args.iterations, seed, nms)
                 t0 = time.perf_counter()
                 pose, stats = estimator.estimate(x, y)
                 elapsed = time.perf_counter() - t0
@@ -230,7 +234,8 @@ def main():
             results[s.name][key] = runs
     if args.output:
         settings = dict(matches=Path(args.matches).name, threshold=args.threshold, backend=args.backend,
-                        seeds=args.seeds, iterations=args.iterations, protocol=args.protocol)
+                        seeds=args.seeds, iterations=args.iterations, protocol=args.protocol,
+                        non_minimal_strategy=args.non_minimal_strategy)
         with open(args.output, "w") as f:
             # Strict JSON: null for the share of the true inliers found of a pair with none (NaN), and
             # for the corner error of a failure (infinite); load_results maps them back

@@ -133,8 +133,9 @@ template <class Solver>
 class HomLibPointNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
 public:
     explicit HomLibPointNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Lomsac)
-        : solver_(solver), strategy_(strategy) {}
+        NonMinimalStrategy strategy = NonMinimalStrategy::Sample,
+        NonMinimalEstimateFn non_minimal_fn = {})
+        : solver_(solver), strategy_(strategy), non_minimal_fn_(std::move(non_minimal_fn)) {}
 
     bool returnMultipleModels() const override { return false; }
     size_t maximumSolutions() const override { return 1; }
@@ -168,7 +169,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_point(strategy_, solver_, x, y, est_fn, best))
+        if (!detail::non_minimal_dispatch_point(strategy_, solver_, x, y, est_fn, best, -1, non_minimal_fn_))
             return false;
         models.push_back(pose_to_model(best));
         return true;
@@ -177,6 +178,7 @@ public:
 private:
     Solver solver_;
     NonMinimalStrategy strategy_;
+    NonMinimalEstimateFn non_minimal_fn_;
 };
 
 // Affine non-minimal solver: dispatches via shared non_minimal_dispatch_full.
@@ -184,7 +186,8 @@ template <class Solver>
 class HomLibAffineNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
 public:
     explicit HomLibAffineNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Lomsac)
+        NonMinimalStrategy strategy = NonMinimalStrategy::Sample,
+        NonMinimalEstimateFn = {})
         : solver_(solver), strategy_(strategy) {}
 
     bool returnMultipleModels() const override { return false; }
@@ -241,7 +244,8 @@ template <class Solver>
 class HomLibOrientationNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
 public:
     explicit HomLibOrientationNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Lomsac)
+        NonMinimalStrategy strategy = NonMinimalStrategy::Sample,
+        NonMinimalEstimateFn = {})
         : solver_(solver), strategy_(strategy) {}
 
     bool returnMultipleModels() const override { return false; }

@@ -1,7 +1,9 @@
 #include "binding_utils.h"
 
+#include <optional>
 #include <RansacLib/ransac.h>
 #include <lomsac_runner.h>
+#include <solver_dispatch.h>
 #include <generate_problem_instance.hpp>
 
 using namespace pybind11::literals;
@@ -80,15 +82,24 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_point(
     const PySolver& solver,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
-    const ransac_lib::LORansacOptions& options)
+    const ransac_lib::LORansacOptions& options,
+    HomLib::NonMinimalStrategy non_minimal_strategy = HomLib::NonMinimalStrategy::Sample,
+    int non_minimal_sample_size = 0,
+    int refine_non_minimal = -1,
+    std::optional<HomLib::SolverId> non_minimal_solver_id = std::nullopt)
 {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
 
+    HomLib::NonMinimalEstimateFn nm_fn;
+    if (non_minimal_solver_id)
+        nm_fn = HomLib::resolve_non_minimal_fn(*non_minimal_solver_id);
+
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_lomsac_point(s, x, y, options);
+        return HomLib::run_lomsac_point(s, x, y, options, non_minimal_strategy,
+                                        non_minimal_sample_size, refine_non_minimal, nm_fn);
     });
 }
 
@@ -560,6 +571,13 @@ PYBIND11_MODULE(_core, m) {
             }
         );
 
+    // --- NonMinimalStrategy (shared across backends) ---
+
+    py::enum_<HomLib::NonMinimalStrategy>(m, "NonMinimalStrategy")
+        .value("Sample", HomLib::NonMinimalStrategy::Sample)
+        .value("Overdetermined", HomLib::NonMinimalStrategy::Overdetermined);
+
+
     // --- RansacStatistics ---
 
     py::class_<ransac_lib::RansacStatistics>(m, "RansacStatistics",
@@ -685,7 +703,11 @@ PYBIND11_MODULE(_core, m) {
             tuple[PoseData, RansacStatistics]
                 Best model and estimation statistics.
         )pbdoc",
-        "solver"_a, "x"_a, "y"_a, "options"_a);
+        "solver"_a, "x"_a, "y"_a, "options"_a,
+        "non_minimal_strategy"_a = HomLib::NonMinimalStrategy::Sample,
+        "non_minimal_sample_size"_a = 0,
+        "refine_non_minimal"_a = -1,
+        "non_minimal_solver"_a = py::none());
 
     m.def("dispatch_lomsac_affine", &dispatch_lomsac_affine,
         R"pbdoc(

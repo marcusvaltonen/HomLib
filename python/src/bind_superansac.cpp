@@ -1,5 +1,7 @@
 #include "binding_utils.h"
+#include <optional>
 #include <superansac_runner.h>
+#include <solver_dispatch.h>
 
 using namespace pybind11::literals;
 
@@ -10,15 +12,22 @@ static std::pair<HomLib::PoseData, HomLib::SuperansacStatistics> dispatch_supera
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const std::vector<double>& probabilities,
-    const superansac::RANSACSettings& settings)
+    const superansac::RANSACSettings& settings,
+    HomLib::NonMinimalStrategy non_minimal_strategy = HomLib::NonMinimalStrategy::Sample,
+    std::optional<HomLib::SolverId> non_minimal_solver_id = std::nullopt)
 {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
 
+    HomLib::NonMinimalEstimateFn nm_fn;
+    if (non_minimal_solver_id)
+        nm_fn = HomLib::resolve_non_minimal_fn(*non_minimal_solver_id);
+
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_superansac_point(s, x, y, probabilities, settings);
+        return HomLib::run_superansac_point(s, x, y, probabilities, settings,
+                                            non_minimal_strategy, nm_fn);
     });
 }
 
@@ -196,7 +205,9 @@ void bind_superansac(py::module_& m) {
 
     m.def("dispatch_superansac_point", &dispatch_superansac_point,
         "Run a point-based solver within the SupeRANSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{}, "settings"_a,
+        "non_minimal_strategy"_a = HomLib::NonMinimalStrategy::Sample,
+        "non_minimal_solver"_a = py::none());
 
     m.def("dispatch_superansac_affine", &dispatch_superansac_affine,
         "Run an affine-covariant solver within the SupeRANSAC framework.",

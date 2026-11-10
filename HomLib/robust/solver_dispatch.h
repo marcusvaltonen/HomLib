@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include <solver_id.h>
+#include <solver_utils.h>
 #include <get_cai_pami_2025.hpp>
 #include <get_dlt.hpp>
 #include <get_fitzgibbon_cvpr_2001.hpp>
@@ -94,6 +95,18 @@ auto dispatch_solver(SolverId id, Func&& func) {
         default:
             throw std::invalid_argument("Unknown feature type");
     }
+}
+
+inline NonMinimalEstimateFn resolve_non_minimal_fn(SolverId id) {
+    return dispatch_point_solver(id, [](auto solver) -> NonMinimalEstimateFn {
+        return [s = std::move(solver)](
+            const std::vector<Eigen::Vector2d>& x,
+            const std::vector<Eigen::Vector2d>& y,
+            std::vector<PoseData>* poses) -> int {
+            s.estimate(x, y, poses);
+            return static_cast<int>(poses->size());
+        };
+    });
 }
 
 } // namespace HomLib
