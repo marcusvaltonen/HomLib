@@ -1,5 +1,6 @@
 #include "binding_utils.h"
 #include <superansac_runner.h>
+#include <solver_dispatch.h>
 
 using namespace pybind11::literals;
 

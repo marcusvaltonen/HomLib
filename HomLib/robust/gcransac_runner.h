@@ -45,7 +45,7 @@ struct GCRANSACSettings {
     bool do_local_optimization = true;
     bool do_graph_cut = true;
     bool do_final_least_squares = true;
-    NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::SelectAndRefine;
+    NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::Sample;
     GCSamplerType sampler = GCSamplerType::Uniform;
 };
 

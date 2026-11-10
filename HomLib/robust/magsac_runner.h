@@ -36,7 +36,7 @@ struct MAGSACSettings {
     size_t min_iterations = 50;
     int partition_number = 5;
     bool use_magsac_plus_plus = true;
-    NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::SelectAndRefine;
+    NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::Sample;
     GCSamplerType sampler = GCSamplerType::Uniform;
 };
 

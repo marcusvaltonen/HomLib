@@ -30,18 +30,17 @@
 
 namespace HomLib {
 namespace NakanoICPR2025 {
-// With a range: keeping only the solutions with distortion parameters in the range (checked
-// before computing their homography; with extra_check, the best of these)
+// N >= 5 points. For N == 5, uses QR for exact nullspace; for N > 5,
+// uses eigendecomposition of M^T M for the approximate nullspace.
 std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &x,
     const std::vector<Eigen::Vector2d> &y,
     bool extra_check,
     const HomLib::DistortionRange &range = HomLib::DistortionRange()
 );
-class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
+class SolverSingleSided : public OneSidedLeftPointEstimator<SolverSingleSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
-        static constexpr DistortionCase DISTORTION_CASE = ONE_SIDED_LEFT;
         bool extra_check = false;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -50,19 +49,6 @@ class SolverSingleSided : public PoseEstimator<SolverSingleSided> {
                 poses->push_back(output[i]);
             }
             return output.size();
-        }
-        int minimal_sample_size() const {
-            return 5;
-        }
-        // xu: xd undistorted, yd: yu distorted; false where there is none (see radial.hpp)
-        inline bool undistort(const HomLib::PoseData &, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
-            return HomLib::try_radialundistort(xd, 0.0, xu);
-        }
-        inline bool distort(const HomLib::PoseData &pose, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
-            return HomLib::try_radialdistort(yu, pose.distortion_parameter2, yd);
-        }
-        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-            HomLib::refinement_onesided(x, y, pose);
         }
     };
 }
