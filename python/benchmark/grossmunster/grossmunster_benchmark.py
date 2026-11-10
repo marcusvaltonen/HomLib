@@ -34,7 +34,7 @@ pairs, and warns about the settings that differ.
 
 Usage
 -----
-    python grossmunster_ground_truth.py --data_dir data/fisheye_grossmunster --sfm_dir data/grossmunster_sfm \
+    python grossmunster_ground_truth.py --data_dir data/fisheye_grossmunster --sfm_model data/grossmunster_sfm \
         --output data/grossmunster_sift.npz
     python grossmunster_benchmark.py data/grossmunster_sift.npz [--threshold 5] [--seeds 10] [--output results.json]
     python grossmunster_benchmark.py --compare before.json after.json

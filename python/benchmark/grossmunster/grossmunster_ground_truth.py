@@ -5,7 +5,12 @@ Wadenbäck et al. (3DV 2026, Section 5) evaluate the two-sided solvers on six pa
 images of the Grossmünster Church (RadialSfM, Larsson et al., ECCV 2020), with a ground-truth
 homography from a 3D reconstruction. The script rebuilds that ground truth:
 
-1. A 3D reconstruction (pycolmap, incremental SfM) of the images DSC_2510 to DSC_2522, with one
+1. The camera and the poses. With ``--sfm_model`` (recommended), they come from a reconstruction of
+   the whole scene (grossmunster_scene_sfm.py, or ``grossmunster_sfm.zip`` of HomLib's release
+   ``test-data-v1``), restricted to the images DSC_2510 to DSC_2522 and to the 3D points that at
+   least two of them see: all the views calibrate the camera and constrain the poses (reprojection
+   error of these images: mean 0.52 px). Otherwise, the script makes
+   a 3D reconstruction (pycolmap, incremental SfM) of the images DSC_2510 to DSC_2522 only, with one
    OPENCV_FISHEYE camera shared by all the images (fx, fy, cx, cy and 4 coefficients of the distorted
    angle), from COLMAP's SIFT features at full resolution, exhaustively matched. By default
    (``--intrinsics paper``), the camera is the one the paper's authors gave (issue #42 of HomLib),
@@ -59,8 +64,10 @@ pip install pycolmap opencv-python tqdm
 
 Usage
 -----
-    python grossmunster_ground_truth.py --data_dir data/fisheye_grossmunster --sfm_dir data/grossmunster_sfm \
+    python grossmunster_ground_truth.py --data_dir data/fisheye_grossmunster --sfm_model data/grossmunster_sfm \
         --output data/grossmunster_sift.npz
+    python grossmunster_ground_truth.py --data_dir data/fisheye_grossmunster --sfm_dir data/grossmunster_wall_sfm \
+        [--intrinsics paper|refined] --output data/grossmunster_sift.npz
 """
 
 import argparse
@@ -125,11 +132,32 @@ def reconstruct(image_dir, sfm_dir, names, seed, intrinsics):
     return best
 
 
+def registered(rec):
+    """The images of the reconstruction that have a pose"""
+    return [im for im in rec.images.values() if im.has_pose]
+
+
+def restrict(rec, names):
+    """The reconstruction rec restricted to the images names: the others are removed, and so are the
+    3D points seen by fewer than two of these images (for a reconstruction of more images, e.g. of the
+    whole scene, whose camera and poses are then those of all the images)."""
+    missing = [n for n in names if rec.find_image_with_name(n) is None]
+    if missing:
+        sys.exit(f"the reconstruction lacks {', '.join(missing)}")
+    keep = {rec.find_image_with_name(n).frame_id for n in names}
+    for frame_id in [i for i in rec.reg_frame_ids() if i not in keep]:
+        rec.deregister_frame(frame_id)
+    for point_id in list(rec.point3D_ids()):
+        if rec.points3D[point_id].track.length() < 2:
+            rec.delete_point3D(point_id)
+    return rec
+
+
 def reprojection_errors(rec):
     """The reprojection errors of every observation, in pixels, per image name"""
     cam = next(iter(rec.cameras.values()))
     errors = {}
-    for im in rec.images.values():
+    for im in registered(rec):
         obs = [(p.xy, rec.points3D[p.point3D_id].xyz) for p in im.points2D if p.has_point3D()]
         xy, X = (np.array(v) for v in zip(*obs))
         T = im.cam_from_world()
@@ -230,8 +258,11 @@ def fitted_homography(u1, u2):
 def main():
     parser = argparse.ArgumentParser(description="Ground truth and matches of the Grossmünster Church pairs")
     parser.add_argument("--data_dir", required=True, help="RadialSfM's fisheye_grossmunster (with images/)")
-    parser.add_argument("--sfm_dir", required=True,
+    parser.add_argument("--sfm_dir", default=None,
                         help="Directory of the reconstruction: created, or reused (whatever --images and --seed)")
+    parser.add_argument("--sfm_model", default=None,
+                        help="A COLMAP model of more images (e.g. of the whole scene) to use instead of --sfm_dir: its "
+                             "camera and the poses of the images of --images, and the 3D points they see")
     parser.add_argument("--output", required=True, help="The matches file to write (.npz)")
     parser.add_argument("--plane_threshold", type=float, default=0.003,
                         help="Inlier threshold of the plane, as a share of the median depth of the 3D points "
@@ -249,7 +280,13 @@ def main():
     numbers = range(args.images[0], args.images[1] + 1)
 
     # 1. The reconstruction
-    rec = reconstruct(image_dir, Path(args.sfm_dir), [image_name(i) for i in numbers], args.seed, args.intrinsics)
+    names = [image_name(i) for i in numbers]
+    if args.sfm_model:
+        rec = restrict(pycolmap.Reconstruction(args.sfm_model), names)
+    elif args.sfm_dir:
+        rec = reconstruct(image_dir, Path(args.sfm_dir), names, args.seed, args.intrinsics)
+    else:
+        parser.error("give --sfm_dir or --sfm_model")
     camera = Camera(next(iter(rec.cameras.values())))
     errors = reprojection_errors(rec)
     all_errors = np.concatenate(list(errors.values()))
@@ -264,7 +301,7 @@ def main():
     # 2. The plane
     X = np.array([rec.points3D[i].xyz for i in rec.point3D_ids()])
     depths = np.concatenate([X @ im.cam_from_world().rotation.matrix()[2] + im.cam_from_world().translation[2]
-                             for im in rec.images.values()])
+                             for im in registered(rec)])
     threshold = args.plane_threshold * np.median(depths)
     n, d, inliers = fit_plane(X, threshold, seed=args.seed)
     print(f"\nPlane: {inliers.sum()} of {len(X)} points within {threshold:.4f} (RMS distance "
@@ -297,8 +334,8 @@ def main():
     print(f"(* the benchmark's default pairs; residuals in pixels of the second image. The file has these pairs, "
           f"{', '.join(pair_key(*p) for p in OTHER_PAIRS)}, and those with more than {MIN_MATCHES} matches)")
 
-    centers = {im.name: im.projection_center() for im in rec.images.values()}
-    rotations = {im.name: im.cam_from_world().rotation.matrix() for im in rec.images.values()}
+    centers = {im.name: im.projection_center() for im in registered(rec)}
+    rotations = {im.name: im.cam_from_world().rotation.matrix() for im in registered(rec)}
     names = sorted(centers)
     scene = dict(camera_model=camera.cam.model.name, camera_params=np.asarray(camera.cam.params),
                  image_size=np.array([camera.cam.width, camera.cam.height]), principal_point=camera.center,
