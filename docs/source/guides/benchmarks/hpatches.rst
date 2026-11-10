@@ -16,6 +16,9 @@ pairs:
 **Inliers found**
    The share of the true inliers (the matches within the inlier threshold, 3 px
    by default, of the ground-truth homography) that the estimator returns.
+   It ignores the false inliers: the corner error accounts for them. The pairs
+   without any true inlier are left out (except with ``--protocol
+   gluefactory``).
 
 **AUC@1, AUC@3, AUC@5, AUC@10**
    The corner error of a pair maps the four corners of the first image with
@@ -60,7 +63,7 @@ Then run the solvers, before and after a change:
    python benchmark/hpatches/hpatches_benchmark.py data/hpatches_sift.npz --output after.json
    python benchmark/hpatches/hpatches_benchmark.py --compare before.json after.json
 
-Besides the :ref:`common options <benchmarking_guide>`, ``--solvers`` selects
+Besides the :ref:`common options <benchmark_common_options>`, ``--solvers`` selects
 the solvers, ``--threshold`` sets the inlier threshold in pixels, and
 ``--iterations N`` runs exactly N iterations, so that every solver gets the same
 budget (as Fig. 6 of Wadenbäck et al.). ``--protocol gluefactory`` follows

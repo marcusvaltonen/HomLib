@@ -20,7 +20,8 @@ of Wadenbäck et al. [Wadenback2026]_:
    error above 1e-6: a stable solver almost never misses.
 
 **Median error** (their Fig. 4)
-   With 0.5, 1 and 2 px of noise, the median error of the best solution.
+   With 0.5, 1 and 2 px of noise, the median error of the best solution, over the
+   problems with a solution.
 
 **No solution**
    The share of the problems where the solver returns none.
@@ -43,7 +44,9 @@ results on the same platform.
 ``--outliers 0.2 0.4 0.6 0.8`` runs another experiment, as Fig. 5 of Wadenbäck
 et al.: LOMSAC on problems with 200 points, 0.5 px of noise and these shares
 of outliers, with a 5 px threshold; it reports the share of the true inliers
-found and the time of a run.
+found and the median time of a run. ``--problems`` then defaults to 200,
+``--noise`` doesn't apply, and ``--iterations N`` and ``--backend`` (see the
+:ref:`common options <benchmark_common_options>`) are available.
 
 .. _synthetic_results:
 
@@ -97,6 +100,6 @@ and 2 px; the times include the Python bindings.
 
 DLT and Guo give the same homography from the same 4 points (it is unique), so
 the same errors; Guo's closed form is faster. The more parameters a solver
-estimates, the larger its error for the same noise. With noise, the 4-point
-solvers sometimes have no solution, when their sample check rejects a sample
-with three nearly collinear points.
+estimates, the larger its error for the same noise. With noise, some solvers
+sometimes return no solution: for the 4-point solvers, when their sample check
+rejects a sample with three nearly collinear points.

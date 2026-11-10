@@ -33,7 +33,7 @@ Running it
 
 The dataset (33 GB, of which 25 GB for the test split) is linked from the
 `benchmark's README <https://github.com/danini/homography-benchmark>`__: put it
-in a directory with ``test/`` and ``training_and_validation/``. The protocol
+in a directory with ``test/`` and ``training_and_validation/`` (or ``train/``). The protocol
 has two steps: ``tune`` searches, for each solver, the best inlier threshold
 and SNN threshold on the 2 training scenes, with 1000 iterations; ``test``
 runs each solver with these settings on the 8 test scenes, for exactly 10,
@@ -48,7 +48,9 @@ runs each solver with these settings on the 8 test scenes, for exactly 10,
 
 The full dataset takes days on 4 cores, so ``--max_pairs`` evaluates a fixed
 random subset of the homographies of each scene (250 for ``tune``, 1000 for
-``test``; 0 for all, as the paper). ``--snn 1`` tests without prefiltering.
+``test``; 0 for all, as the paper). Without ``--settings``, ``test`` uses a
+4 px threshold and an SNN threshold of 0.8 for every solver; ``--snn 1`` tests
+without prefiltering.
 
 Unlike the paper, only the two thresholds are tuned, and LOMSAC samples
 uniformly, so the results compare with the paper's curves without PROSAC. The
