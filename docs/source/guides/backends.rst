@@ -345,7 +345,7 @@ approaches:
   when the score magnitudes are informative (e.g. learned matcher
   confidences), but add more computational overhead per iteration.
 
-On real-world data (e.g. HPatches, see :doc:`benchmarking`), PROSAC with real
+On real-world data (e.g. HPatches, see :doc:`benchmarks/hpatches`), PROSAC with real
 scores typically matches or slightly improves Uniform accuracy while needing fewer
 iterations to converge.  The wall-clock difference is small because
 the per-iteration cost dominates, but PROSAC is particularly helpful

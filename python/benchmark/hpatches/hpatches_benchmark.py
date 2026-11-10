@@ -43,9 +43,10 @@ built with it (see BACKENDS for the settings that it gets).
 ``--iterations N`` runs the estimator for exactly N iterations, instead of stopping when it is
 confident. Several runs give the accuracy as a function of the time, as in Fig. 6 of Wadenbäck et al.
 
-``--output`` saves the settings and the results of every pair to a JSON file, and ``--compare
-a.json b.json`` prints the differences between two such runs (e.g. two versions of HomLib), with their
-standard errors over the pairs, and warns about the settings that differ.
+``--output`` saves the command line, the environment (host, versions), the settings and the results
+of every pair to a JSON file, and ``--compare a.json b.json`` prints the differences between two such
+runs (e.g. two versions of HomLib), with their standard errors over the pairs, and warns about the
+settings that differ.
 
 Usage
 -----
@@ -70,7 +71,8 @@ from hpatches_data import HPATCHES_DIRNAME, add_image_sizes, load_matches
 
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from common import BACKENDS, inlier_indices, make_estimator, warn_settings  # noqa: E402
+from common import (  # noqa: E402
+    BACKENDS, inlier_indices, make_estimator, map_points, print_runs, run_info, warn_settings)
 
 # glue-factory's HPatches evaluation: the shorter side of the resized images, and the sequences of
 # large images that it leaves out (HPatches.ignored_scenes in gluefactory/datasets/hpatches.py)
@@ -134,25 +136,6 @@ def gluefactory_pairs(pairs, data_dir):
     return {k: resize_pair(p) for k, p in pairs.items()}
 
 
-def map_points(pose, p):
-    """The points p of image 1 mapped to image 2 with an estimated model: undistorted with k1,
-    mapped with H, distorted with k2 (division model); and whether each point has an image. It
-    hasn't if H maps it to infinity, or if k2 has no distorted point for it (1 - 4 k2 |u|^2 < 0).
-    Both are tested before the division and the square root, so that no NaN or infinity is
-    created."""
-    k1, k2 = pose.distortion_parameter, pose.distortion_parameter2
-    # Undistorted with k1 in homogeneous coordinates (w = 1 + k1 |p|^2 as third coordinate): no
-    # division by w
-    q = np.array(pose.homography) @ np.vstack([p, 1 + k1 * np.sum(p**2, 0)])
-    ok = q[2] != 0
-    u = np.divide(q[:2], q[2], out=np.zeros_like(q[:2]), where=ok)
-    ok &= np.all(np.abs(u) < 1e150, 0)   # a tiny q[2]: |u|^2 would overflow
-    u[:, ~ok] = 0
-    disc = 1 - 4 * k2 * np.sum(u**2, 0)
-    ok &= disc >= 0
-    return u * 2 / (1 + np.sqrt(np.where(ok, disc, 0))), ok
-
-
 def corner_error(pose, pair):
     """The mean distance between the image corners mapped by the estimated model and by the
     ground truth, in pixels; infinite if the model doesn't map every corner."""
@@ -188,7 +171,8 @@ def main():
     point_solvers = homlib.solver_ids(homlib.FeatureType.Points)
     parser.add_argument("--solvers", nargs="+", choices=[s.name for s in point_solvers], default=None,
                         help="SolverId names (default: every point solver)")
-    parser.add_argument("--output", type=str, default=None, help="Save the settings and the results to this JSON file")
+    parser.add_argument("--output", type=str, default=None,
+                        help="Save the command, the environment, the settings and the results to this JSON file")
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
                         help="Print the differences B - A between two saved runs, and exit")
     args = parser.parse_args()
@@ -236,17 +220,19 @@ def main():
             # for the corner error of a failure (infinite); load_results maps them back
             strict = {name: {key: [[v if np.isfinite(v) else None for v in run] for run in runs]
                              for key, runs in per_pair.items()} for name, per_pair in results.items()}
-            json.dump(dict(settings=settings, results=strict), f, allow_nan=False)
+            json.dump(dict(run=run_info(), settings=settings, results=strict), f, allow_nan=False)
     print_results(results, overall=args.protocol == "gluefactory")
 
 
 def load_results(path):
-    """(settings, results) of a file saved with --output. The files saved before the settings were
+    """(run, settings, results) of a file saved with --output (run: its command and environment,
+    None in older files). The files saved before the settings were
     the results alone: their settings are None. The files saved before --protocol used the original
     protocol. A null share of the true inliers found is NaN, and a null corner error is infinite
     (older files have NaN and Infinity instead)."""
     with open(path) as f:
         data = json.load(f)
+    description = data.get("run") if "settings" in data else None
     settings, results = ((None, data) if "settings" not in data
                          else ({"protocol": "original", **data["settings"]}, data["results"]))
     for per_pair in results.values():
@@ -254,7 +240,7 @@ def load_results(path):
             for run in runs:
                 run[0] = np.nan if run[0] is None else run[0]
                 run[1] = np.inf if run[1] is None else run[1]
-    return settings, results
+    return description, settings, results
 
 
 def kind(key):
@@ -289,8 +275,9 @@ def compare(path_a, path_b):
     true inliers found and AUC@5, averaged over the seeds of each pair, with their standard errors
     over the pairs (the share of the true inliers found, over the pairs with true inliers in both);
     and the ratio of the median times, which has no standard error."""
-    settings_a, a = load_results(path_a)
-    settings_b, b = load_results(path_b)
+    run_a, settings_a, a = load_results(path_a)
+    run_b, settings_b, b = load_results(path_b)
+    print_runs(run_a, run_b)
     warn_settings(settings_a, settings_b)
     # With two runs of glue-factory's protocol, also all the pairs together, as its AUCs
     overall = all(s is not None and s["protocol"] == "gluefactory" for s in (settings_a, settings_b))

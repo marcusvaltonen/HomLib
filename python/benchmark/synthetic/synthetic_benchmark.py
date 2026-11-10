@@ -50,7 +50,8 @@ import homlib
 
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from common import BACKENDS, inlier_indices, make_estimator, warn_settings  # noqa: E402
+from common import (  # noqa: E402
+    BACKENDS, inlier_indices, make_estimator, print_runs, run_info, warn_settings)
 
 FOCAL = 1000.0   # pixels: the noise is given in pixels for this focal length
 
@@ -108,7 +109,8 @@ def main():
     parser.add_argument("--backend", choices=sorted(BACKENDS), default=None,
                         help="With --outliers: the robust estimator (default: lomsac). The others need HomLib "
                              "built with them")
-    parser.add_argument("--output", type=str, default=None, help="Save the settings and the results to this JSON file")
+    parser.add_argument("--output", type=str, default=None,
+                        help="Save the command, the environment, the settings and the results to this JSON file")
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
                         help="Print the differences B - A between two saved runs, and exit")
     args = parser.parse_args()
@@ -130,7 +132,7 @@ def main():
             settings = dict(problems=args.problems or 200, noise=None, iterations=args.iterations, seed=args.seed,
                             outliers=args.outliers, backend=backend)
             with open(args.output, "w") as f:
-                json.dump(dict(settings=settings, outliers=results), f)
+                json.dump(dict(run=run_info(), settings=settings, outliers=results), f)
         print_outliers(results)
         return
 
@@ -158,17 +160,19 @@ def main():
     if args.output:
         settings = dict(problems=problems, noise=noises, iterations=None, outliers=None, seed=args.seed)
         with open(args.output, "w") as f:
-            json.dump(dict(settings=settings, results=results), f)
+            json.dump(dict(run=run_info(), settings=settings, results=results), f)
     print_results(results)
 
 
 def load_results(path):
-    """(settings, results) of a file saved with --output, results being {"outliers": results} with
-    --outliers. The files saved before the settings have none: their settings are None."""
+    """(run, settings, results) of a file saved with --output, results being {"outliers": results}
+    with --outliers. The files saved before the settings have none: their settings are None; and
+    run (the command and the environment) is None in the files saved before it."""
     with open(path) as f:
         data = json.load(f)
+    run = data.pop("run", None)
     settings = data.pop("settings", None)
-    return settings, data.get("results", data)
+    return run, settings, data.get("results", data)
 
 
 def problem_seed(*key):
@@ -250,8 +254,9 @@ def compare(path_a, path_b):
     """The differences between two runs, b - a: the rates of no solution and (without noise) of
     missed true solutions, in percentage points with their standard errors, and the ratios of the
     median errors (with noise) and times, which have no standard error."""
-    settings_a, a = load_results(path_a)
-    settings_b, b = load_results(path_b)
+    run_a, settings_a, a = load_results(path_a)
+    run_b, settings_b, b = load_results(path_b)
+    print_runs(run_a, run_b)
     if ("outliers" in a) != ("outliers" in b):
         raise SystemExit("can't compare a run with --outliers and a run without it")
     warn_settings(settings_a, settings_b)
