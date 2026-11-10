@@ -36,7 +36,7 @@ std::vector<HomLib::PoseData> get_one_sided(
     bool extra_check,
     const HomLib::DistortionRange &range = HomLib::DistortionRange()
 );
-class SolverSingleSided : public OneSidedLeftPointSolver<SolverSingleSided> {
+class SolverSingleSided : public OneSidedLeftPointEstimator<SolverSingleSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
         bool extra_check = true;
@@ -49,7 +49,7 @@ class SolverSingleSided : public OneSidedLeftPointSolver<SolverSingleSided> {
             return output.size();
         }
     };
-class SolverTwoSidedEqual : public TwoSidedEqualPointSolver<SolverTwoSidedEqual> {
+class SolverTwoSidedEqual : public TwoSidedEqualPointEstimator<SolverTwoSidedEqual> {
     public:
         static constexpr int minimal_sample_size_value = 5;
         bool extra_check = true;
@@ -62,7 +62,7 @@ class SolverTwoSidedEqual : public TwoSidedEqualPointSolver<SolverTwoSidedEqual>
             return output.size();
         }
     };
-class SolverTwoSided : public TwoSidedPointSolver<SolverTwoSided> {
+class SolverTwoSided : public TwoSidedPointEstimator<SolverTwoSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
         bool extra_check = false;

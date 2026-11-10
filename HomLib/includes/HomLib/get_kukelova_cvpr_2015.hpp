@@ -47,7 +47,7 @@ std::vector<HomLib::PoseData> get_6pt(
     bool dist_equal,
     const HomLib::DistortionRange &range = HomLib::DistortionRange()
 );
-class SolverTwoSidedEqual : public TwoSidedEqualPointSolver<SolverTwoSidedEqual> {
+class SolverTwoSidedEqual : public TwoSidedEqualPointEstimator<SolverTwoSidedEqual> {
     public:
         static constexpr int minimal_sample_size_value = 5;
         SolverTwoSidedEqual() = default;
@@ -62,7 +62,7 @@ class SolverTwoSidedEqual : public TwoSidedEqualPointSolver<SolverTwoSidedEqual>
     private:
         bool dist_equal = true;
     };
-class SolverTwoSidedEqual6Pt : public TwoSidedEqualPointSolver<SolverTwoSidedEqual6Pt> {
+class SolverTwoSidedEqual6Pt : public TwoSidedEqualPointEstimator<SolverTwoSidedEqual6Pt> {
     public:
         static constexpr int minimal_sample_size_value = 6;
         SolverTwoSidedEqual6Pt() = default;
@@ -77,7 +77,7 @@ class SolverTwoSidedEqual6Pt : public TwoSidedEqualPointSolver<SolverTwoSidedEqu
     private:
         bool dist_equal = true;
     };
-class SolverTwoSided : public TwoSidedPointSolver<SolverTwoSided> {
+class SolverTwoSided : public TwoSidedPointEstimator<SolverTwoSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
         SolverTwoSided() = default;
@@ -92,7 +92,7 @@ class SolverTwoSided : public TwoSidedPointSolver<SolverTwoSided> {
     private:
         bool dist_equal = false;
     };
-class SolverTwoSided6Pt : public TwoSidedPointSolver<SolverTwoSided6Pt> {
+class SolverTwoSided6Pt : public TwoSidedPointEstimator<SolverTwoSided6Pt> {
     public:
         static constexpr int minimal_sample_size_value = 6;
         SolverTwoSided6Pt() = default;

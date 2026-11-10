@@ -11,7 +11,8 @@ namespace HomLib {
 	// We use CRTP here for the solvers.
 	template<class Solver>
 	class AffinePoseEstimator : public EstimatorBase {
-	public:		
+	public:
+		static constexpr bool supports_overdetermined = false;
 		int estimate(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Matrix2d> &A, std::vector<HomLib::PoseData> *poses) const;
 		
 		inline int minimal_sample_size() const {

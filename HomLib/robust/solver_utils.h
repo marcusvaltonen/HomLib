@@ -129,7 +129,6 @@ inline bool lomsac_non_minimal_full(
 // Dispatch for point-based non-minimal solving.
 // estimate_fn signature: (const Solver&, const vector<Vector2d>&, const vector<Vector2d>&,
 //                         const vector<size_t>&, size_t, vector<PoseData>*)
-// refine_override: <0 = strategy default, 0 = never refine, >0 = always refine
 template <class Solver, class EstimateFunc>
 inline bool non_minimal_dispatch_point(
     NonMinimalStrategy strategy,
@@ -138,7 +137,7 @@ inline bool non_minimal_dispatch_point(
     const std::vector<Eigen::Vector2d>& y,
     EstimateFunc estimate_fn,
     PoseData& best,
-    int refine_override = -1,
+    bool refine = true,
     const NonMinimalEstimateFn& non_minimal_fn = {})
 {
     const size_t n = x.size();
@@ -150,11 +149,8 @@ inline bool non_minimal_dispatch_point(
 
     switch (strategy) {
         case NonMinimalStrategy::Sample: {
-            thread_local std::mt19937 rng{std::random_device{}()};
-            std::vector<size_t> idx(n);
+            std::vector<size_t> idx(ss);
             std::iota(idx.begin(), idx.end(), 0);
-            std::shuffle(idx.begin(), idx.end(), rng);
-            idx.resize(ss);
             std::vector<PoseData> poses;
             estimate_fn(solver, x, y, idx, ss, &poses);
             found = select_best(solver, poses, x, y, best);
@@ -170,11 +166,8 @@ inline bool non_minimal_dispatch_point(
                 best = poses[best_idx];
                 found = true;
             } else {
-                thread_local std::mt19937 rng2{std::random_device{}()};
-                std::vector<size_t> idx(n);
+                std::vector<size_t> idx(ss);
                 std::iota(idx.begin(), idx.end(), 0);
-                std::shuffle(idx.begin(), idx.end(), rng2);
-                idx.resize(ss);
                 std::vector<PoseData> poses;
                 estimate_fn(solver, x, y, idx, ss, &poses);
                 found = select_best(solver, poses, x, y, best);
@@ -183,7 +176,7 @@ inline bool non_minimal_dispatch_point(
         }
     }
 
-    if (found && refine_override != 0)
+    if (found && refine)
         solver.refine(best, x, y);
     return found;
 }
@@ -197,7 +190,7 @@ inline bool non_minimal_dispatch_full(
     const std::vector<Eigen::Vector2d>& y,
     EstimateFunc estimate_fn,
     PoseData& best,
-    int refine_override = -1)
+    bool refine = true)
 {
     const size_t n = x.size();
     if (n < static_cast<size_t>(solver.minimal_sample_size()))
@@ -217,7 +210,7 @@ inline bool non_minimal_dispatch_full(
         }
     }
 
-    if (found && refine_override != 0)
+    if (found && refine)
         solver.refine(best, x, y);
     return found;
 }

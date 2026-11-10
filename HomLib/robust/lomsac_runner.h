@@ -21,13 +21,13 @@ std::pair<PoseData, ransac_lib::RansacStatistics> run_lomsac_point(
     const ransac_lib::LORansacOptions& options,
     NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::Sample,
     int non_minimal_sample_size = 0,
-    int refine_non_minimal = -1,
+    bool refine_non_minimal = true,
     const NonMinimalEstimateFn& non_minimal_fn = {})
 {
     RansacEstimator<Solver> estimator(x, y, solver);
     estimator.non_minimal_strategy = non_minimal_strategy;
     estimator.non_minimal_sample_size_override = non_minimal_sample_size;
-    estimator.refine_override = refine_non_minimal;
+    estimator.refine = refine_non_minimal;
     estimator.non_minimal_fn = non_minimal_fn;
 
     ransac_lib::RansacStatistics stats;

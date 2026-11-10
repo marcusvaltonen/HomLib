@@ -14,7 +14,8 @@ namespace HomLib {
 	// We use CRTP here for the solvers.
 	template<class Solver>
 	class PoseEstimator : public EstimatorBase {
-	public:		
+	public:
+		static constexpr bool supports_overdetermined = false;
 		int estimate(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses) const;
 		
 		inline int minimal_sample_size() const {
@@ -36,49 +37,71 @@ namespace HomLib {
 	};
 
 	template <class Solver>
-	class NoDistortionPointSolver : public PoseEstimator<Solver> {
+	class NoDistortionPointEstimator : public PoseEstimator<Solver> {
 	public:
 		static constexpr DistortionCase DISTORTION_CASE = NO_DISTORTION;
-		int minimal_sample_size() const { return Solver::minimal_sample_size_value; }
+
+		int minimal_sample_size() const {
+			return Solver::minimal_sample_size_value;
+		}
+
 		inline bool undistort(const PoseData &, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
-			xu = xd; return true;
+			xu = xd;
+			return true;
 		}
+
 		inline bool distort(const PoseData &, const Eigen::Vector2d &yu, Eigen::Vector2d &yd) const {
-			yd = yu; return true;
+			yd = yu;
+			return true;
 		}
+
 		inline void refine(PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
 			refinement_no_dist(x, y, pose);
 		}
 	};
 
 	template <class Solver>
-	class OneSidedLeftPointSolver : public PoseEstimator<Solver> {
+	class OneSidedLeftPointEstimator : public PoseEstimator<Solver> {
 	public:
 		static constexpr DistortionCase DISTORTION_CASE = ONE_SIDED_LEFT;
-		int minimal_sample_size() const { return Solver::minimal_sample_size_value; }
-		inline bool undistort(const PoseData &, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
-			xu = xd; return true;
+
+		int minimal_sample_size() const {
+			return Solver::minimal_sample_size_value;
 		}
+
+		inline bool undistort(const PoseData &, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
+			xu = xd;
+			return true;
+		}
+
 		inline void refine(PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
 			refinement_onesided(x, y, pose);
 		}
 	};
 
 	template <class Solver>
-	class TwoSidedEqualPointSolver : public PoseEstimator<Solver> {
+	class TwoSidedEqualPointEstimator : public PoseEstimator<Solver> {
 	public:
 		static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED_EQUAL;
-		int minimal_sample_size() const { return Solver::minimal_sample_size_value; }
+
+		int minimal_sample_size() const {
+			return Solver::minimal_sample_size_value;
+		}
+
 		inline void refine(PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
 			refinement_twosided_equal(x, y, pose);
 		}
 	};
 
 	template <class Solver>
-	class TwoSidedPointSolver : public PoseEstimator<Solver> {
+	class TwoSidedPointEstimator : public PoseEstimator<Solver> {
 	public:
 		static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED;
-		int minimal_sample_size() const { return Solver::minimal_sample_size_value; }
+
+		int minimal_sample_size() const {
+			return Solver::minimal_sample_size_value;
+		}
+
 		inline void refine(PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
 			refinement_twosided(x, y, pose);
 		}

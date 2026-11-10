@@ -85,15 +85,15 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_point(
     const ransac_lib::LORansacOptions& options,
     HomLib::NonMinimalStrategy non_minimal_strategy = HomLib::NonMinimalStrategy::Sample,
     int non_minimal_sample_size = 0,
-    int refine_non_minimal = -1,
-    std::optional<HomLib::SolverId> non_minimal_solver_id = std::nullopt)
+    bool refine_non_minimal = true,
+    const PySolver* non_minimal_solver = nullptr)
 {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
 
     HomLib::NonMinimalEstimateFn nm_fn;
-    if (non_minimal_solver_id)
-        nm_fn = HomLib::resolve_non_minimal_fn(*non_minimal_solver_id);
+    if (non_minimal_solver)
+        nm_fn = resolve_non_minimal_fn(*non_minimal_solver);
 
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
@@ -210,6 +210,13 @@ PYBIND11_MODULE(_core, m) {
             "id"_a)
         .def_readonly("id", &PySolver::id, "Solver identifier (:class:`SolverId`).")
         .def_readonly("feature_type", &PySolver::feature_type, "Feature type (:class:`FeatureType`).")
+        .def_property_readonly("distortion_case", [](const PySolver& s) {
+            return HomLib::dispatch_solver(s.id, [](auto tag) {
+                return std::decay_t<decltype(tag)>::DISTORTION_CASE;
+            });
+        }, "Distortion case (:class:`DistortionCase`).")
+        .def_readonly("supports_overdetermined", &PySolver::supports_overdetermined,
+            "Whether this solver supports overdetermined (N > minimal) estimation.")
         .def_readonly("options", &PySolver::options, "Solver-specific options.")
         .def_readwrite("normalize_image_coord", &PySolver::normalize_image_coord,
             R"pbdoc(
@@ -706,7 +713,7 @@ PYBIND11_MODULE(_core, m) {
         "solver"_a, "x"_a, "y"_a, "options"_a,
         "non_minimal_strategy"_a = HomLib::NonMinimalStrategy::Sample,
         "non_minimal_sample_size"_a = 0,
-        "refine_non_minimal"_a = -1,
+        "refine_non_minimal"_a = true,
         "non_minimal_solver"_a = py::none());
 
     m.def("dispatch_lomsac_affine", &dispatch_lomsac_affine,

@@ -121,6 +121,13 @@ the :ref:`references` page. For the library itself:
 .. toctree::
    :maxdepth: 1
    :hidden:
+   :caption: Developer guides:
+
+   guides/adding_solvers.rst
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
    :caption: Examples and usage:
 
    gallery/index.rst

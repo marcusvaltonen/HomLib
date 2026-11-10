@@ -82,6 +82,7 @@ class FlippedOneSidedSolver : public PoseEstimator<FlippedOneSidedSolver<InnerSo
 public:
     static constexpr int minimal_sample_size_value = InnerSolver::minimal_sample_size_value;
     static constexpr DistortionCase DISTORTION_CASE = detail::flipped_case(InnerSolver::DISTORTION_CASE);
+    static constexpr bool supports_overdetermined = InnerSolver::supports_overdetermined;
 
     int solve(const std::vector<Eigen::Vector2d>& x, const std::vector<Eigen::Vector2d>& y,
               std::vector<PoseData>* poses,

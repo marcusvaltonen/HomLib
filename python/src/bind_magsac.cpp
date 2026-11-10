@@ -1,5 +1,4 @@
 #include "binding_utils.h"
-#include <optional>
 #include <magsac_runner.h>
 #include <solver_dispatch.h>
 
@@ -13,14 +12,14 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_poi
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const std::vector<double>& probabilities,
     const HomLib::MAGSACSettings& settings,
-    std::optional<HomLib::SolverId> non_minimal_solver_id = std::nullopt)
+    const PySolver* non_minimal_solver = nullptr)
 {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
 
     HomLib::NonMinimalEstimateFn nm_fn;
-    if (non_minimal_solver_id)
-        nm_fn = HomLib::resolve_non_minimal_fn(*non_minimal_solver_id);
+    if (non_minimal_solver)
+        nm_fn = resolve_non_minimal_fn(*non_minimal_solver);
 
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;

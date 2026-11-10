@@ -373,7 +373,7 @@ arguments. Settings are also accessible via namespace aliases for clarity:
        min_iterations=50,
        do_local_optimization=True,
        sampler=homlib.GCRANSAC.SamplerType.PROSAC,
-       non_minimal_strategy=homlib.GCRANSAC.NonMinimalStrategy.SelectAndRefine,
+       non_minimal_strategy=homlib.NonMinimalStrategy.Overdetermined,
    )
 
    # MAGSAC (shares GCSamplerType with GC-RANSAC)
@@ -463,12 +463,10 @@ non-minimal sample is used for model refinement:
 
    * - Strategy
      - Description
-   * - ``Lomsac``
-     - LO-MSAC: iterative refinement on inlier set.
-   * - ``SelectAndRefine``
-     - Select the best model, then refine (default).
-   * - ``MultiSample``
-     - Evaluate multiple non-minimal samples.
+   * - ``Sample``
+     - Re-estimate from a minimal-size subset of the inliers, then refine over all inliers (default).
+   * - ``Overdetermined``
+     - Use a non-minimal solver on all inliers, then refine (requires ``non_minimal_solver``).
 
 
 .. _threshold_conventions:

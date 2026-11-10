@@ -66,7 +66,9 @@ public:
 			}
 			s.estimate(xs, ys, poses);
 		};
-		return detail::non_minimal_dispatch_point(non_minimal_strategy, solver, xx, yy, est_fn, *pose, refine_override, non_minimal_fn) ? 1 : 0;
+		return detail::non_minimal_dispatch_point(
+			non_minimal_strategy, solver, xx, yy, est_fn, *pose,
+			refine, non_minimal_fn) ? 1 : 0;
 	}
 
 	double EvaluateModelOnPoint(const HomLib::PoseData& pose, int i) const {
@@ -92,7 +94,7 @@ public:
 	bool use_local_opt = true;
 	NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::Sample;
 	int non_minimal_sample_size_override = 0;
-	int refine_override = -1;
+	bool refine = true;
 	NonMinimalEstimateFn non_minimal_fn;
 private:
 	Solver solver;

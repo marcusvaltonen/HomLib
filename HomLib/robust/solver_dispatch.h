@@ -97,6 +97,12 @@ auto dispatch_solver(SolverId id, Func&& func) {
     }
 }
 
+inline bool supports_overdetermined_for(SolverId id) {
+    return dispatch_solver(id, [](auto tag) {
+        return std::decay_t<decltype(tag)>::supports_overdetermined;
+    });
+}
+
 inline NonMinimalEstimateFn resolve_non_minimal_fn(SolverId id) {
     return dispatch_point_solver(id, [](auto solver) -> NonMinimalEstimateFn {
         return [s = std::move(solver)](

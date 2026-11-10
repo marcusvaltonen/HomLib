@@ -43,7 +43,7 @@ std::vector<HomLib::PoseData> get(
     const std::vector<Eigen::Vector2d> &y
 );
 
-class Solver : public NoDistortionPointSolver<Solver> {
+class Solver : public NoDistortionPointEstimator<Solver> {
     public:
         static constexpr int minimal_sample_size_value = 4;
         Solver() = default;

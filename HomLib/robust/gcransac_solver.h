@@ -176,7 +176,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_point(strategy_, solver_, x, y, est_fn, best, -1, non_minimal_fn_))
+        if (!detail::non_minimal_dispatch_point(strategy_, solver_, x, y, est_fn, best, /*refine=*/true, non_minimal_fn_))
             return false;
 
         models_.push_back(pose_to_gc_model(best));

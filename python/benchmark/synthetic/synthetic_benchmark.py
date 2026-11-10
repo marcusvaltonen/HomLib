@@ -139,7 +139,7 @@ def main():
     problems = args.problems or 2000
     noises = args.noise or [0.0, 0.5, 1.0, 2.0]
     for name in tqdm(args.solvers, desc="Solvers"):
-        solver = homlib.Solver(homlib.SolverId.__members__[name])
+        solver = homlib.Solver(name)
         sample_size, cases = SOLVERS[name]
         results[name] = {}
         for case in cases:
@@ -187,7 +187,7 @@ def run_outliers(solvers, shares, problems, iterations, seed, backend, n_points=
     """results[solver][share] = per problem: (share of the true inliers found, time)"""
     results = {}
     for name in tqdm(solvers, desc="Solvers"):
-        solver = homlib.Solver(homlib.SolverId.__members__[name])
+        solver = homlib.Solver(name)
         case = SOLVERS[name][1][-1]   # the case the solver is made for
         results[name] = {}
         for share in shares:

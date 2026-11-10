@@ -43,9 +43,10 @@ std::vector<HomLib::PoseData> get(
     bool use_qr = false
 );
 
-class Solver : public NoDistortionPointSolver<Solver> {
+class Solver : public NoDistortionPointEstimator<Solver> {
     public:
         static constexpr int minimal_sample_size_value = 4;
+        static constexpr bool supports_overdetermined = true;
         bool use_qr = false;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange & = HomLib::DistortionRange()) const {
