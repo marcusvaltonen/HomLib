@@ -24,17 +24,12 @@
 #include "radial.hpp"
 
 namespace HomLib {
-    Eigen::Vector2d radialdistort(const Eigen::Vector2d &x, double kappa) {
-        // We expect inhomogenous input data
-        // The inverse of radialundistort, ru = rd / (1 + kappa rd^2): rd is the root of
+    bool try_radialdistort(const Eigen::Vector2d &x, double kappa, Eigen::Vector2d &out) {
+        // The inverse of try_radialundistort, ru = rd / (1 + kappa rd^2): rd is the root of
         // kappa ru rd^2 - rd + ru = 0 that tends to ru as kappa -> 0,
         // rd = (1 - sqrt(1 - 4 kappa ru^2)) / (2 kappa ru) = 2 ru / (1 + sqrt(1 - 4 kappa ru^2)).
-        // The second form has no cancellation, and no division by kappa or ru. NaN when
-        // 4 kappa ru^2 > 1: no real solution.
-        return (2.0 / (1.0 + std::sqrt(1.0 - 4.0 * kappa * x.squaredNorm()))) * x;
-    }
-    
-    bool try_radialdistort(const Eigen::Vector2d &x, double kappa, Eigen::Vector2d &out) {
+        // The second form has no cancellation, and no division by kappa or ru; no real solution
+        // when 4 kappa ru^2 > 1.
         const double r2 = x.squaredNorm();
         if (!std::isfinite(r2))
             return false;
@@ -54,47 +49,5 @@ namespace HomLib {
             return false;
         out = x / w;
         return true;
-    }
-
-    std::vector<Eigen::Vector2d> radialdistort(const std::vector<Eigen::Vector2d> &x, double kappa) {
-        // We expect inhomogenous input data
-        std::vector<Eigen::Vector2d> out;
-        for (size_t i = 0; i < x.size(); i++) {
-            Eigen::Vector2d y = HomLib::radialdistort(x[i], kappa);
-            out.push_back(y);
-        }
-        return out;
-    }
-
-    Eigen::Vector2d radialundistort(const Eigen::Vector2d &x, double kappa) {
-        // Compute undistorted coordinates
-        Eigen::Vector2d y = x / (1 + kappa * x.squaredNorm());
-        return y;
-    }
-    
-    std::vector<Eigen::Vector2d> radialundistort(const std::vector<Eigen::Vector2d> &x, double kappa) {
-        std::vector<Eigen::Vector2d> out;
-        for (size_t i = 0; i < x.size(); i++) {
-            Eigen::Vector2d y = HomLib::radialundistort(x[i], kappa);
-            out.push_back(y);
-        }
-        return out;
-    }
-    
-    void radialdistort(const std::vector<Eigen::Vector2d> &xu, std::vector<Eigen::Vector2d>* xd, double kappa) {
-        std::vector<Eigen::Vector2d> tmp = radialdistort(xu, kappa);
-        xd->clear();
-        xd->reserve(tmp.size());
-        for (size_t i = 0; i < tmp.size(); i++) {
-            xd->push_back(tmp[i]);
-        }
-    }
-    void radialundistort(const std::vector<Eigen::Vector2d> &xd, std::vector<Eigen::Vector2d>* xu, double kappa) {
-        std::vector<Eigen::Vector2d> tmp = radialundistort(xd, kappa);
-        xu->clear();
-        xu->reserve(tmp.size());
-        for (size_t i = 0; i < tmp.size(); i++) {
-            xu->push_back(tmp[i]);
-        }
     }
 }  // namespace HomLib

@@ -169,8 +169,10 @@ namespace HomLib {
 			        
 			        // Distort
 			        Eigen::Vector2d x1hd, x2hd;
-			        x1hd = HomLib::radialdistort(x1h, instance.posedata.distortion_parameter);
-		            x2hd = HomLib::radialdistort(x2h, instance.posedata.distortion_parameter2);
+			        if (!HomLib::try_radialdistort(x1h, instance.posedata.distortion_parameter, x1hd) ||
+			            !HomLib::try_radialdistort(x2h, instance.posedata.distortion_parameter2, x2hd)) {
+			            continue;   // no distorted point: try to generate another point
+			        }
 		            // calculate affine from homography
 		            // This assumes DistortionCase.NO_DISTORTION or DistortionCase.ONE_SIDED_RIGHT
 		            Eigen::Matrix2d A = affineFromHomography(instance.posedata.homography, x1hd, x2hd, instance.posedata.distortion_parameter);

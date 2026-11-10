@@ -140,19 +140,23 @@ namespace FitzgibbonCVPR2001 {
                     continue;
                 }
                 Htmp = Eigen::Map<Eigen::Matrix3d>(X.col(k).data(), 3, 3);
-                // Reproject points
-                std::vector<Eigen::Vector2d> xu = radialundistort(x, ltmp);
-                std::vector<Eigen::Vector2d> yu_est;
-                for (int i = 0; i < n_points; i++) {
-                    Eigen::Vector3d tmp = Htmp * xu[i].homogeneous();
-                    yu_est.push_back(tmp.hnormalized());
-                }
-                std::vector<Eigen::Vector2d> y_est = radialdistort(yu_est, ltmp);
-
-                // Compute residual in distorted space
+                // Reproject the points; a root for which a point has no reprojection (no
+                // undistorted point, H x at infinity, no distorted point) is skipped
                 double res = 0.0;
-                for (int i = 0; i < n_points; i++) {
-                    res += (y[i] - y_est[i]).squaredNorm();
+                bool ok = true;
+                for (int i = 0; i < n_points && ok; i++) {
+                    Eigen::Vector2d xu, y_est;
+                    if (!HomLib::try_radialundistort(x[i], ltmp, xu)) {
+                        ok = false;
+                        break;
+                    }
+                    const Eigen::Vector3d tmp = Htmp * xu.homogeneous();
+                    ok = tmp(2) != 0.0 && HomLib::try_radialdistort(tmp.hnormalized(), ltmp, y_est);
+                    if (ok)
+                        res += (y[i] - y_est).squaredNorm();   // residual in distorted space
+                }
+                if (!ok) {
+                    continue;
                 }
                 if (res < minres) {
                     minres = res;

@@ -211,7 +211,10 @@ namespace ValtonenOrnhagICPR2026 {
                 int best_id = -1;
                 for (size_t i = 0; i < output.size(); i++) {
                     // Measure reprojection error in undistorted space
-                    Eigen::Vector2d y4u_est1 = HomLib::radialundistort(y[4], output[i].distortion_parameter);
+                    Eigen::Vector2d y4u_est1;
+                    if (!HomLib::try_radialundistort(y[4], output[i].distortion_parameter, y4u_est1)) {   // no undistorted point
+                        continue;
+                    }
                     Eigen::Vector3d tmp = output[i].homography * x[4].homogeneous();
                     Eigen::Vector2d y4u_est2 = tmp.hnormalized();
                     double res = (y4u_est1 - y4u_est2).squaredNorm();
