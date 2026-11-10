@@ -27,6 +27,7 @@
 #include "get_fitzgibbon_cvpr_2001.hpp"
 #include "radial.hpp"
 #include "posedata.hpp"
+#include "test_generate_helpers.hpp"
 
 TEST_CASE("Fitzgibbon CVPR 2001") {
     std::vector<Eigen::Vector2d> p1 = {
@@ -83,46 +84,6 @@ TEST_CASE("Fitzgibbon CVPR 2001 - eigensolver without convergence") {
 // Overdetermined: N > 5
 // ============================================================================
 
-static void generate_one_sided_left(
-    const Eigen::Matrix3d& H, double k2, int n,
-    std::vector<Eigen::Vector2d>* x, std::vector<Eigen::Vector2d>* y,
-    unsigned seed = 42)
-{
-    std::mt19937 rng(seed);
-    std::uniform_real_distribution<double> coord(-0.8, 0.8);
-    x->resize(n);
-    y->resize(n);
-    for (int i = 0; i < n; i++) {
-        (*x)[i] = Eigen::Vector2d(coord(rng), coord(rng));
-        Eigen::Vector3d tmp = H * (*x)[i].homogeneous();
-        Eigen::Vector2d yu = tmp.hnormalized();
-        Eigen::Vector2d yd;
-        REQUIRE(HomLib::try_radialdistort(yu, k2, yd));
-        (*y)[i] = yd;
-    }
-}
-
-static void generate_two_sided_equal(
-    const Eigen::Matrix3d& H, double k, int n,
-    std::vector<Eigen::Vector2d>* x, std::vector<Eigen::Vector2d>* y,
-    unsigned seed = 42)
-{
-    std::mt19937 rng(seed);
-    std::uniform_real_distribution<double> coord(-0.8, 0.8);
-    x->resize(n);
-    y->resize(n);
-    for (int i = 0; i < n; i++) {
-        Eigen::Vector2d xu(coord(rng), coord(rng));
-        Eigen::Vector2d xd, yd;
-        REQUIRE(HomLib::try_radialdistort(xu, k, xd));
-        (*x)[i] = xd;
-        Eigen::Vector3d tmp = H * xu.homogeneous();
-        Eigen::Vector2d yu = tmp.hnormalized();
-        REQUIRE(HomLib::try_radialdistort(yu, k, yd));
-        (*y)[i] = yd;
-    }
-}
-
 TEST_CASE("Fitzgibbon single - overdetermined N > 5") {
     Eigen::Matrix3d H;
     H << 0.9, 0.1, 0.05,
@@ -135,7 +96,7 @@ TEST_CASE("Fitzgibbon single - overdetermined N > 5") {
 
     auto output = HomLib::FitzgibbonCVPR2001::get_single(x, y);
     REQUIRE(output.size() == 1);
-    REQUIRE(output[0].distortion_parameter2 == Catch::Approx(k2).margin(1e-3));
+    REQUIRE(output[0].distortion_parameter2 == Catch::Approx(k2).margin(1e-10));
 
     Eigen::Matrix3d H_est = output[0].homography;
     H_est /= H_est(2, 2);
@@ -146,7 +107,7 @@ TEST_CASE("Fitzgibbon single - overdetermined N > 5") {
         Eigen::Vector2d yu_gt = (H_gt * x[i].homogeneous()).hnormalized();
         max_reproj = std::max(max_reproj, (yu_est - yu_gt).norm());
     }
-    REQUIRE(max_reproj < 1e-3);
+    REQUIRE(max_reproj < 1e-10);
 }
 
 TEST_CASE("Fitzgibbon single - fewer than 5 returns empty") {
@@ -170,8 +131,79 @@ TEST_CASE("Fitzgibbon two-sided equal - overdetermined N > 5") {
 
     auto output = HomLib::FitzgibbonCVPR2001::get(x, y);
     REQUIRE(output.size() == 1);
-    REQUIRE(output[0].distortion_parameter == Catch::Approx(k).margin(1e-3));
-    REQUIRE(output[0].distortion_parameter2 == Catch::Approx(k).margin(1e-3));
+    REQUIRE(output[0].distortion_parameter == Catch::Approx(k).margin(1e-10));
+    REQUIRE(output[0].distortion_parameter2 == Catch::Approx(k).margin(1e-10));
+}
+
+TEST_CASE("Fitzgibbon single - k=0 (no distortion)") {
+    Eigen::Matrix3d H;
+    H << 0.9, 0.1, 0.05,
+        -0.1, 0.85, 0.03,
+         0.02, -0.01, 1.0;
+
+    SECTION("minimal N=5") {
+        std::vector<Eigen::Vector2d> x, y;
+        generate_one_sided_left(H, 0.0, 5, &x, &y);
+        auto output = HomLib::FitzgibbonCVPR2001::get_single(x, y);
+        REQUIRE(output.size() == 1);
+        REQUIRE(output[0].distortion_parameter2 == Catch::Approx(0.0).margin(1e-10));
+    }
+    SECTION("overdetermined N=20") {
+        std::vector<Eigen::Vector2d> x, y;
+        generate_one_sided_left(H, 0.0, 20, &x, &y);
+        auto output = HomLib::FitzgibbonCVPR2001::get_single(x, y);
+        REQUIRE(output.size() == 1);
+        REQUIRE(output[0].distortion_parameter2 == Catch::Approx(0.0).margin(1e-10));
+    }
+}
+
+TEST_CASE("Fitzgibbon two-sided equal - k=0 (no distortion)") {
+    Eigen::Matrix3d H;
+    H << 0.9, 0.1, 0.05,
+        -0.1, 0.85, 0.03,
+         0.02, -0.01, 1.0;
+
+    SECTION("minimal N=5") {
+        std::vector<Eigen::Vector2d> x(5), y(5);
+        std::mt19937 rng(42);
+        std::uniform_real_distribution<double> coord(-0.8, 0.8);
+        for (int i = 0; i < 5; i++) {
+            x[i] = Eigen::Vector2d(coord(rng), coord(rng));
+            y[i] = (H * x[i].homogeneous()).hnormalized();
+        }
+        auto output = HomLib::FitzgibbonCVPR2001::get(x, y);
+        REQUIRE(output.size() == 1);
+        REQUIRE(output[0].distortion_parameter == Catch::Approx(0.0).margin(1e-10));
+        REQUIRE(output[0].distortion_parameter2 == Catch::Approx(0.0).margin(1e-10));
+    }
+    SECTION("overdetermined N=20") {
+        std::vector<Eigen::Vector2d> x(20), y(20);
+        std::mt19937 rng(42);
+        std::uniform_real_distribution<double> coord(-0.8, 0.8);
+        for (int i = 0; i < 20; i++) {
+            x[i] = Eigen::Vector2d(coord(rng), coord(rng));
+            y[i] = (H * x[i].homogeneous()).hnormalized();
+        }
+        auto output = HomLib::FitzgibbonCVPR2001::get(x, y);
+        REQUIRE(output.size() == 1);
+        REQUIRE(output[0].distortion_parameter == Catch::Approx(0.0).margin(1e-10));
+        REQUIRE(output[0].distortion_parameter2 == Catch::Approx(0.0).margin(1e-10));
+    }
+}
+
+TEST_CASE("Fitzgibbon single - small k (near singularity)") {
+    Eigen::Matrix3d H;
+    H << 0.9, 0.1, 0.05,
+        -0.1, 0.85, 0.03,
+         0.02, -0.01, 1.0;
+    double k2 = -1e-6;
+
+    std::vector<Eigen::Vector2d> x, y;
+    generate_one_sided_left(H, k2, 20, &x, &y);
+
+    auto output = HomLib::FitzgibbonCVPR2001::get_single(x, y);
+    REQUIRE(output.size() == 1);
+    REQUIRE(output[0].distortion_parameter2 == Catch::Approx(k2).margin(1e-10));
 }
 
 TEST_CASE("Fitzgibbon single - minimal N=5 regression") {

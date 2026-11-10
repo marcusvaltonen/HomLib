@@ -26,6 +26,7 @@
 #include "get_nakano_icpr_2025.hpp"
 #include "radial.hpp"
 #include "posedata.hpp"
+#include "test_generate_helpers.hpp"
 
 TEST_CASE("Nakano ICPR 2025") {
     std::vector<Eigen::Vector2d> p1 = {
@@ -71,25 +72,6 @@ TEST_CASE("Nakano ICPR 2025") {
 // Overdetermined: N > 5
 // ============================================================================
 
-static void generate_one_sided_left(
-    const Eigen::Matrix3d& H, double k2, int n,
-    std::vector<Eigen::Vector2d>* x, std::vector<Eigen::Vector2d>* y,
-    unsigned seed = 42)
-{
-    std::mt19937 rng(seed);
-    std::uniform_real_distribution<double> coord(-0.8, 0.8);
-    x->resize(n);
-    y->resize(n);
-    for (int i = 0; i < n; i++) {
-        (*x)[i] = Eigen::Vector2d(coord(rng), coord(rng));
-        Eigen::Vector3d tmp = H * (*x)[i].homogeneous();
-        Eigen::Vector2d yu = tmp.hnormalized();
-        Eigen::Vector2d yd;
-        REQUIRE(HomLib::try_radialdistort(yu, k2, yd));
-        (*y)[i] = yd;
-    }
-}
-
 TEST_CASE("Nakano - overdetermined N > 5") {
     Eigen::Matrix3d H;
     H << 0.9, 0.1, 0.05,
@@ -102,7 +84,7 @@ TEST_CASE("Nakano - overdetermined N > 5") {
 
     auto output = HomLib::NakanoICPR2025::get(x, y, true);
     REQUIRE(output.size() == 1);
-    REQUIRE(output[0].distortion_parameter2 == Catch::Approx(k2).margin(1e-3));
+    REQUIRE(output[0].distortion_parameter2 == Catch::Approx(k2).margin(1e-10));
 
     Eigen::Matrix3d H_est = output[0].homography;
     H_est /= H_est(2, 2);
@@ -113,7 +95,29 @@ TEST_CASE("Nakano - overdetermined N > 5") {
         Eigen::Vector2d yu_gt = (H_gt * x[i].homogeneous()).hnormalized();
         max_reproj = std::max(max_reproj, (yu_est - yu_gt).norm());
     }
-    REQUIRE(max_reproj < 1e-3);
+    REQUIRE(max_reproj < 1e-10);
+}
+
+TEST_CASE("Nakano - k=0 (no distortion)") {
+    Eigen::Matrix3d H;
+    H << 0.9, 0.1, 0.05,
+        -0.1, 0.85, 0.03,
+         0.02, -0.01, 1.0;
+
+    SECTION("minimal N=5") {
+        std::vector<Eigen::Vector2d> x, y;
+        generate_one_sided_left(H, 0.0, 5, &x, &y);
+        auto output = HomLib::NakanoICPR2025::get(x, y, true);
+        REQUIRE(output.size() == 1);
+        REQUIRE(output[0].distortion_parameter2 == Catch::Approx(0.0).margin(1e-10));
+    }
+    SECTION("overdetermined N=20") {
+        std::vector<Eigen::Vector2d> x, y;
+        generate_one_sided_left(H, 0.0, 20, &x, &y);
+        auto output = HomLib::NakanoICPR2025::get(x, y, true);
+        REQUIRE(output.size() == 1);
+        REQUIRE(output[0].distortion_parameter2 == Catch::Approx(0.0).margin(1e-10));
+    }
 }
 
 TEST_CASE("Nakano - fewer than 5 returns empty") {
