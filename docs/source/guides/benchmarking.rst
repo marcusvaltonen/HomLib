@@ -13,16 +13,16 @@ Benchmarks
 .. toctree::
    :hidden:
 
+   benchmarks/heb
    benchmarks/hpatches
    benchmarks/synthetic
-   benchmarks/heb
 
+- :doc:`benchmarks/heb`: real pairs of non-planar scenes from photo
+  collections, where most matches are outliers.
 - :doc:`benchmarks/hpatches`: real image pairs of planar scenes, without lens
   distortion.
 - :doc:`benchmarks/synthetic`: random problems with a known solution, with or
   without distortion and noise.
-- :doc:`benchmarks/heb`: real pairs of non-planar scenes from photo
-  collections, where most matches are outliers.
 
 The scripts are in ``python/benchmark/``, one directory per benchmark. Run
 them from the ``python/`` directory of the repository.
