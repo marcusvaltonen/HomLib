@@ -61,7 +61,10 @@ public:
 		auto est_fn = [&](std::vector<HomLib::PoseData>* poses) {
 			solver.estimate(xx, yy, oo, poses);
 		};
-		return detail::lomsac_non_minimal_full(solver, xx, yy, est_fn, *pose) ? 1 : 0;
+		if (!detail::lomsac_non_minimal_full(solver, xx, yy, est_fn, *pose))
+			return 0;
+		solver.refine(*pose, xx, yy);
+		return 1;
 	}
 
 	double EvaluateModelOnPoint(const HomLib::PoseData& pose, int i) const {

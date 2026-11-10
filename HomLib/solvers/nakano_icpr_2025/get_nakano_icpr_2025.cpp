@@ -124,7 +124,7 @@ namespace NakanoICPR2025 {
         }
 
         // Select best solution using reprojection error
-        if (extra_check && output.size() > 1) {
+        if (extra_check && !output.empty()) {
             double min_res = std::numeric_limits<double>::max();
             int best_id = -1;
             for (size_t i = 0; i < output.size(); i++) {

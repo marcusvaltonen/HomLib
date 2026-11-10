@@ -560,6 +560,7 @@ class GCRANSAC(RobustEstimator):
             )
         super().__init__(solver)
         self._settings = settings if settings is not None else GCRANSACSettings()
+        # TODO: validate types of all kwargs, not just non_minimal_strategy
         if "non_minimal_strategy" in kwargs:
             kwargs["non_minimal_strategy"] = _parse_non_minimal_strategy(
                 kwargs["non_minimal_strategy"])
@@ -640,6 +641,7 @@ class MAGSAC(RobustEstimator):
             )
         super().__init__(solver)
         self._settings = settings if settings is not None else MAGSACSettings()
+        # TODO: validate types of all kwargs, not just non_minimal_strategy
         if "non_minimal_strategy" in kwargs:
             kwargs["non_minimal_strategy"] = _parse_non_minimal_strategy(
                 kwargs["non_minimal_strategy"])
