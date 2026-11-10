@@ -1,8 +1,8 @@
 HEB benchmark
 =============
 
-HEB, the Homography Estimation Benchmark of Barath, Mishkin et al.
-[Barath2023]_, has image pairs of 10 scenes of photo collections, with their
+`HEB <https://github.com/danini/homography-benchmark>`__, the Homography
+Estimation Benchmark of Barath, Mishkin et al. [Barath2023]_, has image pairs of 10 scenes of photo collections, with their
 SIFT matches, the matches that are inliers of the ground-truth homography, and
 the cameras. The scenes aren't planar: each homography maps one plane of the
 scene, so most matches are outliers.
@@ -31,9 +31,11 @@ the scenes:
 Running it
 ----------
 
-The dataset (33 GB, of which 25 GB for the test split) is linked from the
-`benchmark's README <https://github.com/danini/homography-benchmark>`__: put it
-in a directory with ``test/`` and ``training_and_validation/`` (or ``train/``). The protocol
+Download the dataset (33 GB, of which 25 GB for the test split) from the
+`link <https://polybox.ethz.ch/index.php/s/R5sPelZ8688It92>`__ of the
+`benchmark's README <https://github.com/danini/homography-benchmark#dataset>`__,
+and put it in a directory with ``test/`` and ``training_and_validation/`` (or
+``train/``). It has the matches, so the benchmark needs no images. The protocol
 has two steps: ``tune`` searches, for each solver, the best inlier threshold
 and SNN threshold on the 2 training scenes, with 1000 iterations; ``test``
 runs each solver with these settings on the 8 test scenes, for exactly 10,
@@ -41,7 +43,6 @@ runs each solver with these settings on the 8 test scenes, for exactly 10,
 
 .. code-block:: bash
 
-   pip install h5py
    python benchmark/heb/heb_benchmark.py tune /path/to/heb --output settings.json
    python benchmark/heb/heb_benchmark.py test /path/to/heb --settings settings.json --output heb.json
    python benchmark/heb/heb_benchmark.py compare before.json after.json
@@ -65,9 +66,17 @@ Results
 
 A smoke run on four solvers, on part of the data (``tune`` on 50 homographies
 per training scene, ``test`` on 100 per test scene), with LOMSAC, on an AWS
-g4dn.xlarge host (Linux, 4 processes in parallel). Each row gives the solver's
-tuned thresholds, its mAA (10°, 5 m) in percent for each number of iterations,
-and the mean time of a run at 1000 iterations:
+g4dn.xlarge host (Ubuntu 24.04, 4 processes in parallel):
+
+.. code-block:: bash
+
+   python benchmark/heb/heb_benchmark.py tune /path/to/heb --max_pairs 50 --output settings.json \
+       --solvers DLT GuoPRL2019 Wadenback3DV2026TwoSidedEqual Wadenback3DV2026TwoSided
+   python benchmark/heb/heb_benchmark.py test /path/to/heb --max_pairs 100 --settings settings.json \
+       --output heb.json --solvers DLT GuoPRL2019 Wadenback3DV2026TwoSidedEqual Wadenback3DV2026TwoSided
+
+Each row gives the solver's tuned thresholds, its mAA (10°, 5 m) in percent
+for each number of iterations, and the mean time of a run at 1000 iterations:
 
 .. list-table::
    :header-rows: 1

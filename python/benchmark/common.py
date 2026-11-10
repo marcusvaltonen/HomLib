@@ -1,5 +1,14 @@
-"""What the benchmarks share: the robust estimators, the check of the settings of two runs, and the
-mapping of points with an estimated model."""
+"""What the benchmarks share: the robust estimators, the description of a run (its command and its
+environment), the check of the settings of two runs, and the mapping of points with an estimated
+model."""
+
+import datetime
+import os
+import platform
+import shlex
+import subprocess
+import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -33,6 +42,75 @@ def make_estimator(backend, solver, threshold, iterations, seed):
 def inlier_indices(stats):
     """The indices of the inliers that the estimator found"""
     return stats.inlier_indices if hasattr(stats, "inlier_indices") else stats.inliers
+
+
+def cpu_model():
+    """The model of the CPU, or platform.processor() (often only the architecture) if unknown"""
+    try:
+        if sys.platform == "darwin":
+            return subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True,
+                                  text=True, check=True).stdout.strip()
+        if sys.platform.startswith("linux"):
+            with open("/proc/cpuinfo") as f:
+                for line in f:
+                    if line.startswith("model name"):
+                        return line.split(":", 1)[1].strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return platform.processor()
+
+
+def git_commit():
+    """The commit of the repository of the scripts, with "-dirty" if it has uncommitted changes, or
+    None outside a git checkout. It can differ from the HomLib that is installed."""
+    def git(*args):
+        return subprocess.run(["git", "-C", str(Path(__file__).parent), *args], capture_output=True,
+                              text=True, check=True).stdout.strip()
+    try:
+        return git("rev-parse", "HEAD") + ("-dirty" if git("status", "--porcelain", "--untracked-files=no") else "")
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def opencv_version():
+    try:
+        import cv2
+        return cv2.__version__
+    except ImportError:
+        return None
+
+
+def run_info():
+    """The description of a run, saved with its results: the command line, and the environment (the
+    host, the versions of HomLib, of its backends and of the Python packages, and the commit of the
+    scripts). The environment doesn't count in the check of the settings of two runs."""
+    environment = dict(
+        date=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        os=platform.platform(), cpu=cpu_model(), cpu_count=os.cpu_count(),
+        python=platform.python_version(), homlib=homlib.__version__,
+        backends=sorted(name for name, (cls, *_) in BACKENDS.items() if backend_available(cls)),
+        numpy=np.__version__, opencv=opencv_version(),
+        scripts_commit=git_commit())
+    return dict(command=shlex.join([Path(sys.executable).name, *sys.argv]), environment=environment)
+
+
+def backend_available(cls):
+    """Whether HomLib was built with this robust estimator"""
+    return cls == "LOMSAC" or bool(getattr(homlib, f"_HAS_{cls.upper()}", False))
+
+
+def print_runs(run_a, run_b):
+    """Prints the commands of two runs, and the differences between their environments (files saved
+    before the description of the runs have none)."""
+    for label, run in (("A", run_a), ("B", run_b)):
+        if run:
+            print(f"{label}: {run['command']}")
+    if run_a and run_b:
+        ea, eb = run_a["environment"], run_b["environment"]
+        differ = [f"{k} ({ea.get(k)} vs {eb.get(k)})" for k in sorted(set(ea) | set(eb))
+                  if k != "date" and ea.get(k) != eb.get(k)]
+        if differ:
+            print("The runs have different environments: " + ", ".join(differ))
 
 
 def warn_settings(settings_a, settings_b):

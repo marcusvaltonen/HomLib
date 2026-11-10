@@ -53,10 +53,17 @@ found and the median time of a run. ``--problems`` then defaults to 200,
 Results
 -------
 
-Five solvers with the default settings, each on the distortion case it is made
-for, on an AWS g4dn.xlarge host (Linux). *Missed* is for the noise-free
-problems, *No solution* for 1 px of noise, and the median errors for 0.5, 1
-and 2 px; the times include the Python bindings.
+Five solvers with the default settings, on an AWS g4dn.xlarge host (Ubuntu
+24.04):
+
+.. code-block:: bash
+
+   python benchmark/synthetic/synthetic_benchmark.py --solvers DLT GuoPRL2019 \
+       FitzgibbonCVPR2001OneSided Wadenback3DV2026OneSided Wadenback3DV2026TwoSided
+
+The table shows each solver on the distortion case it is made for. *Missed*
+is for the noise-free problems, *No solution* for 1 px of noise, and the
+median errors for 0.5, 1 and 2 px; the times include the Python bindings.
 
 .. list-table::
    :header-rows: 1

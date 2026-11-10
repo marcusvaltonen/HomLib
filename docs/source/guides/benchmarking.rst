@@ -21,11 +21,34 @@ benchmark before and after the change, and compare the two runs.
 - :doc:`benchmarks/heb`: real pairs of non-planar scenes from photo
   collections, where most matches are outliers.
 
-The scripts are in ``python/benchmark/``, one directory per benchmark. They
-need the ``homlib`` Python package (see :ref:`installation_users`), and
-``pip install opencv-python tqdm`` (the HEB benchmark also needs ``h5py``, and
-the LightGlue and LoMa matchers their own packages). Run them from the
-``python/`` directory of the repository.
+The scripts are in ``python/benchmark/``, one directory per benchmark. Run
+them from the ``python/`` directory of the repository.
+
+.. _benchmark_installation:
+
+Installation
+------------
+
+The scripts need the ``homlib`` Python package (see :ref:`installation_users`)
+and a few packages (``h5py`` is for the HEB benchmark):
+
+.. code-block:: bash
+
+   pip install opencv-python tqdm h5py
+
+The benchmarks that match images themselves (HPatches) use OpenCV SIFT by
+default, or learned matchers: `LightGlue <https://github.com/cvg/LightGlue>`__ (with
+SuperPoint, DISK, ALIKED or SIFT features) and
+`LoMa <https://github.com/davnords/LoMa>`__. Both run much faster on a GPU, and
+install from a clone of their repository, as their READMEs explain
+(`LightGlue's <https://github.com/cvg/LightGlue#installation-and-demo-->`__,
+`LoMa's <https://github.com/davnords/LoMa#setupinstall>`__); the PyPI package
+named ``loma`` is another project:
+
+.. code-block:: bash
+
+   git clone https://github.com/cvg/LightGlue.git && pip install -e LightGlue
+   git clone https://github.com/davnords/LoMa.git && pip install -e LoMa
 
 .. _benchmark_common_options:
 
@@ -33,12 +56,16 @@ Common options
 --------------
 
 ``--output FILE`` and ``--compare A B``
-   ``--output`` saves the settings and the results of a run. ``--compare``
+   ``--output`` saves a run to a JSON file: its command line, its
+   environment (the date, the OS, the CPU, the versions of Python, NumPy,
+   OpenCV and HomLib, the robust estimators HomLib was built with, and the git
+   commit of the scripts), its settings and its results. ``--compare``
    (the ``compare A B`` command for HEB) prints the differences B - A between
    two saved runs: with their standard errors for the shares and the AUCs or
    mAAs (a difference smaller than about twice its standard error could be
-   chance), and as ratios for the times and median errors. It warns if the two
-   runs have different settings. The times depend on the host and its load:
+   chance), and as ratios for the times and median errors. It prints the commands of the two
+   runs and the differences between their environments, and warns if they have
+   different settings. The times depend on the host and its load:
    compare them within a run, or between runs on the same host.
 
 ``--backend NAME`` (HPatches, HEB, and synthetic with ``--outliers``)
@@ -52,16 +79,3 @@ Common options
    The number of runs per pair. LOMSAC gets fixed seeds, so its runs are
    reproducible on the same platform (other platforms draw other samples from
    the same seed).
-
-Regression test
----------------
-
-``python/tests/test_hpatches.py`` runs every point solver in LOMSAC on 8
-HPatches pairs, and checks that each finds at least 95% of the true inliers
-(75% to 85% for the two-sided solvers, which are weaker on the pairs whose
-homography is the identity). It is part of the test suite, downloads its data
-file on the first run, and is skipped without it:
-
-.. code-block:: bash
-
-   python -m pytest tests/test_hpatches.py

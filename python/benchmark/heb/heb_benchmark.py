@@ -89,7 +89,8 @@ import homlib
 
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from common import BACKENDS, inlier_indices, make_estimator, map_points, warn_settings  # noqa: E402
+from common import (  # noqa: E402
+    BACKENDS, inlier_indices, make_estimator, map_points, print_runs, run_info, warn_settings)
 
 # The scenes of each split and the scale of their reconstruction (to metres), as the benchmark's
 # dataset_configuration.yaml
@@ -248,7 +249,7 @@ def tune(args):
         print(f"{name:<36s} threshold {best[1]:>4} px, SNN {best[2]:.2f}: mAA (10 deg, 5 m) {best[0]:.2f}"
               + (f" ({ties} other settings as good)" if ties else ""))
     with open(args.output, "w") as f:
-        json.dump(dict(settings=vars_settings(args, "train"), solvers=settings), f, indent=1)
+        json.dump(dict(run=run_info(), settings=vars_settings(args, "train"), solvers=settings), f, indent=1)
 
 
 def vars_settings(args, split):
@@ -272,7 +273,7 @@ def test(args):
     if args.output:
         settings = dict(vars_settings(args, "test"), settings_file=args.settings)
         with open(args.output, "w") as f:
-            json.dump(dict(settings=settings, results=results), f)
+            json.dump(dict(run=run_info(), settings=settings, results=results), f)
     print_results(results, args.per_scene)
 
 
@@ -299,6 +300,7 @@ def compare(path_a, path_b):
         a = json.load(f)
     with open(path_b) as f:
         b = json.load(f)
+    print_runs(a.get("run"), b.get("run"))
     warn_settings(a.get("settings"), b.get("settings"))
     ra, rb = a["results"], b["results"]
     other = sorted({k.split("|")[0] for k in ra} & {k.split("|")[0] for k in rb}
@@ -357,7 +359,8 @@ def main():
                         help="Run each solver for exactly this many iterations, for each value (default: 10 100 1000 "
                              "10000)")
     test_p.add_argument("--per_scene", action="store_true", help="Also print the main mAA of each scene")
-    test_p.add_argument("--output", default=None, help="Save the settings and the results to this JSON file")
+    test_p.add_argument("--output", default=None,
+                        help="Save the command, the environment, the settings and the results to this JSON file")
     cmp_p = sub.add_parser("compare")
     cmp_p.add_argument("files", nargs=2, metavar=("A", "B"), help="Print the differences B - A between two test runs")
     args = parser.parse_args()
