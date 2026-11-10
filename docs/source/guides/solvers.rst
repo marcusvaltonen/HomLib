@@ -152,15 +152,15 @@ Point-based solvers
      - None
      - [HartleyZisserman2003]_
    * - :class:`~homlib.FitzgibbonCVPR2001OneSided`
-     - 5
+     - 5+
      - One-sided (left)
      - [Fitzgibbon2001]_
    * - :class:`~homlib.FitzgibbonCVPR2001OneSidedRight`
-     - 5
+     - 5+
      - One-sided (right)
      - [Fitzgibbon2001]_
    * - :class:`~homlib.FitzgibbonCVPR2001TwoSidedEqual`
-     - 5
+     - 5+
      - Two-sided equal
      - [Fitzgibbon2001]_
    * - :class:`~homlib.KukelovaCVPR2015TwoSidedEqual`
@@ -180,11 +180,11 @@ Point-based solvers
      - Two-sided indep.
      - [Kukelova2015]_
    * - :class:`~homlib.NakanoICPR2025OneSided`
-     - 5
+     - 5+
      - One-sided (left)
      - [Nakano2024]_
    * - :class:`~homlib.NakanoICPR2025OneSidedRight`
-     - 5
+     - 5+
      - One-sided (right)
      - [Nakano2024]_
    * - :class:`~homlib.Wadenback3DV2026OneSided`

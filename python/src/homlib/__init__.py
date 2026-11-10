@@ -122,14 +122,14 @@ class DLT(Solver):
 
 
 class FitzgibbonCVPR2001OneSided(Solver):
-    """One-sided radial distortion solver by Fitzgibbon (CVPR 2001), 5-point."""
+    """One-sided radial distortion solver by Fitzgibbon (CVPR 2001), 5+ points."""
 
     def __init__(self):
         super().__init__(SolverId.FitzgibbonCVPR2001OneSided)
 
 
 class FitzgibbonCVPR2001TwoSidedEqual(Solver):
-    """Two-sided equal radial distortion solver by Fitzgibbon (CVPR 2001), 5-point."""
+    """Two-sided equal radial distortion solver by Fitzgibbon (CVPR 2001), 5+ points."""
 
     def __init__(self):
         super().__init__(SolverId.FitzgibbonCVPR2001TwoSidedEqual)
@@ -164,14 +164,14 @@ class KukelovaCVPR2015TwoSided6Pt(Solver):
 
 
 class NakanoICPR2025OneSided(Solver):
-    """One-sided radial distortion solver by Nakano (ICPR 2025), 5-point."""
+    """One-sided radial distortion solver by Nakano (ICPR 2025), 5+ points."""
 
     def __init__(self, extra_check=False):
         super().__init__(SolverId.NakanoICPR2025OneSided, extra_check=extra_check)
 
 
 class NakanoICPR2025OneSidedRight(Solver):
-    """One-sided right radial distortion solver by Nakano (ICPR 2025), 5-point.
+    """One-sided right radial distortion solver by Nakano (ICPR 2025), 5+ points.
 
     Automatically derived from :class:`NakanoICPR2025OneSided` by swapping the
     point arguments and inverting the homography.
@@ -182,7 +182,7 @@ class NakanoICPR2025OneSidedRight(Solver):
 
 
 class FitzgibbonCVPR2001OneSidedRight(Solver):
-    """One-sided right radial distortion solver by Fitzgibbon (CVPR 2001), 5-point.
+    """One-sided right radial distortion solver by Fitzgibbon (CVPR 2001), 5+ points.
 
     Automatically derived from :class:`FitzgibbonCVPR2001OneSided` by swapping the
     point arguments and inverting the homography.
