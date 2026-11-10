@@ -167,8 +167,8 @@ GC-RANSAC configuration types
   (``num_iterations``, ``inliers``, ``score``).
 - **GCSamplerType** — ``Uniform``, ``PROSAC``, ``ARSampler``,
   ``ImportanceSampler``. Shared by GC-RANSAC and MAGSAC.
-- **NonMinimalStrategy** — ``Lomsac``, ``SelectAndRefine``,
-  ``MultiSample``. Shared by GC-RANSAC and MAGSAC.
+- **NonMinimalStrategy** — ``Sample``, ``Overdetermined``.
+  Shared by GC-RANSAC and MAGSAC.
 
 The ``estimate()`` method accepts an optional ``scores`` parameter: a 1-D
 array of per-match confidence values in [0, 1], sorted in descending order.

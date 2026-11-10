@@ -36,93 +36,126 @@ namespace FitzgibbonCVPR2001 {
         const std::vector<Eigen::Vector2d> &y,
         const HomLib::DistortionRange &range
     ) {
-        // This is a five point method
-        const int n_points = 5;
+        const int n_points = static_cast<int>(x.size());
+        if (n_points < 5)
+            return {};
 
-        // Make homogenous
-        Eigen::Matrix<double, 3, n_points> x1, x2;
-        for (int i = 0; i < n_points; i++) {
-            x1.col(i) = x[i].homogeneous();
-            x2.col(i) = y[i].homogeneous();
-        }
+        // Build 9x9 QEP coefficient matrices C0, C1, C2.
+        // Minimal (n_points == 5): fixed-size matrices, C = D directly.
+        // Overdetermined (n_points > 5): project the QEP onto D0 (C_i = D0^T D_i). Not a
+        // least-squares fit: biased with noise, and singular at k = 0; refine the result.
+        Eigen::Matrix<double, 9, 9> C0, C1, C2;
 
-        // Compute the distance to center point
-        Eigen::Matrix<double, 3, n_points> z1;
-        z1.setZero();
-        Eigen::Matrix<double, 3, n_points> z2;
-        z2.setZero();
-        for (int i = 0; i < n_points; i++) {
-            z1(2, i) = x[i].squaredNorm();
-            z2(2, i) = y[i].squaredNorm();
-        }
+        if (n_points == 5) {
+            Eigen::Matrix<double, 3, 5> x1, x2;
+            for (int i = 0; i < 5; i++) {
+                x1.col(i) = x[i].homogeneous();
+                x2.col(i) = y[i].homogeneous();
+            }
+            Eigen::Matrix<double, 3, 5> z1, z2;
+            z1.setZero();
+            z2.setZero();
+            for (int i = 0; i < 5; i++) {
+                z1(2, i) = x[i].squaredNorm();
+                z2(2, i) = y[i].squaredNorm();
+            }
 
-        // Initialize D0, D1 and D2
-        Eigen::MatrixXd D0(9, 9);
-        D0.setZero();
-        Eigen::MatrixXd D1(9, 9);
-        D1.setZero();
-        Eigen::MatrixXd D2(9, 9);
-        D2.setZero();
+            Eigen::MatrixXd D0(9, 9), D1(9, 9), D2(9, 9);
+            D0.setZero();
+            D1.setZero();
+            D2.setZero();
+            Eigen::Matrix3d Bx2, Bz2, e1, e2;
+            Eigen::Vector3d tmp;
+            for (int k = 0; k < 5; k++) {
+                tmp = x2.col(k);
+                Bx2 = HomLib::FitzgibbonCVPR2001::vec2asym(tmp);
+                tmp = z2.col(k);
+                Bz2 = HomLib::FitzgibbonCVPR2001::vec2asym(tmp);
+                e1 = Bx2.row(0).transpose() * x1.col(k).transpose();
+                e2 = Bx2.row(1).transpose() * x1.col(k).transpose();
+                D0.row(2*k) = Eigen::Map<Eigen::VectorXd>(e1.data(), 9);
+                if (k < 4) {
+                    D0.row(2*k + 1) = Eigen::Map<Eigen::VectorXd>(e2.data(), 9);
+                }
+                e1 = Bx2.row(0).transpose() * z1.col(k).transpose() + Bz2.row(0).transpose() * x1.col(k).transpose();
+                e2 = Bx2.row(1).transpose() * z1.col(k).transpose() + Bz2.row(1).transpose() * x1.col(k).transpose();
+                D1.row(2*k) = Eigen::Map<Eigen::VectorXd>(e1.data(), 9);
+                if (k < 4) {
+                    D1.row(2*k + 1) = Eigen::Map<Eigen::VectorXd>(e2.data(), 9);
+                }
+                e1 = Bz2.row(0).transpose() * z1.col(k).transpose();
+                e2 = Bz2.row(1).transpose() * z1.col(k).transpose();
+                D2.row(2*k) = Eigen::Map<Eigen::VectorXd>(e1.data(), 9);
+                if (k < 4) {
+                    D2.row(2*k + 1) = Eigen::Map<Eigen::VectorXd>(e2.data(), 9);
+                }
+            }
+            C0 = D0;
+            C1 = D1;
+            C2 = D2;
+        } else {
+            const int n_rows = 2 * n_points;
+            Eigen::Matrix<double, 3, Eigen::Dynamic> x1(3, n_points), x2(3, n_points);
+            for (int i = 0; i < n_points; i++) {
+                x1.col(i) = x[i].homogeneous();
+                x2.col(i) = y[i].homogeneous();
+            }
+            Eigen::Matrix<double, 3, Eigen::Dynamic> z1(3, n_points), z2(3, n_points);
+            z1.setZero();
+            z2.setZero();
+            for (int i = 0; i < n_points; i++) {
+                z1(2, i) = x[i].squaredNorm();
+                z2(2, i) = y[i].squaredNorm();
+            }
 
-        Eigen::Matrix3d Bx2, Bz2;
-        Eigen::Matrix3d e1, e2;
-        Eigen::Vector3d tmp;
-
-        for (int k = 0; k < n_points; k++) {
-            tmp = x2.col(k);
-            Bx2 = HomLib::FitzgibbonCVPR2001::vec2asym(tmp);
-            tmp = z2.col(k);
-            Bz2 = HomLib::FitzgibbonCVPR2001::vec2asym(tmp);
-
-            // D0
-            e1 = Bx2.row(0).transpose() * x1.col(k).transpose();
-            e2 = Bx2.row(1).transpose() * x1.col(k).transpose();
-            D0.row(2*k) = Eigen::Map<Eigen::VectorXd>(e1.data(), 9);
-            if (k < 4) {  // Assure it is 9x9
+            Eigen::MatrixXd D0(n_rows, 9), D1(n_rows, 9), D2(n_rows, 9);
+            D0.setZero();
+            D1.setZero();
+            D2.setZero();
+            Eigen::Matrix3d Bx2, Bz2, e1, e2;
+            Eigen::Vector3d tmp;
+            for (int k = 0; k < n_points; k++) {
+                tmp = x2.col(k);
+                Bx2 = HomLib::FitzgibbonCVPR2001::vec2asym(tmp);
+                tmp = z2.col(k);
+                Bz2 = HomLib::FitzgibbonCVPR2001::vec2asym(tmp);
+                e1 = Bx2.row(0).transpose() * x1.col(k).transpose();
+                e2 = Bx2.row(1).transpose() * x1.col(k).transpose();
+                D0.row(2*k) = Eigen::Map<Eigen::VectorXd>(e1.data(), 9);
                 D0.row(2*k + 1) = Eigen::Map<Eigen::VectorXd>(e2.data(), 9);
-            }
-            // D1
-            e1 = Bx2.row(0).transpose() * z1.col(k).transpose() + Bz2.row(0).transpose() * x1.col(k).transpose();
-            e2 = Bx2.row(1).transpose() * z1.col(k).transpose() + Bz2.row(1).transpose() * x1.col(k).transpose();
-            D1.row(2*k) = Eigen::Map<Eigen::VectorXd>(e1.data(), 9);
-            if (k < 4) {
+                e1 = Bx2.row(0).transpose() * z1.col(k).transpose() + Bz2.row(0).transpose() * x1.col(k).transpose();
+                e2 = Bx2.row(1).transpose() * z1.col(k).transpose() + Bz2.row(1).transpose() * x1.col(k).transpose();
+                D1.row(2*k) = Eigen::Map<Eigen::VectorXd>(e1.data(), 9);
                 D1.row(2*k + 1) = Eigen::Map<Eigen::VectorXd>(e2.data(), 9);
-            }
-
-            // D2
-            e1 = Bz2.row(0).transpose() * z1.col(k).transpose();
-            e2 = Bz2.row(1).transpose() * z1.col(k).transpose();
-            D2.row(2*k) = Eigen::Map<Eigen::VectorXd>(e1.data(), 9);
-            if (k < 4) {
+                e1 = Bz2.row(0).transpose() * z1.col(k).transpose();
+                e2 = Bz2.row(1).transpose() * z1.col(k).transpose();
+                D2.row(2*k) = Eigen::Map<Eigen::VectorXd>(e1.data(), 9);
                 D2.row(2*k + 1) = Eigen::Map<Eigen::VectorXd>(e2.data(), 9);
             }
+            C0 = D0.transpose() * D0;
+            C1 = D0.transpose() * D1;
+            C2 = D0.transpose() * D2;
         }
 
-        // Create generalized eigenvalue problem
+        // Companion linearization of the QEP
         Eigen::MatrixXd A(18, 18);
         Eigen::MatrixXd B(18, 18);
         A.setZero();
         B.setZero();
 
-        A.topLeftCorner(9, 9) = -D0;
+        A.topLeftCorner(9, 9) = -C0;
         A.bottomRightCorner(9, 9) = Eigen::MatrixXd::Identity(9, 9);
-        B.topLeftCorner(9, 9) = D1;
-        B.topRightCorner(9, 9) = D2;
+        B.topLeftCorner(9, 9) = C1;
+        B.topRightCorner(9, 9) = C2;
         B.bottomLeftCorner(9, 9) = Eigen::MatrixXd::Identity(9, 9);
 
         Eigen::GeneralizedEigenSolver<Eigen::MatrixXd> ges;
         ges.compute(A, B, true);
-        // Without convergence, the eigenvalues and eigenvectors are not computed (with a
-        // dynamic-size solver, they stay empty)
         if (ges.info() != Eigen::Success) {
             return {};
         }
-        Eigen::VectorXcd l;
-        Eigen::MatrixXd X;
-        l = ges.eigenvalues();
-        Eigen::MatrixXcd eigvecs;
-        eigvecs = ges.eigenvectors();
-        X = eigvecs.real().topRows(9);
+        Eigen::VectorXcd l = ges.eigenvalues();
+        Eigen::MatrixXd X = ges.eigenvectors().real().topRows(9);
 
         // Extract correct solution
         Eigen::Matrix3d Htmp;

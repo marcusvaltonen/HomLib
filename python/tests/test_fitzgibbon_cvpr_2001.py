@@ -47,3 +47,48 @@ class FitzgibbonCVPR2001TestCase(unittest.TestCase):
         solver = homlib.FitzgibbonCVPR2001TwoSidedEqual()
         with self.assertRaises(ValueError):
             sols = solver.estimate(p1, p2) # noqa
+
+
+class FitzgibbonOverdeterminedTestCase(unittest.TestCase):
+    """Fitzgibbon solvers with N > 5 (overdetermined)."""
+
+    @staticmethod
+    def _points(inst):
+        return np.array(inst.x1).T, np.array(inst.x2).T
+
+    def test_one_sided_overdetermined(self):
+        config = homlib.ProblemConfig(homlib.DistortionCase.ONE_SIDED_LEFT, 0.0, 20)
+        inst = homlib.generate_problem_instance(config)
+        x, y = self._points(inst)
+        solver = homlib.FitzgibbonCVPR2001OneSided()
+        sols = solver.estimate(x, y)
+        self.assertEqual(len(sols), 1)
+        self.assertAlmostEqual(
+            sols[0].distortion_parameter2, inst.posedata.distortion_parameter2, places=2)
+
+    def test_one_sided_fewer_than_5(self):
+        solver = homlib.FitzgibbonCVPR2001OneSided()
+        x = np.random.randn(2, 4)
+        sols = solver.estimate(x, x)
+        self.assertEqual(len(sols), 0)
+
+    def test_two_sided_equal_overdetermined(self):
+        config = homlib.ProblemConfig(homlib.DistortionCase.TWO_SIDED_EQUAL, 0.0, 20)
+        inst = homlib.generate_problem_instance(config)
+        x, y = self._points(inst)
+        solver = homlib.FitzgibbonCVPR2001TwoSidedEqual()
+        sols = solver.estimate(x, y)
+        self.assertEqual(len(sols), 1)
+        self.assertAlmostEqual(
+            sols[0].distortion_parameter, inst.posedata.distortion_parameter, places=2)
+
+    def test_minimal_case_unchanged(self):
+        """Regression: minimal N=5 still produces the same result as before."""
+        config = homlib.ProblemConfig(homlib.DistortionCase.ONE_SIDED_LEFT, 0.0, 5)
+        inst = homlib.generate_problem_instance(config)
+        x, y = self._points(inst)
+        solver = homlib.FitzgibbonCVPR2001OneSided()
+        sols = solver.estimate(x, y)
+        self.assertGreaterEqual(len(sols), 1)
+        self.assertAlmostEqual(
+            sols[0].distortion_parameter2, inst.posedata.distortion_parameter2, places=3)

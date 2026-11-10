@@ -34,47 +34,63 @@ namespace FitzgibbonCVPR2001 {
         const std::vector<Eigen::Vector2d> &y,
         const HomLib::DistortionRange &range
     ) {
-        // This is a five point method
-        const int n_points = 5;
+        const int n_points = static_cast<int>(x.size());
+        if (n_points < 5)
+            return {};
 
-        // Compute the distance to center point
-        std::vector<double> r2;
+        std::vector<double> r2(n_points);
         for (int i = 0; i < n_points; i++) {
-            r2.push_back(y[i].squaredNorm());
+            r2[i] = y[i].squaredNorm();
         }
 
-        // Follow Nakano's nomenclature
-        Eigen::Matrix<double, 9, 9> D0;
-        D0.setZero();
-        Eigen::Matrix<double, 9, 9> D1;
-        D1.setZero();
-
-        for (int i = 0; i < n_points; i++) {
-            D0.block(2*i,3,1,3) = -x[i].homogeneous().transpose();
-            D0.block(2*i,6,1,3) = y[i](1) * x[i].homogeneous().transpose();
-            if (i < 4) {
+        // Build 9x9 GEP matrices A, B.
+        // Minimal (n_points == 5): fixed-size 9x9, A = D0, B = D1.
+        // Overdetermined (n_points > 5): project the pencil onto D0 (D0^T D0, D0^T D1). Not a
+        // least-squares fit: biased with noise, and singular at k = 0; refine the result.
+        Eigen::Matrix<double, 9, 9> A, B;
+        if (n_points == 5) {
+            Eigen::Matrix<double, 9, 9> D0, D1;
+            D0.setZero();
+            D1.setZero();
+            for (int i = 0; i < 5; i++) {
+                D0.block(2*i,3,1,3) = -x[i].homogeneous().transpose();
+                D0.block(2*i,6,1,3) = y[i](1) * x[i].homogeneous().transpose();
+                if (i < 4) {
+                    D0.block(2*i+1,0,1,3) = x[i].homogeneous().transpose();
+                    D0.block(2*i+1,6,1,3) = -y[i](0) * x[i].homogeneous().transpose();
+                }
+                D1.block(2*i,3,1,3) = r2[i]*x[i].homogeneous().transpose();
+                if (i < 4) {
+                    D1.block(2*i+1,0,1,3) = -r2[i]*x[i].homogeneous().transpose();
+                }
+            }
+            A = D0;
+            B = D1;
+        } else {
+            const int n_rows = 2 * n_points;
+            Eigen::MatrixXd D0(n_rows, 9), D1(n_rows, 9);
+            D0.setZero();
+            D1.setZero();
+            for (int i = 0; i < n_points; i++) {
+                D0.block(2*i,3,1,3) = -x[i].homogeneous().transpose();
+                D0.block(2*i,6,1,3) = y[i](1) * x[i].homogeneous().transpose();
                 D0.block(2*i+1,0,1,3) = x[i].homogeneous().transpose();
                 D0.block(2*i+1,6,1,3) = -y[i](0) * x[i].homogeneous().transpose();
-            }
-            
-            D1.block(2*i,3,1,3) = r2[i]*x[i].homogeneous().transpose();
-            if (i < 4) {
+                D1.block(2*i,3,1,3) = r2[i]*x[i].homogeneous().transpose();
                 D1.block(2*i+1,0,1,3) = -r2[i]*x[i].homogeneous().transpose();
             }
+            A = D0.transpose() * D0;
+            B = D0.transpose() * D1;
         }
 
-        // Create and solve generalized eigenvalue problem
-        // In the minimal case, we don't need to compute D0.transpose * D0, etc.
         Eigen::GeneralizedEigenSolver<Eigen::Matrix<double, 9, 9>> ges;
-        ges.compute(D0, D1, true);
-        // Without convergence, the eigenvalues and eigenvectors are not computed
+        ges.compute(A, B, true);
         if (ges.info() != Eigen::Success) {
             return {};
         }
         Eigen::Matrix<std::complex<double>, 9, 1> ks = ges.eigenvalues();
         Eigen::Matrix<double, 9, 9> X = ges.eigenvectors().real();
 
-        // Extract correct solution
         double min_res = std::numeric_limits<double>::max();
         std::vector<HomLib::PoseData> output;
         HomLib::PoseData posedata;
@@ -86,14 +102,17 @@ namespace FitzgibbonCVPR2001 {
                     continue;
                 }
                 Eigen::Matrix3d H = Eigen::Map<Eigen::Matrix3d>(X.col(i).data(), 3, 3).transpose();
-                // Measure reprojection error in undistorted space
-                Eigen::Vector2d y4u_est1;
-                if (!HomLib::try_radialundistort(y[4], k, y4u_est1)) {   // no undistorted point
-                    continue;
+                double res = 0.0;
+                for (int j = 0; j < n_points; j++) {
+                    Eigen::Vector2d yu_j;
+                    if (!HomLib::try_radialundistort(y[j], k, yu_j)) {
+                        res = std::numeric_limits<double>::max();
+                        break;
+                    }
+                    Eigen::Vector3d tmp = H * x[j].homogeneous();
+                    Eigen::Vector2d yu_est_j = tmp.hnormalized();
+                    res += (yu_j - yu_est_j).squaredNorm();
                 }
-                Eigen::Vector3d tmp = H * x[4].homogeneous();
-                Eigen::Vector2d y4u_est2 = tmp.hnormalized();
-                double res = (y4u_est1 - y4u_est2).squaredNorm();
                 if (res < min_res) {
                     min_res = res;
                     posedata.homography = H;

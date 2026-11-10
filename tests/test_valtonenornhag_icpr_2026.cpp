@@ -23,6 +23,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 #include "get_valtonenornhag_icpr_2026.hpp"
+#include "generate_problem_instance.hpp"
 #include "posedata.hpp"
 
 TEST_CASE("Valtonen Ornhag ICPR 2026 - AFFINE") {
@@ -112,4 +113,62 @@ TEST_CASE("Valtonen Ornhag ICPR 2026 - ORI") {
 
     REQUIRE(posedata[0].homography.isApprox(expected, tol));
 
+}
+
+// ============================================================================
+// Overdetermined: N > minimal
+// ============================================================================
+
+TEST_CASE("ValtonenOrnhag ICPR 2026 affine - overdetermined") {
+    HomLib::ProblemConfig config;
+    config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
+    config.point_noise = 0.0;
+    config.number_points = 10;
+    config.seed = 42;
+    auto inst = HomLib::generate_problem_instance(config);
+
+    auto output = HomLib::ValtonenOrnhagICPR2026::get_affine(inst.x1, inst.x2, inst.A, false);
+    REQUIRE(output.size() == 1);
+    REQUIRE(output[0].distortion_parameter == Catch::Approx(inst.posedata.distortion_parameter).margin(1e-3));
+    REQUIRE(inst.hom_error(output[0].homography) < 1e-3);
+}
+
+TEST_CASE("ValtonenOrnhag ICPR 2026 affine - minimal N=2 regression") {
+    HomLib::ProblemConfig config;
+    config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
+    config.point_noise = 0.0;
+    config.number_points = 2;
+    config.seed = 42;
+    auto inst = HomLib::generate_problem_instance(config);
+
+    auto output = HomLib::ValtonenOrnhagICPR2026::get_affine(inst.x1, inst.x2, inst.A, false);
+    REQUIRE(output.size() >= 1);
+    REQUIRE(output[0].distortion_parameter == Catch::Approx(inst.posedata.distortion_parameter).margin(1e-6));
+}
+
+TEST_CASE("ValtonenOrnhag ICPR 2026 ori - overdetermined") {
+    HomLib::ProblemConfig config;
+    config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
+    config.point_noise = 0.0;
+    config.number_points = 15;
+    config.seed = 42;
+    auto inst = HomLib::generate_problem_instance(config);
+
+    auto output = HomLib::ValtonenOrnhagICPR2026::get_ori(inst.x1, inst.x2, inst.ori);
+    REQUIRE(output.size() == 1);
+    REQUIRE(output[0].distortion_parameter == Catch::Approx(inst.posedata.distortion_parameter).margin(1e-3));
+    REQUIRE(inst.hom_error(output[0].homography) < 1e-3);
+}
+
+TEST_CASE("ValtonenOrnhag ICPR 2026 ori - minimal N=4 regression") {
+    HomLib::ProblemConfig config;
+    config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
+    config.point_noise = 0.0;
+    config.number_points = 4;
+    config.seed = 42;
+    auto inst = HomLib::generate_problem_instance(config);
+
+    auto output = HomLib::ValtonenOrnhagICPR2026::get_ori(inst.x1, inst.x2, inst.ori);
+    REQUIRE(output.size() >= 1);
+    REQUIRE(output[0].distortion_parameter == Catch::Approx(inst.posedata.distortion_parameter).margin(1e-6));
 }

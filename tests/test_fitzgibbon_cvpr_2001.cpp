@@ -20,10 +20,12 @@
 
 #include <Eigen/Dense>
 #include <limits>
+#include <random>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 #include "get_fitzgibbon_cvpr_2001.hpp"
+#include "radial.hpp"
 #include "posedata.hpp"
 
 TEST_CASE("Fitzgibbon CVPR 2001") {
@@ -75,4 +77,114 @@ TEST_CASE("Fitzgibbon CVPR 2001 - eigensolver without convergence") {
 
     REQUIRE(HomLib::FitzgibbonCVPR2001::get(p1, p2).empty());
     REQUIRE(HomLib::FitzgibbonCVPR2001::get_single(p1, p2).empty());
+}
+
+// ============================================================================
+// Overdetermined: N > 5
+// ============================================================================
+
+static void generate_one_sided_left(
+    const Eigen::Matrix3d& H, double k2, int n,
+    std::vector<Eigen::Vector2d>* x, std::vector<Eigen::Vector2d>* y,
+    unsigned seed = 42)
+{
+    std::mt19937 rng(seed);
+    std::uniform_real_distribution<double> coord(-0.8, 0.8);
+    x->resize(n);
+    y->resize(n);
+    for (int i = 0; i < n; i++) {
+        (*x)[i] = Eigen::Vector2d(coord(rng), coord(rng));
+        Eigen::Vector3d tmp = H * (*x)[i].homogeneous();
+        Eigen::Vector2d yu = tmp.hnormalized();
+        Eigen::Vector2d yd;
+        REQUIRE(HomLib::try_radialdistort(yu, k2, yd));
+        (*y)[i] = yd;
+    }
+}
+
+static void generate_two_sided_equal(
+    const Eigen::Matrix3d& H, double k, int n,
+    std::vector<Eigen::Vector2d>* x, std::vector<Eigen::Vector2d>* y,
+    unsigned seed = 42)
+{
+    std::mt19937 rng(seed);
+    std::uniform_real_distribution<double> coord(-0.8, 0.8);
+    x->resize(n);
+    y->resize(n);
+    for (int i = 0; i < n; i++) {
+        Eigen::Vector2d xu(coord(rng), coord(rng));
+        Eigen::Vector2d xd, yd;
+        REQUIRE(HomLib::try_radialdistort(xu, k, xd));
+        (*x)[i] = xd;
+        Eigen::Vector3d tmp = H * xu.homogeneous();
+        Eigen::Vector2d yu = tmp.hnormalized();
+        REQUIRE(HomLib::try_radialdistort(yu, k, yd));
+        (*y)[i] = yd;
+    }
+}
+
+TEST_CASE("Fitzgibbon single - overdetermined N > 5") {
+    Eigen::Matrix3d H;
+    H << 0.9, 0.1, 0.05,
+        -0.1, 0.85, 0.03,
+         0.02, -0.01, 1.0;
+    double k2 = -0.15;
+
+    std::vector<Eigen::Vector2d> x, y;
+    generate_one_sided_left(H, k2, 20, &x, &y);
+
+    auto output = HomLib::FitzgibbonCVPR2001::get_single(x, y);
+    REQUIRE(output.size() == 1);
+    REQUIRE(output[0].distortion_parameter2 == Catch::Approx(k2).margin(1e-3));
+
+    Eigen::Matrix3d H_est = output[0].homography;
+    H_est /= H_est(2, 2);
+    Eigen::Matrix3d H_gt = H / H(2, 2);
+    double max_reproj = 0.0;
+    for (size_t i = 0; i < x.size(); i++) {
+        Eigen::Vector2d yu_est = (H_est * x[i].homogeneous()).hnormalized();
+        Eigen::Vector2d yu_gt = (H_gt * x[i].homogeneous()).hnormalized();
+        max_reproj = std::max(max_reproj, (yu_est - yu_gt).norm());
+    }
+    REQUIRE(max_reproj < 1e-3);
+}
+
+TEST_CASE("Fitzgibbon single - fewer than 5 returns empty") {
+    std::vector<Eigen::Vector2d> x = {
+        Eigen::Vector2d(0.1, 0.2), Eigen::Vector2d(0.3, 0.4),
+        Eigen::Vector2d(0.5, 0.6), Eigen::Vector2d(0.7, 0.8)
+    };
+    REQUIRE(HomLib::FitzgibbonCVPR2001::get_single(x, x).empty());
+    REQUIRE(HomLib::FitzgibbonCVPR2001::get(x, x).empty());
+}
+
+TEST_CASE("Fitzgibbon two-sided equal - overdetermined N > 5") {
+    Eigen::Matrix3d H;
+    H << 0.9, 0.1, 0.05,
+        -0.1, 0.85, 0.03,
+         0.02, -0.01, 1.0;
+    double k = -0.15;
+
+    std::vector<Eigen::Vector2d> x, y;
+    generate_two_sided_equal(H, k, 20, &x, &y);
+
+    auto output = HomLib::FitzgibbonCVPR2001::get(x, y);
+    REQUIRE(output.size() == 1);
+    REQUIRE(output[0].distortion_parameter == Catch::Approx(k).margin(1e-3));
+    REQUIRE(output[0].distortion_parameter2 == Catch::Approx(k).margin(1e-3));
+}
+
+TEST_CASE("Fitzgibbon single - minimal N=5 regression") {
+    Eigen::Matrix3d H;
+    H << 0.9, 0.1, 0.05,
+        -0.1, 0.85, 0.03,
+         0.02, -0.01, 1.0;
+    double k2 = -0.15;
+
+    std::vector<Eigen::Vector2d> x, y;
+    generate_one_sided_left(H, k2, 5, &x, &y);
+
+    auto output = HomLib::FitzgibbonCVPR2001::get_single(x, y);
+    REQUIRE(output.size() >= 1);
+    REQUIRE(output[0].distortion_parameter2 == Catch::Approx(k2).margin(1e-6));
 }

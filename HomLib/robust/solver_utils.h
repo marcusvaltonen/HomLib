@@ -137,7 +137,8 @@ inline bool non_minimal_dispatch_point(
         return false;
 
     std::vector<size_t> idx(ss);
-    std::iota(idx.begin(), idx.end(), 0);
+    for (size_t i = 0; i < ss; ++i)
+        idx[i] = i * n / ss;
     std::vector<PoseData> poses;
     estimate_fn(solver, x, y, idx, ss, &poses);
     bool found = select_best(solver, poses, x, y, best);
