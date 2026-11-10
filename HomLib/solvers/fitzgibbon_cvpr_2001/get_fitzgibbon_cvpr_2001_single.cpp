@@ -45,8 +45,8 @@ namespace FitzgibbonCVPR2001 {
 
         // Build 9x9 GEP matrices A, B.
         // Minimal (n_points == 5): fixed-size 9x9, A = D0, B = D1.
-        // Overdetermined (n_points > 5): project the pencil onto D0 (D0^T D0, D0^T D1). Not a
-        // least-squares fit: biased with noise, and singular at k = 0; refine the result.
+        // Overdetermined (n_points > 5): QR-project the pencil onto D0 (avoids squaring its
+        // condition number). Still biased with noise; refine the result.
         Eigen::Matrix<double, 9, 9> A, B;
         if (n_points == 5) {
             Eigen::Matrix<double, 9, 9> D0, D1;
@@ -79,8 +79,14 @@ namespace FitzgibbonCVPR2001 {
                 D1.block(2*i,3,1,3) = r2[i]*x[i].homogeneous().transpose();
                 D1.block(2*i+1,0,1,3) = -r2[i]*x[i].homogeneous().transpose();
             }
-            A = D0.transpose() * D0;
-            B = D0.transpose() * D1;
+            // QR projection: avoids squaring D0's condition number (normal
+            // equations fail when k ≈ 0 because D0 becomes rank-deficient).
+            Eigen::HouseholderQR<Eigen::MatrixXd> qr(D0);
+            Eigen::MatrixXd thin_Q = qr.householderQ()
+                * Eigen::MatrixXd::Identity(n_rows, 9);
+            A.setZero();
+            A.triangularView<Eigen::Upper>() = qr.matrixQR().topRows(9);
+            B = thin_Q.transpose() * D1;
         }
 
         Eigen::GeneralizedEigenSolver<Eigen::Matrix<double, 9, 9>> ges;
@@ -120,6 +126,33 @@ namespace FitzgibbonCVPR2001 {
                 }
             }
         }
+        // k = 0 fallback: the GEP is singular there, so recover it from the
+        // nullspace of D0 (the standard DLT solution, no distortion).
+        if (range.contains(0.0)) {
+            Eigen::MatrixXd D0_full(2 * n_points, 9);
+            D0_full.setZero();
+            for (int i = 0; i < n_points; i++) {
+                D0_full.block(2*i,3,1,3) = -x[i].homogeneous().transpose();
+                D0_full.block(2*i,6,1,3) = y[i](1) * x[i].homogeneous().transpose();
+                D0_full.block(2*i+1,0,1,3) = x[i].homogeneous().transpose();
+                D0_full.block(2*i+1,6,1,3) = -y[i](0) * x[i].homogeneous().transpose();
+            }
+            Eigen::JacobiSVD<Eigen::MatrixXd> svd(D0_full, Eigen::ComputeFullV);
+            Eigen::VectorXd h = svd.matrixV().col(8);
+            Eigen::Matrix3d H = Eigen::Map<Eigen::Matrix3d>(h.data(), 3, 3).transpose();
+            double res = 0.0;
+            for (int j = 0; j < n_points; j++) {
+                Eigen::Vector3d tmp = H * x[j].homogeneous();
+                if (tmp(2) == 0.0) { res = std::numeric_limits<double>::max(); break; }
+                res += (y[j] - tmp.hnormalized()).squaredNorm();
+            }
+            if (res < min_res) {
+                min_res = res;
+                posedata.homography = H;
+                posedata.distortion_parameter2 = 0.0;
+            }
+        }
+
         if (min_res < std::numeric_limits<double>::max())
             output.push_back(posedata);
 
