@@ -563,6 +563,13 @@ PYBIND11_MODULE(_core, m) {
             }
         );
 
+    // --- NonMinimalStrategy (shared across backends) ---
+
+    py::enum_<HomLib::NonMinimalStrategy>(m, "NonMinimalStrategy")
+        .value("Sample", HomLib::NonMinimalStrategy::Sample)
+        .value("Overdetermined", HomLib::NonMinimalStrategy::Overdetermined);
+
+
     // --- RansacStatistics ---
 
     py::class_<ransac_lib::RansacStatistics>(m, "RansacStatistics",

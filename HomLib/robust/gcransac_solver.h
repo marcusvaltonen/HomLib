@@ -138,7 +138,7 @@ template <class Solver, size_t SampleSize>
 class GCPointNonMinimalSolver : public gcransac::estimator::solver::SolverEngine {
 public:
     explicit GCPointNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Lomsac)
+        NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
         : solver_(solver), strategy_(strategy) {}
 
     static constexpr size_t sampleSize() { return SampleSize; }
@@ -192,7 +192,7 @@ template <class Solver, size_t SampleSize>
 class GCAffineNonMinimalSolver : public gcransac::estimator::solver::SolverEngine {
 public:
     explicit GCAffineNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Lomsac)
+        NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
         : solver_(solver), strategy_(strategy) {}
 
     static constexpr size_t sampleSize() { return SampleSize; }
@@ -251,7 +251,7 @@ template <class Solver, size_t SampleSize>
 class GCOrientationNonMinimalSolver : public gcransac::estimator::solver::SolverEngine {
 public:
     explicit GCOrientationNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Lomsac)
+        NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
         : solver_(solver), strategy_(strategy) {}
 
     static constexpr size_t sampleSize() { return SampleSize; }

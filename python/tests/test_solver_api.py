@@ -52,5 +52,65 @@ class DistortionCasePropertyTestCase(unittest.TestCase):
             s.distortion_case = homlib.DistortionCase.TWO_SIDED
 
 
+class SolverStringConstructionTestCase(unittest.TestCase):
+    """Solver("name") string convenience."""
+
+    def test_from_string(self):
+        s = homlib.Solver("DLT")
+        self.assertEqual(s.id, homlib.SolverId.DLT)
+
+    def test_from_string_long_name(self):
+        s = homlib.Solver("NakanoICPR2025OneSided")
+        self.assertEqual(s.id, homlib.SolverId.NakanoICPR2025OneSided)
+
+    def test_all_solvers_from_string(self):
+        for solver_id in homlib.SolverId:
+            with self.subTest(name=solver_id.name):
+                s = homlib.Solver(solver_id.name)
+                self.assertEqual(s.id, solver_id)
+
+    def test_from_string_invalid(self):
+        with self.assertRaises(ValueError):
+            homlib.Solver("NotASolver")
+
+    def test_from_solver_id(self):
+        s = homlib.Solver(homlib.SolverId.DLT)
+        self.assertEqual(s.id, homlib.SolverId.DLT)
+
+    def test_string_preserves_kwargs(self):
+        s = homlib.Solver("DLT", use_qr=True)
+        self.assertEqual(s.id, homlib.SolverId.DLT)
+        self.assertTrue(s.options["use_qr"])
+
+    def test_string_in_named_solver(self):
+        """Named solver classes still work (they use SolverId internally)."""
+        s = homlib.NakanoICPR2025OneSided(extra_check=True)
+        self.assertEqual(s.id, homlib.SolverId.NakanoICPR2025OneSided)
+        self.assertTrue(s.options["extra_check"])
+
+
+class StringInBackendsTestCase(unittest.TestCase):
+    """All backends accept string solver names."""
+
+    def test_lomsac(self):
+        est = homlib.LOMSAC("DLT", inlier_threshold=3.0)
+        self.assertEqual(est.solver.id, homlib.SolverId.DLT)
+
+    @unittest.skipUnless(homlib._HAS_SUPERANSAC, "SupeRANSAC not built")
+    def test_superansac(self):
+        est = homlib.SupeRANSAC("DLT")
+        self.assertEqual(est.solver.id, homlib.SolverId.DLT)
+
+    @unittest.skipUnless(homlib._HAS_GCRANSAC, "GC-RANSAC not built")
+    def test_gcransac(self):
+        est = homlib.GCRANSAC("DLT")
+        self.assertEqual(est.solver.id, homlib.SolverId.DLT)
+
+    @unittest.skipUnless(homlib._HAS_MAGSAC, "MAGSAC not built")
+    def test_magsac(self):
+        est = homlib.MAGSAC("DLT")
+        self.assertEqual(est.solver.id, homlib.SolverId.DLT)
+
+
 if __name__ == "__main__":
     unittest.main()
