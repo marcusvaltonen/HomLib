@@ -7,9 +7,16 @@ homography from a 3D reconstruction. The script rebuilds that ground truth:
 
 1. A 3D reconstruction (pycolmap, incremental SfM) of the images DSC_2510 to DSC_2522, with one
    OPENCV_FISHEYE camera shared by all the images (fx, fy, cx, cy and 4 coefficients of the distorted
-   angle), from COLMAP's SIFT features at full resolution, exhaustively matched. The script prints
-   the reprojection errors. The reconstruction is saved in ``--sfm_dir`` and reused by later runs
-   (whatever their ``--images`` and ``--seed``: give them another ``--sfm_dir``).
+   angle), from COLMAP's SIFT features at full resolution, exhaustively matched. By default
+   (``--intrinsics paper``), the camera is the one the paper's authors gave (issue #42 of HomLib),
+   fixed: f = 1917.57, (cx, cy) = (2144, 1424), the image center, and k1 = -0.04162, k2 = -0.00726
+   (their "SIMPLE_RADIAL" coefficients fit OPENCV_FISHEYE: with them, COLMAP's RADIAL model
+   registers only 12 of the 13 images and 1236 points, OPENCV_FISHEYE all of them and 10980 points).
+   ``--intrinsics refined`` refines it in the reconstruction instead, which halves the reprojection
+   errors (mean 0.48 px, against 0.88 px), mostly by moving the principal point by (13, 20) px.
+   The script prints the reprojection errors. The reconstruction is saved in ``--sfm_dir`` and reused
+   by later runs (whatever their ``--images``, ``--intrinsics`` and ``--seed``: give them another
+   ``--sfm_dir``).
 2. The plane of the wall with the two towers, fitted by RANSAC on the 3D points, then by least
    squares on its inliers. The wall isn't flat (pilasters, windows, cornices): the inlier threshold,
    a small share of the median depth of the points (``--plane_threshold``), keeps its flat parts.
@@ -21,7 +28,7 @@ homography from a 3D reconstruction. The script rebuilds that ground truth:
    are the coordinates of HomLib's division model, whose undistortion keeps the scale at the
    distortion center: the solvers estimate H in them, from the points centered on the principal
    point.
-4. SIFT matches of each pair (OpenCV SIFT, 4000 keypoints, Lowe's ratio test at 0.8, as
+4. SIFT matches of each pair (OpenCV SIFT, 8000 keypoints, Lowe's ratio test at 0.8, as the paper;
    hpatches_features.py), saved with the ground truth in a ``.npz`` file.
 
 The script checks the ground truth on two sets of correspondences, mapped with it and with the
@@ -75,12 +82,23 @@ IMAGES = (2510, 2522)
 MIN_MATCHES = 100
 
 
-def reconstruct(image_dir, sfm_dir, names, seed):
-    """The reconstruction of the images, with one OPENCV_FISHEYE camera; reused if sfm_dir has one."""
+# The camera of the paper (issue #42 of HomLib), as OPENCV_FISHEYE parameters (fx, fy, cx, cy, k1..k4),
+# in COLMAP's convention (the origin at the top-left corner of the image)
+PAPER_CAMERA = [1917.57, 1917.57, 2144.0, 1424.0, -0.04162, -0.00726, 0.0, 0.0]
+
+
+def reconstruct(image_dir, sfm_dir, names, seed, intrinsics):
+    """The reconstruction of the images, with one OPENCV_FISHEYE camera, the paper's (fixed) or refined
+    (intrinsics); reused if sfm_dir has one."""
     model_dir = sfm_dir / "0"
     if (model_dir / "images.bin").exists():
         print(f"Reusing the reconstruction in {model_dir}")
-        return pycolmap.Reconstruction(model_dir)
+        rec = pycolmap.Reconstruction(model_dir)
+        fixed = np.allclose(next(iter(rec.cameras.values())).params, PAPER_CAMERA)
+        if fixed != (intrinsics == "paper"):
+            sys.exit(f"{model_dir} has a camera {'fixed to' if fixed else 'other than'} the paper's: give "
+                     f"--intrinsics {'paper' if fixed else 'refined'}, or another --sfm_dir")
+        return rec
     sfm_dir.mkdir(parents=True, exist_ok=True)
     database = sfm_dir / "database.db"
     database.unlink(missing_ok=True)
@@ -88,12 +106,17 @@ def reconstruct(image_dir, sfm_dir, names, seed):
     extraction = pycolmap.FeatureExtractionOptions()
     extraction.max_image_size = 100000   # full resolution
     extraction.sift.max_num_features = 16384
+    reader = pycolmap.ImageReaderOptions(camera_model="OPENCV_FISHEYE")
+    if intrinsics == "paper":
+        reader.camera_params = ",".join(map(str, PAPER_CAMERA))
     pycolmap.extract_features(database, image_dir, image_names=names, camera_mode=pycolmap.CameraMode.SINGLE,
-                              reader_options=pycolmap.ImageReaderOptions(camera_model="OPENCV_FISHEYE"),
-                              extraction_options=extraction)
+                              reader_options=reader, extraction_options=extraction)
     pycolmap.match_exhaustive(database)
     options = pycolmap.IncrementalPipelineOptions()
-    options.ba_refine_principal_point = True
+    if intrinsics == "paper":
+        options.ba_refine_focal_length = options.ba_refine_principal_point = options.ba_refine_extra_params = False
+    else:
+        options.ba_refine_principal_point = True
     reconstructions = pycolmap.incremental_mapping(database, image_dir, sfm_dir, options=options)
     best = max(reconstructions.values(), key=lambda r: r.num_reg_images())
     if best.num_reg_images() < len(names):
@@ -213,17 +236,20 @@ def main():
     parser.add_argument("--plane_threshold", type=float, default=0.003,
                         help="Inlier threshold of the plane, as a share of the median depth of the 3D points "
                              "in all the cameras (default: 0.003)")
-    parser.add_argument("--num_features", type=int, default=4000, help="SIFT keypoints per image (default: 4000)")
+    parser.add_argument("--num_features", type=int, default=8000,
+                        help="SIFT keypoints per image (default: 8000, as the paper)")
     parser.add_argument("--ratio", type=float, default=0.8, help="Ratio test threshold (default: 0.8)")
     parser.add_argument("--images", type=int, nargs=2, default=IMAGES, metavar=("FIRST", "LAST"),
                         help="The images of the reconstruction, DSC_<FIRST> to DSC_<LAST> (default: %(default)s)")
     parser.add_argument("--seed", type=int, default=1, help="Random seed of the reconstruction and of the plane")
+    parser.add_argument("--intrinsics", choices=["paper", "refined"], default="paper",
+                        help="The camera: the paper's, fixed (default), or refined in the reconstruction")
     args = parser.parse_args()
     image_dir = Path(args.data_dir) / "images"
     numbers = range(args.images[0], args.images[1] + 1)
 
     # 1. The reconstruction
-    rec = reconstruct(image_dir, Path(args.sfm_dir), [image_name(i) for i in numbers], args.seed)
+    rec = reconstruct(image_dir, Path(args.sfm_dir), [image_name(i) for i in numbers], args.seed, args.intrinsics)
     camera = Camera(next(iter(rec.cameras.values())))
     errors = reprojection_errors(rec)
     all_errors = np.concatenate(list(errors.values()))

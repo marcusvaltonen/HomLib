@@ -29,7 +29,8 @@ import matplotlib
 import numpy as np
 
 import homlib
-from grossmunster_data import FIGURE_PAIR, PAIRS, image_name, load_matches, pair_key
+from grossmunster_data import (FIGURE_PAIR, LOMSAC_SETTINGS, MIN_ITERATIONS, PAIRS, THRESHOLD, image_name, load_matches,
+                               pair_key)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import inlier_indices, make_estimator  # noqa: E402
@@ -112,7 +113,8 @@ def figure8(pairs, scene, image_dir, threshold, seed, path):
     pair = pairs[key]
     x, y = (pair["x"], pair["y"]) if (a, b) == tuple(sorted(FIGURE_PAIR)) else (pair["y"], pair["x"])
     solver = homlib.Solver(homlib.SolverId.Wadenback3DV2026TwoSidedEqual)
-    estimator = make_estimator("lomsac", solver, threshold, None, seed, min_iterations=500, final_least_squares=True)
+    estimator = make_estimator("lomsac", solver, threshold, None, seed,
+                               min_iterations=MIN_ITERATIONS, **LOMSAC_SETTINGS)
     pose, stats = estimator.estimate(np.ascontiguousarray(x), np.ascontiguousarray(y))
     inliers = np.asarray(inlier_indices(stats))
     k = pose.distortion_parameter
@@ -145,7 +147,8 @@ def main():
     parser.add_argument("matches", help="The matches file (grossmunster_ground_truth.py)")
     parser.add_argument("--data_dir", required=True, help="RadialSfM's fisheye_grossmunster (with images/)")
     parser.add_argument("--output_dir", default=".", help="Directory of the figures (default: .)")
-    parser.add_argument("--threshold", type=float, default=3.0, help="Inlier threshold in pixels (default: 3)")
+    parser.add_argument("--threshold", type=float, default=THRESHOLD,
+                        help="Inlier threshold in pixels (default: %(default)s)")
     parser.add_argument("--seed", type=int, default=1, help="Random seed of LOMSAC (default: 1)")
     args = parser.parse_args()
     pairs, scene = load_matches(Path(args.matches))
