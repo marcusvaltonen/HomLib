@@ -24,6 +24,12 @@ from ._core import (
     dispatch_lomsac_orientation as _dispatch_lomsac_orientation,
 )
 
+# pybind11 enums share a metaclass that lacks __iter__; patch it once so
+# `for val in SomeEnum` works on any pybind11 enum in this package.
+_pb11_meta = type(_core.SolverId)
+if not hasattr(_pb11_meta, '__iter__'):
+    _pb11_meta.__iter__ = lambda cls: iter(cls.__members__.values())
+
 # ---------------------------------------------------------------------------
 # Solver base class (Python-side, adds dispatch-based estimate())
 # ---------------------------------------------------------------------------

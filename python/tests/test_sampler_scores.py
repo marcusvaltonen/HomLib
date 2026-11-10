@@ -209,7 +209,7 @@ class GCRANSACSamplerTestCase(unittest.TestCase):
     # --- Enum completeness ---
 
     def test_sampler_enum_values(self):
-        members = set(homlib.GCSamplerType.__members__)
+        members = {e.name for e in homlib.GCSamplerType}
         expected = {
             "Uniform", "PROSAC",
             "ImportanceSampler", "ARSampler",
@@ -217,11 +217,16 @@ class GCRANSACSamplerTestCase(unittest.TestCase):
         self.assertEqual(members, expected)
 
     def test_non_minimal_enum_values(self):
-        members = set(homlib.NonMinimalStrategy.__members__)
+        members = {e.name for e in homlib.NonMinimalStrategy}
         expected = {
             "Lomsac", "SelectAndRefine", "MultiSample",
         }
         self.assertEqual(members, expected)
+
+    def test_non_minimal_enum_iterable(self):
+        values = list(homlib.NonMinimalStrategy)
+        self.assertEqual(len(values), 3)
+        self.assertIn(homlib.NonMinimalStrategy.Lomsac, values)
 
 
 # ---------------------------------------------------------------
@@ -543,7 +548,7 @@ class SuperansacSamplerTestCase(unittest.TestCase):
     # --- Enum completeness ---
 
     def test_sampler_enum_values(self):
-        members = set(SA_Sampler.__members__)
+        members = {e.name for e in SA_Sampler}
         expected = {
             "Uniform", "PROSAC", "NAPSAC",
             "ProgressiveNAPSAC",
@@ -552,7 +557,7 @@ class SuperansacSamplerTestCase(unittest.TestCase):
         self.assertEqual(members, expected)
 
     def test_scoring_enum_values(self):
-        members = set(SA_Score.__members__)
+        members = {e.name for e in SA_Score}
         expected = {
             "RANSAC", "MSAC", "MAGSAC", "MINPRAN",
             "ACRANSAC", "GAU", "ML", "GRID",
@@ -560,7 +565,7 @@ class SuperansacSamplerTestCase(unittest.TestCase):
         self.assertEqual(members, expected)
 
     def test_local_opt_enum_values(self):
-        members = set(SA_LO.__members__)
+        members = {e.name for e in SA_LO}
         expected = {
             "None_", "LSQ", "IRLS", "NestedRANSAC",
             "GCRANSAC", "IteratedLMEDS", "CrossValidation",
@@ -568,19 +573,16 @@ class SuperansacSamplerTestCase(unittest.TestCase):
         self.assertEqual(members, expected)
 
     def test_termination_enum_values(self):
-        T = homlib.SuperansacTerminationType
-        members = set(T.__members__)
+        members = {e.name for e in homlib.SuperansacTerminationType}
         self.assertIn("RANSAC", members)
 
     def test_inlier_selector_enum_values(self):
-        IS = homlib.SuperansacInlierSelectorType
-        members = set(IS.__members__)
+        members = {e.name for e in homlib.SuperansacInlierSelectorType}
         expected = {"None_", "SpacePartitioningRANSAC"}
         self.assertEqual(members, expected)
 
     def test_neighborhood_type_enum_values(self):
-        N = homlib.SuperansacNeighborhoodType
-        members = set(N.__members__)
+        members = {e.name for e in homlib.SuperansacNeighborhoodType}
         expected = {"Grid", "FLANN_KNN", "FLANN_Radius"}
         self.assertEqual(members, expected)
 

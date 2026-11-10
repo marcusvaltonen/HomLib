@@ -9,7 +9,7 @@ class SolverIdsTestCase(unittest.TestCase):
     FEATURE_TYPES = (homlib.FeatureType.Points, homlib.FeatureType.Affine, homlib.FeatureType.Orientation)
 
     def test_all_solvers(self):
-        self.assertEqual(homlib.solver_ids(), list(homlib.SolverId.__members__.values()))
+        self.assertEqual(homlib.solver_ids(), list(homlib.SolverId))
 
     def test_feature_types(self):
         for feature_type in self.FEATURE_TYPES:
