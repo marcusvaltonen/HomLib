@@ -52,7 +52,7 @@ namespace NakanoICPR2025 {
 
         // Compute 3-dim nullspace N.
         // Minimal (n_points == 5): fixed-size 9x12 matrix, QR.
-        // Overdetermined (n_points > 5): dynamic 2n x 12 matrix, eigendecompose M^T M.
+        // Overdetermined (n_points > 5): SVD of M (not M^T M, which squares its condition).
         Eigen::Matrix<double, 12, 3> N;
         if (n_points == 5) {
             Eigen::Matrix<double, 9, 12> M;
@@ -76,9 +76,8 @@ namespace NakanoICPR2025 {
                 M.block(2*i+1,0,1,4) = m[i];
                 M.block(2*i+1,8,1,4) = -x[i](0) * m[i];
             }
-            Eigen::Matrix<double, 12, 12> MtM = M.transpose() * M;
-            Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 12, 12>> saes(MtM);
-            N = saes.eigenvectors().leftCols(3);
+            Eigen::JacobiSVD<Eigen::MatrixXd> svd(M, Eigen::ComputeFullV);
+            N = svd.matrixV().rightCols(3);
         }
 
         // Create generalized eigenvalue problem

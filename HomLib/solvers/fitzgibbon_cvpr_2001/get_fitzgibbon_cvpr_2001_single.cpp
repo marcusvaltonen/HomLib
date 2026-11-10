@@ -45,7 +45,8 @@ namespace FitzgibbonCVPR2001 {
 
         // Build 9x9 GEP matrices A, B.
         // Minimal (n_points == 5): fixed-size 9x9, A = D0, B = D1.
-        // Overdetermined (n_points > 5): dynamic D, A = D0^T D0, B = D0^T D1.
+        // Overdetermined (n_points > 5): project the pencil onto D0 (D0^T D0, D0^T D1). Not a
+        // least-squares fit: biased with noise, and singular at k = 0; refine the result.
         Eigen::Matrix<double, 9, 9> A, B;
         if (n_points == 5) {
             Eigen::Matrix<double, 9, 9> D0, D1;

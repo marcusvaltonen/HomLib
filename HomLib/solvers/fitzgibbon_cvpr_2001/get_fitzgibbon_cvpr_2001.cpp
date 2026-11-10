@@ -42,7 +42,8 @@ namespace FitzgibbonCVPR2001 {
 
         // Build 9x9 QEP coefficient matrices C0, C1, C2.
         // Minimal (n_points == 5): fixed-size matrices, C = D directly.
-        // Overdetermined (n_points > 5): dynamic matrices, C = D^T D (normal equations).
+        // Overdetermined (n_points > 5): project the QEP onto D0 (C_i = D0^T D_i). Not a
+        // least-squares fit: biased with noise, and singular at k = 0; refine the result.
         Eigen::Matrix<double, 9, 9> C0, C1, C2;
 
         if (n_points == 5) {
