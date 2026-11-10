@@ -47,3 +47,38 @@ class NakanoICPR2025TestCase(unittest.TestCase):
         p2 = np.random.randn(2, 6)
         with self.assertRaises(ValueError):
             self.solver.estimate(p1, p2)
+
+
+class NakanoOverdeterminedTestCase(unittest.TestCase):
+    """Nakano solver with N > 5 (overdetermined)."""
+
+    @staticmethod
+    def _points(inst):
+        return np.array(inst.x1).T, np.array(inst.x2).T
+
+    def test_overdetermined(self):
+        config = homlib.ProblemConfig(homlib.DistortionCase.ONE_SIDED_LEFT, 0.0, 20)
+        inst = homlib.generate_problem_instance(config)
+        x, y = self._points(inst)
+        solver = homlib.NakanoICPR2025OneSided(extra_check=True)
+        sols = solver.estimate(x, y)
+        self.assertEqual(len(sols), 1)
+        self.assertAlmostEqual(
+            sols[0].distortion_parameter2, inst.posedata.distortion_parameter2, places=2)
+
+    def test_fewer_than_5(self):
+        solver = homlib.NakanoICPR2025OneSided(extra_check=False)
+        x = np.random.randn(2, 4)
+        sols = solver.estimate(x, x)
+        self.assertEqual(len(sols), 0)
+
+    def test_minimal_case_unchanged(self):
+        """Regression: minimal N=5 still produces the same result as before."""
+        config = homlib.ProblemConfig(homlib.DistortionCase.ONE_SIDED_LEFT, 0.0, 5)
+        inst = homlib.generate_problem_instance(config)
+        x, y = self._points(inst)
+        solver = homlib.NakanoICPR2025OneSided(extra_check=True)
+        sols = solver.estimate(x, y)
+        self.assertGreaterEqual(len(sols), 1)
+        self.assertAlmostEqual(
+            sols[0].distortion_parameter2, inst.posedata.distortion_parameter2, places=3)
