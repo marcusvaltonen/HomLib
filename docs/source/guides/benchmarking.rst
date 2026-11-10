@@ -7,6 +7,9 @@ HomLib's benchmarks compare its solvers and robust estimators, to choose a
 solver for your data, or to measure the effect of a change in HomLib: run a
 benchmark before and after the change, and compare the two runs.
 
+Benchmarks
+----------
+
 .. toctree::
    :hidden:
 
