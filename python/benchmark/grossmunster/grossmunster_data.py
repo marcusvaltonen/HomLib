@@ -22,6 +22,8 @@ PAIRS = [(2512, 2513), (2513, 2514), (2514, 2515), (2517, 2518), (2518, 2519), (
 OTHER_PAIRS = [(2515, 2517)]
 # The pair of Fig. 8 (inliers and rectified images), in the paper's order
 FIGURE_PAIR = (2518, 2517)
+# The images rectified in Fig. 8, each with the distortion estimated on its pair
+RECTIFIED_PAIRS = [(2512, 2513), (2514, 2515), (2519, 2520)]
 # The paper's LOMSAC settings, as its authors gave them (https://github.com/marcusvaltonen/HomLib/issues/42):
 # a 5 px inlier threshold, at least 500 iterations (and HomLib's default maximum, 10,000), 10 local
 # optimization steps of 4 least-squares iterations, and a final least-squares refinement
