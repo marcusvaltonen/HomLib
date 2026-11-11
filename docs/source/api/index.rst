@@ -46,6 +46,7 @@ Data types
     LORansacOptions
     RansacStatistics
     DistortionCase
+    NonMinimalSettings
     ProblemConfig
     ProblemInstance
 
@@ -57,6 +58,7 @@ Enums
 
     SolverId
     FeatureType
+    NonMinimalStrategy
 
 Functions
 ---------
