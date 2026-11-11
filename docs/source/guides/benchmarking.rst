@@ -13,10 +13,13 @@ Benchmarks
 .. toctree::
    :hidden:
 
+   benchmarks/grossmunster
    benchmarks/heb
    benchmarks/hpatches
    benchmarks/synthetic
 
+- :doc:`benchmarks/grossmunster`: real pairs of fisheye images, with strong
+  distortion in both images.
 - :doc:`benchmarks/heb`: real pairs of non-planar scenes from photo
   collections, where most matches are outliers.
 - :doc:`benchmarks/hpatches`: real image pairs of planar scenes, without lens
