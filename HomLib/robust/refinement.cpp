@@ -11,11 +11,6 @@ static const int MAX_ITER = 10;
 
 namespace {
 
-// Levenberg-Marquardt refinement with direct JtJ accumulation.
-//
-// The accumulate callback fills the upper triangle of JtJ and the gradient
-// g = -J^T r, and returns the squared cost.  This eliminates the O(2n × N)
-// Jacobian matrix and the subsequent J^T J / J^T r products.
 template <int N, class Accumulate, class UpdateDist>
 void refine(size_t n_pts, HomLib::PoseData &p, const Accumulate &accumulate, const UpdateDist &update_dist) {
     double lm_damp = INITIAL_LM_DAMP;
@@ -62,7 +57,6 @@ inline void accumulate_h_block(
 {
     cost += re * re + ro * ro;
 
-    // AA = BB diagonal blocks: {0,3,6} and {1,4,7}
     const double aa = a * a, ab = a * b, ac = a * c;
     const double bb = b * b, bc = b * c, cc = c * c;
     JtJ(0, 0) += aa;  JtJ(1, 1) += aa;
@@ -72,7 +66,6 @@ inline void accumulate_h_block(
     JtJ(3, 6) += bc;  JtJ(4, 7) += bc;
     JtJ(6, 6) += cc;  JtJ(7, 7) += cc;
 
-    // A x C cross (even rows: {0,3,6} x {2,5})
     JtJ(0, 2) -= a * az0;
     JtJ(0, 5) -= a * bz0;
     JtJ(2, 3) -= az0 * b;
@@ -80,7 +73,6 @@ inline void accumulate_h_block(
     JtJ(2, 6) -= az0 * c;
     JtJ(5, 6) -= bz0 * c;
 
-    // B x C cross (odd rows: {1,4,7} x {2,5})
     JtJ(1, 2) -= a * az1;
     JtJ(1, 5) -= a * bz1;
     JtJ(2, 4) -= az1 * b;
@@ -88,12 +80,10 @@ inline void accumulate_h_block(
     JtJ(2, 7) -= az1 * c;
     JtJ(5, 7) -= bz1 * c;
 
-    // C x C block ({2,5} x {2,5}, both rows)
     JtJ(2, 2) += az0 * az0 + az1 * az1;
     JtJ(2, 5) += az0 * bz0 + az1 * bz1;
     JtJ(5, 5) += bz0 * bz0 + bz1 * bz1;
 
-    // Gradient g = -J^T r
     g(0) -= a * re;
     g(1) -= a * ro;
     g(2) += az0 * re + az1 * ro;
@@ -102,6 +92,27 @@ inline void accumulate_h_block(
     g(5) += bz0 * re + bz1 * ro;
     g(6) -= c * re;
     g(7) -= c * ro;
+}
+
+// Accumulate a single distortion column D into JtJ (upper triangle) and g.
+// dk_e / dk_o are the even / odd Jacobian entries for column D.
+template <int N, int D>
+inline void accumulate_dist_col(
+    Eigen::Matrix<double, N, N> &JtJ, Eigen::Matrix<double, N, 1> &g,
+    double a, double b, double c,
+    double az0, double bz0, double az1, double bz1,
+    double dk_e, double dk_o, double re, double ro)
+{
+    JtJ(0, D) += a * dk_e;
+    JtJ(3, D) += b * dk_e;
+    JtJ(6, D) += c * dk_e;
+    JtJ(1, D) += a * dk_o;
+    JtJ(4, D) += b * dk_o;
+    JtJ(7, D) += c * dk_o;
+    JtJ(2, D) -= az0 * dk_e + az1 * dk_o;
+    JtJ(5, D) -= bz0 * dk_e + bz1 * dk_o;
+    JtJ(D, D) += dk_e * dk_e + dk_o * dk_o;
+    g(D) -= dk_e * re + dk_o * ro;
 }
 
 }  // namespace
@@ -168,25 +179,12 @@ void refinement_onesided(
                     a, b, c, az0, bz0, az1, bz1, re, ro);
 
                 const double r22df2 = r22 * df * df;
-                const double dk_e = p0 * r22df2;
-                const double dk_o = p1 * r22df2;
-
-                JtJ(0, 8) += a * dk_e;
-                JtJ(3, 8) += b * dk_e;
-                JtJ(6, 8) += c * dk_e;
-                JtJ(1, 8) += a * dk_o;
-                JtJ(4, 8) += b * dk_o;
-                JtJ(7, 8) += c * dk_o;
-                JtJ(2, 8) -= az0 * dk_e + az1 * dk_o;
-                JtJ(5, 8) -= bz0 * dk_e + bz1 * dk_o;
-                JtJ(8, 8) += dk_e * dk_e + dk_o * dk_o;
-
-                g(8) -= dk_e * re + dk_o * ro;
+                accumulate_dist_col<9, 8>(JtJ, g,
+                    a, b, c, az0, bz0, az1, bz1,
+                    p0 * r22df2, p1 * r22df2, re, ro);
             }
         },
-        [&p](const auto &dx) {
-            p.distortion_parameter2 += dx(8);
-        });
+        [&p](const auto &dx) { p.distortion_parameter2 += dx(8); });
 }
 
 void refinement_onesided_right(
@@ -222,25 +220,12 @@ void refinement_onesided_right(
                     a, b, c, az0, bz0, az1, bz1, re, ro);
 
                 const double r12w = r12 * w;
-                const double dk_e = r12w * (H02 - z0 * H22);
-                const double dk_o = r12w * (H12 - z1 * H22);
-
-                JtJ(0, 8) += a * dk_e;
-                JtJ(3, 8) += b * dk_e;
-                JtJ(6, 8) += c * dk_e;
-                JtJ(1, 8) += a * dk_o;
-                JtJ(4, 8) += b * dk_o;
-                JtJ(7, 8) += c * dk_o;
-                JtJ(2, 8) -= az0 * dk_e + az1 * dk_o;
-                JtJ(5, 8) -= bz0 * dk_e + bz1 * dk_o;
-                JtJ(8, 8) += dk_e * dk_e + dk_o * dk_o;
-
-                g(8) -= dk_e * re + dk_o * ro;
+                accumulate_dist_col<9, 8>(JtJ, g,
+                    a, b, c, az0, bz0, az1, bz1,
+                    r12w * (H02 - z0 * H22), r12w * (H12 - z1 * H22), re, ro);
             }
         },
-        [&p](const auto &dx) {
-            p.distortion_parameter += dx(8);
-        });
+        [&p](const auto &dx) { p.distortion_parameter += dx(8); });
 }
 
 void refinement_twosided_equal(
@@ -277,23 +262,12 @@ void refinement_twosided_equal(
                 accumulate_h_block(JtJ, g, cost,
                     a, b, c, az0, bz0, az1, bz1, re, ro);
 
-                // Col 8: shared k derivative = right-side + left-side
                 const double r12w = r12 * w;
                 const double r22df2 = r22 * df * df;
-                const double dk_e = p0 * r22df2 + r12w * (H02 - z0 * H22);
-                const double dk_o = p1 * r22df2 + r12w * (H12 - z1 * H22);
-
-                JtJ(0, 8) += a * dk_e;
-                JtJ(3, 8) += b * dk_e;
-                JtJ(6, 8) += c * dk_e;
-                JtJ(1, 8) += a * dk_o;
-                JtJ(4, 8) += b * dk_o;
-                JtJ(7, 8) += c * dk_o;
-                JtJ(2, 8) -= az0 * dk_e + az1 * dk_o;
-                JtJ(5, 8) -= bz0 * dk_e + bz1 * dk_o;
-                JtJ(8, 8) += dk_e * dk_e + dk_o * dk_o;
-
-                g(8) -= dk_e * re + dk_o * ro;
+                accumulate_dist_col<9, 8>(JtJ, g,
+                    a, b, c, az0, bz0, az1, bz1,
+                    p0 * r22df2 + r12w * (H02 - z0 * H22),
+                    p1 * r22df2 + r12w * (H12 - z1 * H22), re, ro);
             }
         },
         [&p](const auto &dx) {
@@ -337,40 +311,21 @@ void refinement_twosided(
                 accumulate_h_block(JtJ, g, cost,
                     a, b, c, az0, bz0, az1, bz1, re, ro);
 
-                // Col 8: k1 (right-side distortion on x1)
                 const double r12w = r12 * w;
                 const double dk1_e = r12w * (H02 - z0 * H22);
                 const double dk1_o = r12w * (H12 - z1 * H22);
+                accumulate_dist_col<10, 8>(JtJ, g,
+                    a, b, c, az0, bz0, az1, bz1,
+                    dk1_e, dk1_o, re, ro);
 
-                JtJ(0, 8) += a * dk1_e;
-                JtJ(3, 8) += b * dk1_e;
-                JtJ(6, 8) += c * dk1_e;
-                JtJ(1, 8) += a * dk1_o;
-                JtJ(4, 8) += b * dk1_o;
-                JtJ(7, 8) += c * dk1_o;
-                JtJ(2, 8) -= az0 * dk1_e + az1 * dk1_o;
-                JtJ(5, 8) -= bz0 * dk1_e + bz1 * dk1_o;
-                JtJ(8, 8) += dk1_e * dk1_e + dk1_o * dk1_o;
-
-                g(8) -= dk1_e * re + dk1_o * ro;
-
-                // Col 9: k2 (left-side distortion on x2)
                 const double r22df2 = r22 * df * df;
                 const double dk2_e = p0 * r22df2;
                 const double dk2_o = p1 * r22df2;
+                accumulate_dist_col<10, 9>(JtJ, g,
+                    a, b, c, az0, bz0, az1, bz1,
+                    dk2_e, dk2_o, re, ro);
 
-                JtJ(0, 9) += a * dk2_e;
-                JtJ(3, 9) += b * dk2_e;
-                JtJ(6, 9) += c * dk2_e;
-                JtJ(1, 9) += a * dk2_o;
-                JtJ(4, 9) += b * dk2_o;
-                JtJ(7, 9) += c * dk2_o;
-                JtJ(2, 9) -= az0 * dk2_e + az1 * dk2_o;
-                JtJ(5, 9) -= bz0 * dk2_e + bz1 * dk2_o;
                 JtJ(8, 9) += dk1_e * dk2_e + dk1_o * dk2_o;
-                JtJ(9, 9) += dk2_e * dk2_e + dk2_o * dk2_o;
-
-                g(9) -= dk2_e * re + dk2_o * ro;
             }
         },
         [&p](const auto &dx) {
