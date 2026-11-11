@@ -82,15 +82,26 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_point(
     const PySolver& solver,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    HomLib::NonMinimalStrategy strategy,
+    int non_minimal_sample_size,
+    bool refine_non_minimal,
+    const py::object& non_minimal_solver_obj,
     const ransac_lib::LORansacOptions& options)
 {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
 
+    HomLib::NonMinimalSettings nm;
+    nm.strategy = strategy;
+    nm.sample_size = non_minimal_sample_size;
+    nm.refine = refine_non_minimal;
+    if (!non_minimal_solver_obj.is_none())
+        nm.solver_fn = resolve_non_minimal_fn(non_minimal_solver_obj.cast<PySolver>());
+
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_lomsac_point(s, x, y, options);
+        return HomLib::run_lomsac_point(s, x, y, nm, options);
     });
 }
 
@@ -202,6 +213,8 @@ PYBIND11_MODULE(_core, m) {
         .def_readonly("id", &PySolver::id, "Solver identifier (:class:`SolverId`).")
         .def_readonly("feature_type", &PySolver::feature_type, "Feature type (:class:`FeatureType`).")
         .def_readonly("distortion_case", &PySolver::distortion_case, "Distortion case (:class:`DistortionCase`).")
+        .def_readonly("supports_overdetermined", &PySolver::supports_overdetermined,
+            "Whether this solver accepts more than the minimal number of points.")
         .def_readonly("options", &PySolver::options, "Solver-specific options.")
         .def_readwrite("normalize_image_coord", &PySolver::normalize_image_coord,
             R"pbdoc(
@@ -689,13 +702,20 @@ PYBIND11_MODULE(_core, m) {
                 2xN array of points in the second image.
             options : LORansacOptions
                 LOMSAC options.
+            strategy : NonMinimalStrategy, optional
+                Non-minimal solving strategy (default: Sample).
 
             Returns
             -------
             tuple[PoseData, RansacStatistics]
                 Best model and estimation statistics.
         )pbdoc",
-        "solver"_a, "x"_a, "y"_a, "options"_a);
+        "solver"_a, "x"_a, "y"_a,
+        "strategy"_a = HomLib::NonMinimalStrategy::Sample,
+        "non_minimal_sample_size"_a = 0,
+        "refine_non_minimal"_a = true,
+        "non_minimal_solver"_a = py::none(),
+        "options"_a);
 
     m.def("dispatch_lomsac_affine", &dispatch_lomsac_affine,
         R"pbdoc(

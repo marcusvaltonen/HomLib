@@ -23,9 +23,11 @@ namespace HomLib {
 template <class Solver>
 class SuperansacPointEstimator : public superansac::estimator::Estimator {
 public:
-    explicit SuperansacPointEstimator(const Solver& solver) : solver_(solver) {
+    explicit SuperansacPointEstimator(const Solver& solver,
+        const NonMinimalSettings& nm = {})
+        : solver_(solver) {
         setMinimalSolver(new HomLibMinimalSolver<Solver>(solver));
-        setNonMinimalSolver(new HomLibPointNonMinimalSolver<Solver>(solver));
+        setNonMinimalSolver(new HomLibPointNonMinimalSolver<Solver>(solver, nm));
     }
 
     // superansac's AbstractSolver has no virtual destructor, so deleting the solvers through

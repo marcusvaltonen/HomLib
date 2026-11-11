@@ -11,15 +11,22 @@ static std::pair<HomLib::PoseData, HomLib::SuperansacStatistics> dispatch_supera
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const std::vector<double>& probabilities,
+    HomLib::NonMinimalStrategy non_minimal_strategy,
+    const py::object& non_minimal_solver_obj,
     const superansac::RANSACSettings& settings)
 {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
 
+    HomLib::NonMinimalSettings nm;
+    nm.strategy = non_minimal_strategy;
+    if (!non_minimal_solver_obj.is_none())
+        nm.solver_fn = resolve_non_minimal_fn(non_minimal_solver_obj.cast<PySolver>());
+
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_superansac_point(s, x, y, probabilities, settings);
+        return HomLib::run_superansac_point(s, x, y, probabilities, nm, settings);
     });
 }
 
@@ -197,7 +204,9 @@ void bind_superansac(py::module_& m) {
 
     m.def("dispatch_superansac_point", &dispatch_superansac_point,
         "Run a point-based solver within the SupeRANSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{},
+        "non_minimal_strategy"_a = HomLib::NonMinimalStrategy::Sample,
+        "non_minimal_solver"_a = py::none(), "settings"_a);
 
     m.def("dispatch_superansac_affine", &dispatch_superansac_affine,
         "Run an affine-covariant solver within the SupeRANSAC framework.",

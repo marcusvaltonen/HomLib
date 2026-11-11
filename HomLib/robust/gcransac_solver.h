@@ -138,8 +138,8 @@ template <class Solver, size_t SampleSize>
 class GCPointNonMinimalSolver : public gcransac::estimator::solver::SolverEngine {
 public:
     explicit GCPointNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
-        : solver_(solver), strategy_(strategy) {}
+        const NonMinimalSettings& nm = {})
+        : solver_(solver), nm_(nm) {}
 
     static constexpr size_t sampleSize() { return SampleSize; }
     static constexpr size_t maximumSolutions() { return 1; }
@@ -175,7 +175,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_point(strategy_, solver_, x, y, est_fn, best))
+        if (!detail::non_minimal_dispatch_point(solver_, x, y, est_fn, best, nm_))
             return false;
 
         models_.push_back(pose_to_gc_model(best));
@@ -184,7 +184,7 @@ public:
 
 private:
     Solver solver_;
-    NonMinimalStrategy strategy_;
+    NonMinimalSettings nm_;
 };
 
 // Affine non-minimal solver.
@@ -192,8 +192,8 @@ template <class Solver, size_t SampleSize>
 class GCAffineNonMinimalSolver : public gcransac::estimator::solver::SolverEngine {
 public:
     explicit GCAffineNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
-        : solver_(solver), strategy_(strategy) {}
+        const NonMinimalSettings& nm = {})
+        : solver_(solver), nm_(nm) {}
 
     static constexpr size_t sampleSize() { return SampleSize; }
     static constexpr size_t maximumSolutions() { return 1; }
@@ -234,7 +234,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_full(strategy_, solver_, x, y, est_fn, best))
+        if (!detail::non_minimal_dispatch_full(solver_, x, y, est_fn, best, nm_))
             return false;
 
         models_.push_back(pose_to_gc_model(best));
@@ -243,7 +243,7 @@ public:
 
 private:
     Solver solver_;
-    NonMinimalStrategy strategy_;
+    NonMinimalSettings nm_;
 };
 
 // Orientation non-minimal solver.
@@ -251,8 +251,8 @@ template <class Solver, size_t SampleSize>
 class GCOrientationNonMinimalSolver : public gcransac::estimator::solver::SolverEngine {
 public:
     explicit GCOrientationNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
-        : solver_(solver), strategy_(strategy) {}
+        const NonMinimalSettings& nm = {})
+        : solver_(solver), nm_(nm) {}
 
     static constexpr size_t sampleSize() { return SampleSize; }
     static constexpr size_t maximumSolutions() { return 1; }
@@ -292,7 +292,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_full(strategy_, solver_, x, y, est_fn, best))
+        if (!detail::non_minimal_dispatch_full(solver_, x, y, est_fn, best, nm_))
             return false;
 
         models_.push_back(pose_to_gc_model(best));
@@ -301,7 +301,7 @@ public:
 
 private:
     Solver solver_;
-    NonMinimalStrategy strategy_;
+    NonMinimalSettings nm_;
 };
 
 } // namespace HomLib

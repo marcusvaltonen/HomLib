@@ -18,9 +18,11 @@ std::pair<PoseData, ransac_lib::RansacStatistics> run_lomsac_point(
     const Solver& solver,
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
+    const NonMinimalSettings& nm,
     const ransac_lib::LORansacOptions& options)
 {
     RansacEstimator<Solver> estimator(x, y, solver);
+    estimator.nm_settings = nm;
 
     ransac_lib::RansacStatistics stats;
     PoseData best_model;

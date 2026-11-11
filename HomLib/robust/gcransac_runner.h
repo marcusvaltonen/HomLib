@@ -45,7 +45,6 @@ struct GCRANSACSettings {
     bool do_local_optimization = true;
     bool do_graph_cut = true;
     bool do_final_least_squares = true;
-    NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::Sample;
     GCSamplerType sampler = GCSamplerType::Uniform;
 };
 
@@ -157,6 +156,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_point(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<double>& probabilities,
+    const NonMinimalSettings& nm,
     const GCRANSACSettings& settings)
 {
     constexpr size_t SS = Solver::minimal_sample_size_value;
@@ -165,7 +165,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_point(
     using Est = HomLibGCEstimator<Solver, MinSolver, NonMinSolver>;
 
     auto data = detail::pack_point_cvmat(x, y);
-    Est estimator(solver, settings.non_minimal_strategy);
+    Est estimator(solver, nm);
     auto result = detail::run_gcransac_pipeline<4>(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
@@ -186,7 +186,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_affine(
     using Est = HomLibGCEstimator<Solver, MinSolver, NonMinSolver>;
 
     auto data = detail::pack_affine_cvmat(x, y, A);
-    Est estimator(solver, settings.non_minimal_strategy);
+    Est estimator(solver);
     auto result = detail::run_gcransac_pipeline<8>(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
@@ -207,7 +207,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_orientation(
     using Est = HomLibGCEstimator<Solver, MinSolver, NonMinSolver>;
 
     auto data = detail::pack_orientation_cvmat(x, y, ori);
-    Est estimator(solver, settings.non_minimal_strategy);
+    Est estimator(solver);
     auto result = detail::run_gcransac_pipeline<6>(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;

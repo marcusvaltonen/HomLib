@@ -310,10 +310,11 @@ std::pair<PoseData, SuperansacStatistics> run_superansac_point(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<double>& probabilities,
+    const NonMinimalSettings& nm,
     const superansac::RANSACSettings& settings)
 {
     auto data = detail::pack_point_data(x, y);
-    SuperansacPointEstimator<Solver> estimator(solver);
+    SuperansacPointEstimator<Solver> estimator(solver, nm);
     auto result = detail::run_pipeline<4>(&estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;

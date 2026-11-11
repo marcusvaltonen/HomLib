@@ -81,6 +81,7 @@ class FlippedOneSidedSolver : public PoseEstimator<FlippedOneSidedSolver<InnerSo
                   "FlippedOneSidedSolver requires a one-sided solver");
 public:
     static constexpr int minimal_sample_size_value = InnerSolver::minimal_sample_size_value;
+    static constexpr bool supports_overdetermined = InnerSolver::supports_overdetermined;
     static constexpr DistortionCase DISTORTION_CASE = detail::flipped_case(InnerSolver::DISTORTION_CASE);
 
     int solve(const std::vector<Eigen::Vector2d>& x, const std::vector<Eigen::Vector2d>& y,
@@ -121,6 +122,7 @@ class FlippedAffineOneSidedSolver : public AffinePoseEstimator<FlippedAffineOneS
                   "FlippedAffineOneSidedSolver requires a one-sided solver");
 public:
     static constexpr int minimal_sample_size_value = InnerSolver::minimal_sample_size_value;
+    static constexpr bool supports_overdetermined = InnerSolver::supports_overdetermined;
     static constexpr DistortionCase DISTORTION_CASE = detail::flipped_case(InnerSolver::DISTORTION_CASE);
 
     int solve(const std::vector<Eigen::Vector2d>& x, const std::vector<Eigen::Vector2d>& y,
@@ -164,6 +166,7 @@ class FlippedOrientationOneSidedSolver : public OrientationPoseEstimator<Flipped
                   "FlippedOrientationOneSidedSolver requires a one-sided solver");
 public:
     static constexpr int minimal_sample_size_value = InnerSolver::minimal_sample_size_value;
+    static constexpr bool supports_overdetermined = InnerSolver::supports_overdetermined;
     static constexpr DistortionCase DISTORTION_CASE = detail::flipped_case(InnerSolver::DISTORTION_CASE);
 
     int solve(const std::vector<Eigen::Vector2d>& x, const std::vector<Eigen::Vector2d>& y,

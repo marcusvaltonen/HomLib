@@ -33,9 +33,9 @@ protected:
 
 public:
     HomLibGCEstimator(const Solver& solver,
-                      NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
+                      const NonMinimalSettings& nm = {})
         : minimal_solver(std::make_shared<_MinimalSolverEngine>(solver)),
-          non_minimal_solver(std::make_shared<_NonMinimalSolverEngine>(solver, strategy)),
+          non_minimal_solver(std::make_shared<_NonMinimalSolverEngine>(solver, nm)),
           solver_(solver) {}
 
     static constexpr size_t sampleSize() {
@@ -177,8 +177,8 @@ public:
     using Base::residual;
 
     HomLibMAGSACEstimator(const Solver& solver,
-                          NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
-        : Base(solver, strategy) {}
+                          const NonMinimalSettings& nm = {})
+        : Base(solver, nm) {}
 
     inline double residualForScoring(
         const cv::Mat& point_,

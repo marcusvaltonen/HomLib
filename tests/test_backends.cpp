@@ -34,6 +34,7 @@
 #include "problem_instance.hpp"
 #include "generate_problem_instance.hpp"
 #include "get_wadenback_3dv_2026.hpp"
+#include "get_fitzgibbon_cvpr_2001.hpp"
 #include "get_valtonenornhag_icpr_2026.hpp"
 #include "pose_estimator.h"
 
@@ -215,7 +216,7 @@ TEST_CASE("LOMSAC - outliers where the true distortion can't be inverted") {
     options.squared_inlier_threshold_ = 0.005 * 0.005;
     options.max_num_iterations_ = 5000;
     options.random_seed_ = 7;
-    auto [pose, stats] = HomLib::run_lomsac_point(solver, x, y, options);
+    auto [pose, stats] = HomLib::run_lomsac_point(solver, x, y, {}, options);
 
     REQUIRE(stats.best_num_inliers == n_inliers);
     REQUIRE(std::abs(pose.distortion_parameter2 - k2) < 1e-6);
@@ -237,7 +238,7 @@ TEST_CASE("LOMSAC - point features") {
     options.max_num_iterations_ = 5000;
     options.random_seed_ = 42;
 
-    auto [pose, stats] = HomLib::run_lomsac_point(solver, data.x, data.y, options);
+    auto [pose, stats] = HomLib::run_lomsac_point(solver, data.x, data.y, {}, options);
 
     double expected_inlier_ratio = 1.0 - static_cast<double>(data.n_outliers) / data.n_total;
     REQUIRE(stats.inlier_ratio > 0.9 * expected_inlier_ratio);
@@ -278,6 +279,25 @@ TEST_CASE("LOMSAC - orientation features") {
     REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
 }
 
+TEST_CASE("LOMSAC - overdetermined non-minimal") {
+    auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
+    HomLib::FitzgibbonCVPR2001::SolverSingleSided solver;
+
+    HomLib::NonMinimalSettings nm;
+    nm.strategy = HomLib::NonMinimalStrategy::Overdetermined;
+
+    ransac_lib::LORansacOptions options;
+    options.squared_inlier_threshold_ = 0.005 * 0.005;
+    options.max_num_iterations_ = 5000;
+    options.random_seed_ = 42;
+
+    auto [pose, stats] = HomLib::run_lomsac_point(solver, data.x, data.y, nm, options);
+
+    double expected_inlier_ratio = 1.0 - static_cast<double>(data.n_outliers) / data.n_total;
+    REQUIRE(stats.inlier_ratio > 0.9 * expected_inlier_ratio);
+    REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
+}
+
 
 // ---------------------------------------------------------------------------
 // GC-RANSAC — optional
@@ -298,7 +318,7 @@ TEST_CASE("GC-RANSAC - point features") {
     size_t expected_inliers = data.n_total - data.n_outliers;
     bool success = false;
     for (int attempt = 0; attempt < 3 && !success; ++attempt) {
-        auto [pose, stats] = HomLib::run_gcransac_point(solver, data.x, data.y, {}, settings);
+        auto [pose, stats] = HomLib::run_gcransac_point(solver, data.x, data.y, {}, {}, settings);
         success = (stats.inliers.size() > 0.9 * expected_inliers) &&
                   (data.instance.hom_error(pose.homography) < 0.1);
     }
@@ -354,7 +374,7 @@ TEST_CASE("MAGSAC++ - point features") {
     settings.sigma_max = 0.01;
     settings.max_iterations = 5000;
 
-    auto [pose, stats] = HomLib::run_magsac_point(solver, data.x, data.y, {}, settings);
+    auto [pose, stats] = HomLib::run_magsac_point(solver, data.x, data.y, {}, {}, settings);
 
     size_t expected_inliers = data.n_total - data.n_outliers;
     REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
@@ -411,7 +431,8 @@ TEST_CASE("SupeRANSAC - point features") {
     settings.maxIterations = 5000;
     settings.sampler = superansac::samplers::SamplerType::Uniform;
 
-    auto [pose, stats] = HomLib::run_superansac_point(solver, data.x, data.y, {}, settings);
+    auto [pose, stats] = HomLib::run_superansac_point(solver, data.x, data.y, {},
+        {}, settings);
 
     size_t expected_inliers = data.n_total - data.n_outliers;
     REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);

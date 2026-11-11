@@ -47,6 +47,7 @@ std::vector<HomLib::PoseData> get_single(
 class SolverSingleSided : public OneSidedLeftPointEstimator<SolverSingleSided> {
     public:
         static constexpr int minimal_sample_size_value = 5;
+        static constexpr bool supports_overdetermined = true;
         SolverSingleSided() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
@@ -60,6 +61,7 @@ class SolverSingleSided : public OneSidedLeftPointEstimator<SolverSingleSided> {
 class SolverTwoSidedEqual : public TwoSidedEqualPointEstimator<SolverTwoSidedEqual> {
     public:
         static constexpr int minimal_sample_size_value = 5;
+        static constexpr bool supports_overdetermined = true;
         SolverTwoSidedEqual() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {

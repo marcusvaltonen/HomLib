@@ -47,6 +47,73 @@ def _assert_good(tc, est, stats, H_gt, N, n_out,
 
 
 # ---------------------------------------------------------------
+# LOMSAC
+# ---------------------------------------------------------------
+
+class LOMSACNonMinimalTestCase(unittest.TestCase):
+    def setUp(self):
+        scene = _make_scene()
+        self.x, self.y, self.scores, self.H, self.n_out = scene
+        self.N = self.x.shape[1]
+
+    def _assert_lomsac_good(self, est, stats):
+        H_est = normalize_H(est.homography)
+        H_gt = normalize_H(self.H)
+        self.assertLess(np.linalg.norm(H_est - H_gt), 0.1)
+        self.assertGreater(stats.best_num_inliers,
+                           self.N - self.n_out - 10)
+
+    @retry()
+    def test_overdetermined_same_solver(self):
+        lo = homlib.LOMSAC(
+            homlib.FitzgibbonCVPR2001OneSided(),
+            non_minimal_strategy="overdetermined",
+            inlier_threshold=0.07)
+        est, stats = lo.estimate(self.x, self.y)
+        self._assert_lomsac_good(est, stats)
+
+    @retry()
+    def test_overdetermined_separate_solver(self):
+        lo = homlib.LOMSAC(
+            homlib.Wadenback3DV2026OneSided(),
+            non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided(),
+            inlier_threshold=0.07)
+        est, stats = lo.estimate(self.x, self.y)
+        self._assert_lomsac_good(est, stats)
+
+    @retry()
+    def test_non_minimal_sample_size_override(self):
+        lo = homlib.LOMSAC(
+            homlib.FitzgibbonCVPR2001OneSided(),
+            non_minimal_strategy="overdetermined",
+            non_minimal_sample_size=20,
+            inlier_threshold=0.07)
+        est, stats = lo.estimate(self.x, self.y)
+        self._assert_lomsac_good(est, stats)
+
+    @retry()
+    def test_refine_non_minimal_false(self):
+        lo = homlib.LOMSAC(
+            homlib.FitzgibbonCVPR2001OneSided(),
+            non_minimal_strategy="overdetermined",
+            refine_non_minimal=False,
+            inlier_threshold=0.07)
+        est, stats = lo.estimate(self.x, self.y)
+        H_est = normalize_H(est.homography)
+        H_gt = normalize_H(self.H)
+        self.assertLess(np.linalg.norm(H_est - H_gt), 0.5)
+
+    @retry()
+    def test_overdetermined_dlt(self):
+        lo = homlib.LOMSAC(
+            homlib.DLT(),
+            non_minimal_strategy="overdetermined",
+            inlier_threshold=0.07)
+        est, stats = lo.estimate(self.x, self.y)
+        self._assert_lomsac_good(est, stats)
+
+
+# ---------------------------------------------------------------
 # GC-RANSAC
 # ---------------------------------------------------------------
 
@@ -160,10 +227,20 @@ class GCRANSACSamplerTestCase(unittest.TestCase):
 
     @retry()
     def test_non_minimal_overdetermined(self):
+        solver = homlib.FitzgibbonCVPR2001OneSided()
         nms = homlib.NonMinimalStrategy.Overdetermined
         gc = homlib.GCRANSAC(
-            self.solver, threshold=self.thr,
+            solver, threshold=self.thr,
             non_minimal_strategy=nms)
+        est, stats = gc.estimate(self.x, self.y)
+        _assert_good(
+            self, est, stats, self.H, self.N, self.n_out)
+
+    @retry()
+    def test_non_minimal_overdetermined_separate_solver(self):
+        gc = homlib.GCRANSAC(
+            self.solver, threshold=self.thr,
+            non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided())
         est, stats = gc.estimate(self.x, self.y)
         _assert_good(
             self, est, stats, self.H, self.N, self.n_out)
@@ -182,12 +259,6 @@ class GCRANSACSamplerTestCase(unittest.TestCase):
         s.sampler = homlib.GCSamplerType.PROSAC
         self.assertEqual(
             s.sampler, homlib.GCSamplerType.PROSAC)
-
-    def test_settings_non_minimal_strategy_field(self):
-        s = homlib.GCRANSACSettings()
-        nms = homlib.NonMinimalStrategy.Sample
-        s.non_minimal_strategy = nms
-        self.assertEqual(s.non_minimal_strategy, nms)
 
     # --- Namespace aliases ---
 
@@ -324,10 +395,21 @@ class MAGSACSamplerTestCase(unittest.TestCase):
 
     @retry()
     def test_non_minimal_overdetermined(self):
+        solver = homlib.FitzgibbonCVPR2001OneSided()
         nms = homlib.NonMinimalStrategy.Overdetermined
         mg = homlib.MAGSAC(
-            self.solver, sigma_max=self.sigma,
+            solver, sigma_max=self.sigma,
             non_minimal_strategy=nms)
+        est, stats = mg.estimate(self.x, self.y)
+        _assert_good(
+            self, est, stats, self.H, self.N, self.n_out,
+            check_inliers=False)
+
+    @retry()
+    def test_non_minimal_overdetermined_separate_solver(self):
+        mg = homlib.MAGSAC(
+            self.solver, sigma_max=self.sigma,
+            non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided())
         est, stats = mg.estimate(self.x, self.y)
         _assert_good(
             self, est, stats, self.H, self.N, self.n_out,
@@ -348,12 +430,6 @@ class MAGSACSamplerTestCase(unittest.TestCase):
         s.sampler = homlib.GCSamplerType.ARSampler
         self.assertEqual(
             s.sampler, homlib.GCSamplerType.ARSampler)
-
-    def test_settings_non_minimal_strategy_field(self):
-        s = homlib.MAGSACSettings()
-        nms = homlib.NonMinimalStrategy.Overdetermined
-        s.non_minimal_strategy = nms
-        self.assertEqual(s.non_minimal_strategy, nms)
 
     # --- Namespace aliases ---
 
@@ -488,6 +564,32 @@ class SuperansacSamplerTestCase(unittest.TestCase):
         sa = homlib.SupeRANSAC(
             self.solver, inlier_threshold=self.thr,
             scoring=SA_Score.RANSAC,
+            **self.no_lo)
+        est, stats = sa.estimate(self.x, self.y)
+        _assert_good(
+            self, est, stats, self.H, self.N, self.n_out,
+            check_inliers=False)
+
+    # --- NonMinimalStrategy ---
+
+    @retry()
+    def test_non_minimal_overdetermined(self):
+        solver = homlib.FitzgibbonCVPR2001OneSided()
+        nms = homlib.NonMinimalStrategy.Overdetermined
+        sa = homlib.SupeRANSAC(
+            solver, inlier_threshold=self.thr,
+            non_minimal_strategy=nms,
+            **self.no_lo)
+        est, stats = sa.estimate(self.x, self.y)
+        _assert_good(
+            self, est, stats, self.H, self.N, self.n_out,
+            check_inliers=False)
+
+    @retry()
+    def test_non_minimal_overdetermined_separate_solver(self):
+        sa = homlib.SupeRANSAC(
+            self.solver, inlier_threshold=self.thr,
+            non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided(),
             **self.no_lo)
         est, stats = sa.estimate(self.x, self.y)
         _assert_good(

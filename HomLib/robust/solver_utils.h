@@ -4,12 +4,25 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <functional>
 #include <Eigen/Dense>
 #include "posedata.hpp"
 
 namespace HomLib {
 
 enum class NonMinimalStrategy { Sample, Overdetermined };
+
+using NonMinimalEstimateFn = std::function<int(
+    const std::vector<Eigen::Vector2d>&,
+    const std::vector<Eigen::Vector2d>&,
+    std::vector<PoseData>*)>;
+
+struct NonMinimalSettings {
+    NonMinimalStrategy strategy = NonMinimalStrategy::Sample;
+    int sample_size = 0;
+    bool refine = true;
+    NonMinimalEstimateFn solver_fn;
+};
 
 namespace detail {
 
@@ -118,32 +131,52 @@ inline bool lomsac_non_minimal_full(
     return true;
 }
 
-// Dispatch for point-based non-minimal solving.
-// estimate_fn signature: (const Solver&, const vector<Vector2d>&, const vector<Vector2d>&,
-//                         const vector<size_t>&, size_t, vector<PoseData>*)
 template <class Solver, class EstimateFunc>
 inline bool non_minimal_dispatch_point(
-    NonMinimalStrategy strategy,
     const Solver& solver,
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     EstimateFunc estimate_fn,
     PoseData& best,
-    bool refine_non_minimal = true)
+    const NonMinimalSettings& nm = {})
 {
     const size_t n = x.size();
     const size_t ss = static_cast<size_t>(solver.minimal_sample_size());
     if (n < ss)
         return false;
 
-    std::vector<size_t> idx(ss);
-    for (size_t i = 0; i < ss; ++i)
-        idx[i] = i * n / ss;
-    std::vector<PoseData> poses;
-    estimate_fn(solver, x, y, idx, ss, &poses);
-    bool found = select_best(solver, poses, x, y, best);
+    bool found = false;
 
-    if (found && refine_non_minimal)
+    switch (nm.strategy) {
+        case NonMinimalStrategy::Sample: {
+            std::vector<size_t> idx(ss);
+            std::iota(idx.begin(), idx.end(), 0);
+            std::vector<PoseData> poses;
+            estimate_fn(solver, x, y, idx, ss, &poses);
+            found = select_best(solver, poses, x, y, best);
+            break;
+        }
+        case NonMinimalStrategy::Overdetermined: {
+            if (nm.solver_fn) {
+                std::vector<PoseData> poses;
+                nm.solver_fn(x, y, &poses);
+                int best_idx = find_best_pose(solver, poses, x, y);
+                if (best_idx < 0)
+                    return false;
+                best = poses[best_idx];
+                found = true;
+            } else {
+                std::vector<size_t> idx(n);
+                std::iota(idx.begin(), idx.end(), 0);
+                std::vector<PoseData> poses;
+                estimate_fn(solver, x, y, idx, n, &poses);
+                found = select_best(solver, poses, x, y, best);
+            }
+            break;
+        }
+    }
+
+    if (found && nm.refine)
         solver.refine(best, x, y);
     return found;
 }
@@ -151,13 +184,12 @@ inline bool non_minimal_dispatch_point(
 // Dispatch for full non-minimal solving (affine/orientation — uses all points).
 template <class Solver, class EstimateFunc>
 inline bool non_minimal_dispatch_full(
-    NonMinimalStrategy strategy,
     const Solver& solver,
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     EstimateFunc estimate_fn,
     PoseData& best,
-    bool refine_non_minimal = true)
+    const NonMinimalSettings& nm = {})
 {
     const size_t n = x.size();
     if (n < static_cast<size_t>(solver.minimal_sample_size()))
@@ -165,7 +197,7 @@ inline bool non_minimal_dispatch_full(
 
     bool found = false;
 
-    switch (strategy) {
+    switch (nm.strategy) {
         case NonMinimalStrategy::Sample:
         case NonMinimalStrategy::Overdetermined: {
             std::vector<size_t> idx(n);
@@ -177,7 +209,7 @@ inline bool non_minimal_dispatch_full(
         }
     }
 
-    if (found && refine_non_minimal)
+    if (found && nm.refine)
         solver.refine(best, x, y);
     return found;
 }
