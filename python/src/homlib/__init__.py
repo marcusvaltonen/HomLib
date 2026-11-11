@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import warnings
 from abc import ABC, abstractmethod
+from typing import Literal
 
 from . import _core
 from ._core import (
@@ -353,9 +354,11 @@ class NonMinimalSettings:
     Parameters
     ----------
     sample_size : int
-        Override the non-minimal sample size (0 = use 2x minimal).
+        Override the non-minimal sample size (0 = automatic: 2x minimal for
+        point solvers, 4x for affine/orientation).  Currently honoured by
+        LOMSAC only; GC-RANSAC, MAGSAC, and SupeRANSAC ignore this field.
     refine : bool
-        Whether to refine the non-minimal result.
+        Whether to refine the non-minimal result (default ``True``).
     """
 
     def __init__(self, sample_size=0, refine=True):
@@ -480,7 +483,7 @@ class LOMSAC(RobustEstimator):
         A separate solver for non-minimal (overdetermined) estimation.
         Must be point-based and have the same ``distortion_case`` as *solver*.
         Implies ``non_minimal_strategy='overdetermined'``.
-    non_minimal_strategy : str or NonMinimalStrategy, optional
+    non_minimal_strategy : ``"sample"`` | ``"overdetermined"`` | NonMinimalStrategy, optional
         ``"sample"`` (default) sub-samples to minimal size; ``"overdetermined"``
         passes all inlier points to solvers that accept N > minimal.
     non_minimal_settings : NonMinimalSettings or dict, optional
@@ -500,7 +503,8 @@ class LOMSAC(RobustEstimator):
     NonMinimalStrategy = NonMinimalStrategy
 
     def __init__(self, solver, non_minimal_solver=None, *,
-                 non_minimal_strategy=None, non_minimal_settings=None,
+                 non_minimal_strategy: Literal["sample", "overdetermined"] | NonMinimalStrategy | None = None,
+                 non_minimal_settings=None,
                  options=None, **kwargs):
         super().__init__(solver)
         self._non_minimal_solver = _resolve_non_minimal_solver(
@@ -614,8 +618,18 @@ class SupeRANSAC(RobustEstimator):
 
     Parameters
     ----------
-    solver : Solver
-        A solver instance (any feature type).
+    solver : Solver or str or SolverId
+        A solver instance, name, or enum (any feature type).
+    non_minimal_solver : Solver or str or SolverId, optional
+        A separate solver for non-minimal (overdetermined) estimation.
+        Must be point-based and have the same ``distortion_case`` as *solver*.
+        Implies ``non_minimal_strategy='overdetermined'``.
+    non_minimal_strategy : ``"sample"`` | ``"overdetermined"`` | NonMinimalStrategy, optional
+        ``"sample"`` (default) sub-samples to minimal size; ``"overdetermined"``
+        passes all inlier points to solvers that accept N > minimal.
+    non_minimal_settings : NonMinimalSettings or dict, optional
+        Settings for the non-minimal step (``sample_size``, ``refine``).
+        Note: ``sample_size`` is ignored by SupeRANSAC (only LOMSAC honours it).
     settings : SuperansacSettings, optional
         Pre-configured settings object. If not given, a default is created.
     **kwargs
@@ -638,7 +652,8 @@ class SupeRANSAC(RobustEstimator):
         DegensacSettings = SuperansacDegensacSettings
 
     def __init__(self, solver, non_minimal_solver=None, *,
-                 non_minimal_strategy=None, non_minimal_settings=None,
+                 non_minimal_strategy: Literal["sample", "overdetermined"] | NonMinimalStrategy | None = None,
+                 non_minimal_settings=None,
                  settings=None, **kwargs):
         if not _HAS_SUPERANSAC:
             raise ImportError(
@@ -742,8 +757,18 @@ class GCRANSAC(RobustEstimator):
 
     Parameters
     ----------
-    solver : Solver
-        A solver instance (any feature type).
+    solver : Solver or str or SolverId
+        A solver instance, name, or enum (any feature type).
+    non_minimal_solver : Solver or str or SolverId, optional
+        A separate solver for non-minimal (overdetermined) estimation.
+        Must be point-based and have the same ``distortion_case`` as *solver*.
+        Implies ``non_minimal_strategy='overdetermined'``.
+    non_minimal_strategy : ``"sample"`` | ``"overdetermined"`` | NonMinimalStrategy, optional
+        ``"sample"`` (default) sub-samples to minimal size; ``"overdetermined"``
+        passes all inlier points to solvers that accept N > minimal.
+    non_minimal_settings : NonMinimalSettings or dict, optional
+        Settings for the non-minimal step (``sample_size``, ``refine``).
+        Note: ``sample_size`` is ignored by GC-RANSAC (only LOMSAC honours it).
     settings : GCRANSACSettings, optional
         Pre-configured settings object. If not given, a default is created.
     **kwargs
@@ -758,7 +783,8 @@ class GCRANSAC(RobustEstimator):
         NonMinimalStrategy = NonMinimalStrategy
 
     def __init__(self, solver, non_minimal_solver=None, *,
-                 non_minimal_strategy=None, non_minimal_settings=None,
+                 non_minimal_strategy: Literal["sample", "overdetermined"] | NonMinimalStrategy | None = None,
+                 non_minimal_settings=None,
                  settings=None, **kwargs):
         if not _HAS_GCRANSAC:
             raise ImportError(
@@ -861,8 +887,18 @@ class MAGSAC(RobustEstimator):
 
     Parameters
     ----------
-    solver : Solver
-        A solver instance (any feature type).
+    solver : Solver or str or SolverId
+        A solver instance, name, or enum (any feature type).
+    non_minimal_solver : Solver or str or SolverId, optional
+        A separate solver for non-minimal (overdetermined) estimation.
+        Must be point-based and have the same ``distortion_case`` as *solver*.
+        Implies ``non_minimal_strategy='overdetermined'``.
+    non_minimal_strategy : ``"sample"`` | ``"overdetermined"`` | NonMinimalStrategy, optional
+        ``"sample"`` (default) sub-samples to minimal size; ``"overdetermined"``
+        passes all inlier points to solvers that accept N > minimal.
+    non_minimal_settings : NonMinimalSettings or dict, optional
+        Settings for the non-minimal step (``sample_size``, ``refine``).
+        Note: ``sample_size`` is ignored by MAGSAC (only LOMSAC honours it).
     settings : MAGSACSettings, optional
         Pre-configured settings object. If not given, a default is created.
     **kwargs
@@ -878,7 +914,8 @@ class MAGSAC(RobustEstimator):
         NonMinimalStrategy = NonMinimalStrategy
 
     def __init__(self, solver, non_minimal_solver=None, *,
-                 non_minimal_strategy=None, non_minimal_settings=None,
+                 non_minimal_strategy: Literal["sample", "overdetermined"] | NonMinimalStrategy | None = None,
+                 non_minimal_settings=None,
                  settings=None, **kwargs):
         if not _HAS_MAGSAC:
             raise ImportError(
