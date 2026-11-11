@@ -86,7 +86,7 @@ class LOMSACNonMinimalTestCase(unittest.TestCase):
         lo = homlib.LOMSAC(
             homlib.FitzgibbonCVPR2001OneSided(),
             non_minimal_strategy="overdetermined",
-            non_minimal_sample_size=20,
+            non_minimal_settings=homlib.NonMinimalSettings(sample_size=20),
             inlier_threshold=0.07)
         est, stats = lo.estimate(self.x, self.y)
         self._assert_lomsac_good(est, stats)
@@ -96,7 +96,7 @@ class LOMSACNonMinimalTestCase(unittest.TestCase):
         lo = homlib.LOMSAC(
             homlib.FitzgibbonCVPR2001OneSided(),
             non_minimal_strategy="overdetermined",
-            refine_non_minimal=False,
+            non_minimal_settings=homlib.NonMinimalSettings(refine=False),
             inlier_threshold=0.07)
         est, stats = lo.estimate(self.x, self.y)
         H_est = normalize_H(est.homography)

@@ -82,19 +82,13 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_point(
     const PySolver& solver,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
-    HomLib::NonMinimalStrategy strategy,
-    int non_minimal_sample_size,
-    bool refine_non_minimal,
+    HomLib::NonMinimalSettings nm,
     const py::object& non_minimal_solver_obj,
     const ransac_lib::LORansacOptions& options)
 {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
 
-    HomLib::NonMinimalSettings nm;
-    nm.strategy = strategy;
-    nm.sample_size = non_minimal_sample_size;
-    nm.refine = refine_non_minimal;
     if (!non_minimal_solver_obj.is_none())
         nm.solver_fn = resolve_non_minimal_fn(non_minimal_solver_obj.cast<PySolver>());
 
@@ -582,6 +576,27 @@ PYBIND11_MODULE(_core, m) {
         .value("Sample", HomLib::NonMinimalStrategy::Sample)
         .value("Overdetermined", HomLib::NonMinimalStrategy::Overdetermined);
 
+    py::class_<HomLib::NonMinimalSettings>(m, "NonMinimalSettings",
+        "Settings for the non-minimal solver step.")
+        .def(py::init<>())
+        .def(py::init([](HomLib::NonMinimalStrategy strategy, int sample_size, bool refine) {
+            HomLib::NonMinimalSettings s;
+            s.strategy = strategy;
+            s.sample_size = sample_size;
+            s.refine = refine;
+            return s;
+        }), "strategy"_a = HomLib::NonMinimalStrategy::Sample,
+            "sample_size"_a = 0, "refine"_a = true)
+        .def_readwrite("strategy", &HomLib::NonMinimalSettings::strategy)
+        .def_readwrite("sample_size", &HomLib::NonMinimalSettings::sample_size)
+        .def_readwrite("refine", &HomLib::NonMinimalSettings::refine)
+        .def("__repr__", [](const HomLib::NonMinimalSettings& s) {
+            return "NonMinimalSettings(strategy=" +
+                std::string(s.strategy == HomLib::NonMinimalStrategy::Sample ? "Sample" : "Overdetermined") +
+                ", sample_size=" + std::to_string(s.sample_size) +
+                ", refine=" + std::string(s.refine ? "True" : "False") + ")";
+        });
+
 
     // --- RansacStatistics ---
 
@@ -711,9 +726,7 @@ PYBIND11_MODULE(_core, m) {
                 Best model and estimation statistics.
         )pbdoc",
         "solver"_a, "x"_a, "y"_a,
-        "strategy"_a = HomLib::NonMinimalStrategy::Sample,
-        "non_minimal_sample_size"_a = 0,
-        "refine_non_minimal"_a = true,
+        "nm"_a = HomLib::NonMinimalSettings{},
         "non_minimal_solver"_a = py::none(),
         "options"_a);
 
