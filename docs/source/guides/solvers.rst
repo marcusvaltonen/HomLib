@@ -148,7 +148,7 @@ Point-based solvers
      - None
      - [Cai2025]_
    * - :class:`~homlib.DLT`
-     - 4
+     - 4+
      - None
      - [HartleyZisserman2003]_
    * - :class:`~homlib.FitzgibbonCVPR2001OneSided`
@@ -220,15 +220,15 @@ Affine-covariant solvers
      - Distortion
      - Reference
    * - :class:`~homlib.BarathVISAPP2016Affine`
-     - 2
+     - 2+
      - None
      - [Barath2016]_
    * - :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSided`
-     - 2
+     - 2+
      - One-sided (left)
      - [ValtonenOrnhagAdalbjornsson2026]_
    * - :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSidedRight`
-     - 2
+     - 2+
      - One-sided (right)
      - [ValtonenOrnhagAdalbjornsson2026]_
 
@@ -244,11 +244,11 @@ Orientation-covariant solvers
      - Distortion
      - Reference
    * - :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSided`
-     - 3
+     - 3+
      - One-sided (left)
      - [ValtonenOrnhagAdalbjornsson2026]_
    * - :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSidedRight`
-     - 3
+     - 3+
      - One-sided (right)
      - [ValtonenOrnhagAdalbjornsson2026]_
 
