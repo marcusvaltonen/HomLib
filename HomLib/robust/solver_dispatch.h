@@ -96,4 +96,10 @@ auto dispatch_solver(SolverId id, Func&& func) {
     }
 }
 
+inline DistortionCase distortion_case_for(SolverId id) {
+    return dispatch_solver(id, [](auto solver) {
+        return std::decay_t<decltype(solver)>::DISTORTION_CASE;
+    });
+}
+
 } // namespace HomLib

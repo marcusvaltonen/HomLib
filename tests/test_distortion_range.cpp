@@ -50,13 +50,15 @@ bool HasK(const std::vector<HomLib::PoseData> &poses, double k, double tol) {
     return false;
 }
 
-// A solver that records the range it gets
+// A solver that records the range it gets, outside the solver: GCC 13.3 at -O1 and above (its
+// interprocedural mod/ref analysis) drops the store to a mutable member made by this const solve(),
+// called through the estimator's const this; GCC 11 and clang keep it
 class RangeSolver : public HomLib::PoseEstimator<RangeSolver> {
 public:
-    mutable HomLib::DistortionRange last;
+    HomLib::DistortionRange *last = nullptr;
     int solve(const std::vector<Eigen::Vector2d> &, const std::vector<Eigen::Vector2d> &,
               std::vector<HomLib::PoseData> *poses, const HomLib::DistortionRange &range) const {
-        last = range;
+        *last = range;
         poses->push_back(MakePose(-0.3, -0.2));
         return 1;
     }
@@ -109,17 +111,19 @@ TEST_CASE("Distortion range: the estimators pass it to the solvers, in their nor
     const std::vector<Eigen::Vector2d> x(5, Eigen::Vector2d(2, 2)), y = x;
     std::vector<HomLib::PoseData> poses;
     RangeSolver solver;
+    HomLib::DistortionRange last;
+    solver.last = &last;
     solver.estimate(x, y, &poses);   // the default
-    REQUIRE(solver.last.enabled);
-    REQUIRE(solver.last.k_min == -1.0);
-    REQUIRE(solver.last.k_max == 0.1);
+    REQUIRE(last.enabled);
+    REQUIRE(last.k_min == -1.0);
+    REQUIRE(last.k_max == 0.1);
     solver.k_range = HomLib::DistortionRange(-0.5, 0.05);
     solver.estimate(x, y, &poses);
-    REQUIRE(solver.last.k_min == -0.5);
-    REQUIRE(solver.last.k_max == 0.05);
+    REQUIRE(last.k_min == -0.5);
+    REQUIRE(last.k_max == 0.05);
     solver.k_range = HomLib::DistortionRange();
     solver.estimate(x, y, &poses);
-    REQUIRE_FALSE(solver.last.enabled);
+    REQUIRE_FALSE(last.enabled);
 }
 
 TEST_CASE("Distortion range in the solvers: the roots in the range, before their homography") {

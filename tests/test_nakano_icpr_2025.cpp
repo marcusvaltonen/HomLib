@@ -19,11 +19,14 @@
 // SOFTWARE.
 
 #include <Eigen/Dense>
+#include <random>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 #include "get_nakano_icpr_2025.hpp"
+#include "radial.hpp"
 #include "posedata.hpp"
+#include "test_generate_helpers.hpp"
 
 TEST_CASE("Nakano ICPR 2025") {
     std::vector<Eigen::Vector2d> p1 = {
@@ -63,4 +66,79 @@ TEST_CASE("Nakano ICPR 2025") {
                  0.851682151867801,  0.527896230136481, -1.5204980422764300;
     REQUIRE(posedata[0].homography.isApprox(expected, tol));
 
+}
+
+// ============================================================================
+// Overdetermined: N > 5
+// ============================================================================
+
+TEST_CASE("Nakano - overdetermined N > 5") {
+    Eigen::Matrix3d H;
+    H << 0.9, 0.1, 0.05,
+        -0.1, 0.85, 0.03,
+         0.02, -0.01, 1.0;
+    double k2 = -0.15;
+
+    std::vector<Eigen::Vector2d> x, y;
+    generate_one_sided_left(H, k2, 20, &x, &y);
+
+    auto output = HomLib::NakanoICPR2025::get(x, y, true);
+    REQUIRE(output.size() == 1);
+    REQUIRE(output[0].distortion_parameter2 == Catch::Approx(k2).margin(1e-10));
+
+    Eigen::Matrix3d H_est = output[0].homography;
+    H_est /= H_est(2, 2);
+    Eigen::Matrix3d H_gt = H / H(2, 2);
+    double max_reproj = 0.0;
+    for (size_t i = 0; i < x.size(); i++) {
+        Eigen::Vector2d yu_est = (H_est * x[i].homogeneous()).hnormalized();
+        Eigen::Vector2d yu_gt = (H_gt * x[i].homogeneous()).hnormalized();
+        max_reproj = std::max(max_reproj, (yu_est - yu_gt).norm());
+    }
+    REQUIRE(max_reproj < 1e-10);
+}
+
+TEST_CASE("Nakano - k=0 (no distortion)") {
+    Eigen::Matrix3d H;
+    H << 0.9, 0.1, 0.05,
+        -0.1, 0.85, 0.03,
+         0.02, -0.01, 1.0;
+
+    SECTION("minimal N=5") {
+        std::vector<Eigen::Vector2d> x, y;
+        generate_one_sided_left(H, 0.0, 5, &x, &y);
+        auto output = HomLib::NakanoICPR2025::get(x, y, true);
+        REQUIRE(output.size() == 1);
+        REQUIRE(output[0].distortion_parameter2 == Catch::Approx(0.0).margin(1e-10));
+    }
+    SECTION("overdetermined N=20") {
+        std::vector<Eigen::Vector2d> x, y;
+        generate_one_sided_left(H, 0.0, 20, &x, &y);
+        auto output = HomLib::NakanoICPR2025::get(x, y, true);
+        REQUIRE(output.size() == 1);
+        REQUIRE(output[0].distortion_parameter2 == Catch::Approx(0.0).margin(1e-10));
+    }
+}
+
+TEST_CASE("Nakano - fewer than 5 returns empty") {
+    std::vector<Eigen::Vector2d> x = {
+        Eigen::Vector2d(0.1, 0.2), Eigen::Vector2d(0.3, 0.4),
+        Eigen::Vector2d(0.5, 0.6), Eigen::Vector2d(0.7, 0.8)
+    };
+    REQUIRE(HomLib::NakanoICPR2025::get(x, x, false).empty());
+}
+
+TEST_CASE("Nakano - minimal N=5 regression") {
+    Eigen::Matrix3d H;
+    H << 0.9, 0.1, 0.05,
+        -0.1, 0.85, 0.03,
+         0.02, -0.01, 1.0;
+    double k2 = -0.15;
+
+    std::vector<Eigen::Vector2d> x, y;
+    generate_one_sided_left(H, k2, 5, &x, &y);
+
+    auto output = HomLib::NakanoICPR2025::get(x, y, true);
+    REQUIRE(output.size() >= 1);
+    REQUIRE(output[0].distortion_parameter2 == Catch::Approx(k2).margin(1e-6));
 }

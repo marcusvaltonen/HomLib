@@ -75,12 +75,37 @@ namespace KukelovaCVPR2015 {
             AM.row(i) = RR.row(AM_ind[i]);
         }
 
-        // Find real eigenvalues via characteristic polynomial + Sturm bisection
+        // Find real eigenvalues via characteristic polynomial + Sturm bisection. tol = 1e-14: with
+        // the default 1e-10, Newton's method stops when |p(x)| < 1e-10, and the ill-conditioned roots
+        // stay inaccurate.
         double p[6];
         Eigen::Matrix<double, 5, 5> AMp = AM;
         poselib::sturm::charpoly_danilevsky_piv(AMp, p);
         double roots[5];
-        int nroots = poselib::sturm::bisect_sturm<5>(p, roots);
+        int nroots = poselib::sturm::bisect_sturm<5>(p, roots, 1e-14);
+
+        // Close eigenvalues are ill-conditioned roots of the characteristic polynomial, which only
+        // determines them roughly: then Eigen's eigensolver, as before (about 1 problem in 100).
+        // The roots are in increasing order.
+        for (int i = 0; i + 1 < nroots; i++) {
+            if (roots[i + 1] - roots[i] < 1e-3 * (1.0 + std::abs(roots[i]))) {
+                Eigen::EigenSolver<Eigen::Matrix<double, 5, 5>> es(AM);
+                if (es.info() != Eigen::Success) {
+                    return 0;
+                }
+                int n = 0;
+                for (int j = 0; j < 5; j++) {
+                    const std::complex<double> v0 = es.eigenvectors()(0, j);
+                    const Eigen::Vector3cd sol(es.eigenvalues()(j), es.eigenvectors()(2, j) / v0,
+                                               es.eigenvectors()(3, j) / v0);
+                    // The complex solutions are removed, with the same threshold as before
+                    if (sol.imag().squaredNorm() <= 1e-5) {
+                        sols.col(n++) = sol.real();
+                    }
+                }
+                return n;
+            }
+        }
 
         // Fast eigenvector extraction for each real eigenvalue.
         // AM.row(0) = [0,1,0,0,0], so v[1] = λ·v[0]; with v[0] = 1: v[1] = λ.
@@ -99,6 +124,30 @@ namespace KukelovaCVPR2015 {
                 rhs(r) = -(AM(r + 2, 0) + AM(r + 2, 1) * lam);
             }
             Eigen::Vector3d v = B.partialPivLu().solve(rhs);
+
+            // lam is only as accurate as the characteristic polynomial allows: 2 steps of Newton's
+            // method on rows 1-4 of (AM - lam I) w = 0, w = (1, lam, v) (row 0 holds by construction),
+            // with unknowns lam and v
+            double l = lam;
+            for (int it = 0; it < 2; it++) {
+                Eigen::Matrix<double, 5, 1> w;   // (Eigen 3.3 has no 5-value constructor)
+                w << 1.0, l, v(0), v(1), v(2);
+                Eigen::Vector4d F;
+                Eigen::Matrix4d J;
+                for (int r = 1; r < 5; r++) {
+                    F(r - 1) = AM.row(r).dot(w) - l * w(r);
+                    J(r - 1, 0) = AM(r, 1) - w(r) - (r == 1 ? l : 0.0);
+                    for (int k = 2; k < 5; k++)
+                        J(r - 1, k - 1) = AM(r, k) - (r == k ? l : 0.0);
+                }
+                const Eigen::Vector4d du = J.partialPivLu().solve(-F);
+                if (!du.allFinite()) {
+                    break;
+                }
+                l += du(0);
+                v += du.tail<3>();
+            }
+            sols(0, i) = l;
             sols(1, i) = v(0);
             sols(2, i) = v(1);
         }

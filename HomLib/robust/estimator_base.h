@@ -22,25 +22,44 @@ namespace HomLib {
 
 	protected:
 		// With normalize_image_coord, divides x and y by f0 = mean(|x|)/sqrt(2), so that the mean
-		// distance of x to the origin is sqrt(2), and returns f0 (otherwise 1). The points aren't
-		// translated: the origin is the distortion center. Returns 0, without changing the points,
-		// if f0 is 0 (all of x at the origin) or not finite: the sample has no solution.
-		double normalize(std::vector<Eigen::Vector2d> &x, std::vector<Eigen::Vector2d> &y) const {
+		// distance of x to the origin is sqrt(2), and sets *f0 (otherwise 1). The points aren't
+		// translated: the origin is the distortion center. False, without changing the points, if
+		// f0 is 0 (all of x at the origin) or not finite: the sample has no solution.
+		bool normalize(std::vector<Eigen::Vector2d> &x, std::vector<Eigen::Vector2d> &y, double *f0) const {
+			*f0 = 1.0;
 			if (!normalize_image_coord)
-				return 1.0;
-			double f0 = 0.0;
+				return true;
+			double s = 0.0;
 			for (size_t i = 0; i < x.size(); i++) {
-				f0 += x[i].norm();
+				s += x[i].norm();
 			}
-			f0 /= x.size();
-			f0 /= std::sqrt(2.0);
-			if (!(std::isfinite(f0) && f0 > 0.0))
-				return 0.0;
+			s /= x.size();
+			s /= std::sqrt(2.0);
+			if (!(std::isfinite(s) && s > 0.0))
+				return false;
 			for (size_t i = 0; i < x.size(); i++) {
-				x[i] /= f0;
-				y[i] /= f0;
+				x[i] /= s;
+				y[i] /= s;
 			}
-			return f0;
+			*f0 = s;
+			return true;
+		}
+
+		// The estimate() of the three estimators: normalizes copies of x and y, calls
+		// solve(x, y) on them (which adds the solutions to poses), and denormalizes the solutions;
+		// their number. No solution if the sample can't be normalized.
+		template <class Solve>
+		int estimate_normalized(const std::vector<Eigen::Vector2d> &x_, const std::vector<Eigen::Vector2d> &y_,
+		                        std::vector<HomLib::PoseData> *poses, const Solve &solve) const {
+			std::vector<Eigen::Vector2d> x = x_;
+			std::vector<Eigen::Vector2d> y = y_;
+			double f0;
+			poses->clear();
+			if (!normalize(x, y, &f0))
+				return 0;
+			solve(x, y);
+			denormalize(poses, f0);
+			return static_cast<int>(poses->size());
 		}
 
 		// The solutions back in the input's coordinates. The solvers return only finite solutions

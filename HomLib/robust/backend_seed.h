@@ -2,10 +2,9 @@
 #define HOMLIB_BACKEND_SEED_H_
 
 // Seeds of the random generators of the GC-RANSAC and MAGSAC++ backends: those of GC-RANSAC's
-// samplers, which MAGSAC++ uses too, and those of HomLib's non-minimal strategies
-// (solver_utils.h). GC-RANSAC seeds each of its generators from std::random_device; HomLib's copy
-// of its uniform_random_generator.h (see CMakeLists.txt) calls next_generator() instead. Without
-// a seed, next_generator() seeds from std::random_device too.
+// samplers, which MAGSAC++ uses too. GC-RANSAC seeds each of its generators from
+// std::random_device; HomLib's copy of its uniform_random_generator.h (see CMakeLists.txt) calls
+// next_generator() instead. Without a seed, next_generator() seeds from std::random_device too.
 
 #include <cstdint>
 #include <cstdlib>

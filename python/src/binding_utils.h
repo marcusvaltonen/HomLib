@@ -95,6 +95,7 @@ inline void preprocess_orientation(
 struct PySolver {
     HomLib::SolverId id;
     HomLib::FeatureType feature_type;
+    HomLib::DistortionCase distortion_case;
     py::dict options;
     // The range on the distortion parameters set by Solver.set_k_range, in HomLib's normalized
     // coordinates (see DistortionRange); without it, the estimators' default, [-1, 0.1]
@@ -105,7 +106,8 @@ struct PySolver {
     double k_max = std::numeric_limits<double>::infinity();
 
     PySolver(HomLib::SolverId id, py::kwargs kwargs)
-        : id(id), feature_type(HomLib::feature_type_for(id)), options(kwargs) {}
+        : id(id), feature_type(HomLib::feature_type_for(id)),
+          distortion_case(HomLib::distortion_case_for(id)), options(kwargs) {}
 };
 
 // The range set by Solver.set_k_range; set_k_range() without bounds means no check at all

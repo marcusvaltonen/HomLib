@@ -46,7 +46,7 @@ struct GCRANSACSettings {
     bool do_local_optimization = true;
     bool do_graph_cut = true;
     bool do_final_least_squares = true;
-    NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::SelectAndRefine;
+    NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::Sample;
     GCSamplerType sampler = GCSamplerType::Uniform;
     // The seed of the samplers (none: from std::random_device, a different run each time)
     std::optional<uint64_t> seed;

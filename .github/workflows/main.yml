@@ -24,7 +24,8 @@ jobs:
       matrix:
         config:
           - name: Linux
-            os: ubuntu-latest
+            # Ubuntu 24.04 LTS, whose default compiler is GCC 13 (ubuntu-latest's is newer)
+            os: ubuntu-24.04
             artifact: 'libHomLib-linux.zip'
           - name: Linux (clang)
             os: ubuntu-latest
@@ -96,7 +97,7 @@ jobs:
         id: cache-poselib
         with:
           path: ${{github.workspace}}/poselib-install
-          key: ${{ runner.os }}-poselib-${{ env.POSELIB_VERSION }}
+          key: ${{ matrix.config.os }}-poselib-${{ env.POSELIB_VERSION }}
 
       - name: Build and install PoseLib
         if: steps.cache-poselib.outputs.cache-hit != 'true'
@@ -185,7 +186,8 @@ jobs:
       matrix:
         config:
           - name: Linux
-            os: ubuntu-latest
+            # Ubuntu 24.04 LTS, whose default compiler is GCC 13 (ubuntu-latest's is newer)
+            os: ubuntu-24.04
             artifact: 'libHomLib-linux.zip'
           - name: Linux (clang)
             os: ubuntu-latest
@@ -259,7 +261,7 @@ jobs:
         id: cache-poselib
         with:
           path: ${{github.workspace}}/poselib-install
-          key: ${{ runner.os }}-poselib-${{ env.POSELIB_VERSION }}
+          key: ${{ matrix.config.os }}-poselib-${{ env.POSELIB_VERSION }}
 
       - name: Fail if cache miss
         if: steps.cache-poselib.outputs.cache-hit != 'true'
@@ -355,7 +357,7 @@ jobs:
         id: cache-poselib
         with:
           path: ${{github.workspace}}/poselib-install
-          key: ${{ runner.os }}-poselib-${{ env.POSELIB_VERSION }}
+          key: ${{ matrix.config.os }}-poselib-${{ env.POSELIB_VERSION }}
 
       - name: Fail if cache miss
         if: steps.cache-poselib.outputs.cache-hit != 'true'

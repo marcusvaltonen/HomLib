@@ -1,5 +1,6 @@
 #include "binding_utils.h"
 #include <magsac_runner.h>
+#include <solver_dispatch.h>
 
 using namespace pybind11::literals;
 
@@ -102,7 +103,8 @@ void bind_magsac(py::module_& m) {
 
     m.def("dispatch_magsac_point", &dispatch_magsac_point,
         "Run a point-based solver within the MAGSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{},
+        "settings"_a);
     m.def("dispatch_magsac_affine", &dispatch_magsac_affine,
         "Run an affine-covariant solver within the MAGSAC framework.",
         "solver"_a, "x"_a, "y"_a, "A"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);

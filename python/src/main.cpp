@@ -1,7 +1,9 @@
 #include "binding_utils.h"
 
+#include <optional>
 #include <RansacLib/ransac.h>
 #include <lomsac_runner.h>
+#include <solver_dispatch.h>
 #include <generate_problem_instance.hpp>
 
 using namespace pybind11::literals;
@@ -199,6 +201,7 @@ PYBIND11_MODULE(_core, m) {
             "id"_a)
         .def_readonly("id", &PySolver::id, "Solver identifier (:class:`SolverId`).")
         .def_readonly("feature_type", &PySolver::feature_type, "Feature type (:class:`FeatureType`).")
+        .def_readonly("distortion_case", &PySolver::distortion_case, "Distortion case (:class:`DistortionCase`).")
         .def_readonly("options", &PySolver::options, "Solver-specific options.")
         .def_readwrite("normalize_image_coord", &PySolver::normalize_image_coord,
             R"pbdoc(
@@ -559,6 +562,13 @@ PYBIND11_MODULE(_core, m) {
                     ")";
             }
         );
+
+    // --- NonMinimalStrategy (shared across backends) ---
+
+    py::enum_<HomLib::NonMinimalStrategy>(m, "NonMinimalStrategy")
+        .value("Sample", HomLib::NonMinimalStrategy::Sample)
+        .value("Overdetermined", HomLib::NonMinimalStrategy::Overdetermined);
+
 
     // --- RansacStatistics ---
 

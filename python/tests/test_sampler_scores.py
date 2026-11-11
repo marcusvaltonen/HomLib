@@ -149,19 +149,18 @@ class GCRANSACSamplerTestCase(unittest.TestCase):
     # --- NonMinimalStrategy ---
 
     @retry()
-    def test_non_minimal_lomsac(self):
-        nms = homlib.NonMinimalStrategy.Lomsac
+    def test_non_minimal_sample(self):
+        nms = homlib.NonMinimalStrategy.Sample
         gc = homlib.GCRANSAC(
             self.solver, threshold=self.thr,
             non_minimal_strategy=nms)
         est, stats = gc.estimate(self.x, self.y)
         _assert_good(
-            self, est, stats, self.H, self.N, self.n_out,
-            check_inliers=False)
+            self, est, stats, self.H, self.N, self.n_out)
 
     @retry()
-    def test_non_minimal_multisample(self):
-        nms = homlib.NonMinimalStrategy.MultiSample
+    def test_non_minimal_overdetermined(self):
+        nms = homlib.NonMinimalStrategy.Overdetermined
         gc = homlib.GCRANSAC(
             self.solver, threshold=self.thr,
             non_minimal_strategy=nms)
@@ -186,7 +185,7 @@ class GCRANSACSamplerTestCase(unittest.TestCase):
 
     def test_settings_non_minimal_strategy_field(self):
         s = homlib.GCRANSACSettings()
-        nms = homlib.NonMinimalStrategy.Lomsac
+        nms = homlib.NonMinimalStrategy.Sample
         s.non_minimal_strategy = nms
         self.assertEqual(s.non_minimal_strategy, nms)
 
@@ -209,7 +208,7 @@ class GCRANSACSamplerTestCase(unittest.TestCase):
     # --- Enum completeness ---
 
     def test_sampler_enum_values(self):
-        members = set(homlib.GCSamplerType.__members__)
+        members = {e.name for e in homlib.GCSamplerType}
         expected = {
             "Uniform", "PROSAC",
             "ImportanceSampler", "ARSampler",
@@ -217,11 +216,14 @@ class GCRANSACSamplerTestCase(unittest.TestCase):
         self.assertEqual(members, expected)
 
     def test_non_minimal_enum_values(self):
-        members = set(homlib.NonMinimalStrategy.__members__)
-        expected = {
-            "Lomsac", "SelectAndRefine", "MultiSample",
-        }
+        members = {e.name for e in homlib.NonMinimalStrategy}
+        expected = {"Sample", "Overdetermined"}
         self.assertEqual(members, expected)
+
+    def test_non_minimal_enum_iterable(self):
+        values = list(homlib.NonMinimalStrategy)
+        self.assertEqual(len(values), 2)
+        self.assertIn(homlib.NonMinimalStrategy.Overdetermined, values)
 
 
 # ---------------------------------------------------------------
@@ -310,8 +312,8 @@ class MAGSACSamplerTestCase(unittest.TestCase):
     # --- NonMinimalStrategy ---
 
     @retry()
-    def test_non_minimal_lomsac(self):
-        nms = homlib.NonMinimalStrategy.Lomsac
+    def test_non_minimal_sample(self):
+        nms = homlib.NonMinimalStrategy.Sample
         mg = homlib.MAGSAC(
             self.solver, sigma_max=self.sigma,
             non_minimal_strategy=nms)
@@ -321,8 +323,8 @@ class MAGSACSamplerTestCase(unittest.TestCase):
             check_inliers=False)
 
     @retry()
-    def test_non_minimal_multisample(self):
-        nms = homlib.NonMinimalStrategy.MultiSample
+    def test_non_minimal_overdetermined(self):
+        nms = homlib.NonMinimalStrategy.Overdetermined
         mg = homlib.MAGSAC(
             self.solver, sigma_max=self.sigma,
             non_minimal_strategy=nms)
@@ -349,7 +351,7 @@ class MAGSACSamplerTestCase(unittest.TestCase):
 
     def test_settings_non_minimal_strategy_field(self):
         s = homlib.MAGSACSettings()
-        nms = homlib.NonMinimalStrategy.MultiSample
+        nms = homlib.NonMinimalStrategy.Overdetermined
         s.non_minimal_strategy = nms
         self.assertEqual(s.non_minimal_strategy, nms)
 
@@ -543,7 +545,7 @@ class SuperansacSamplerTestCase(unittest.TestCase):
     # --- Enum completeness ---
 
     def test_sampler_enum_values(self):
-        members = set(SA_Sampler.__members__)
+        members = {e.name for e in SA_Sampler}
         expected = {
             "Uniform", "PROSAC", "NAPSAC",
             "ProgressiveNAPSAC",
@@ -552,7 +554,7 @@ class SuperansacSamplerTestCase(unittest.TestCase):
         self.assertEqual(members, expected)
 
     def test_scoring_enum_values(self):
-        members = set(SA_Score.__members__)
+        members = {e.name for e in SA_Score}
         expected = {
             "RANSAC", "MSAC", "MAGSAC", "MINPRAN",
             "ACRANSAC", "GAU", "ML", "GRID",
@@ -560,7 +562,7 @@ class SuperansacSamplerTestCase(unittest.TestCase):
         self.assertEqual(members, expected)
 
     def test_local_opt_enum_values(self):
-        members = set(SA_LO.__members__)
+        members = {e.name for e in SA_LO}
         expected = {
             "None_", "LSQ", "IRLS", "NestedRANSAC",
             "GCRANSAC", "IteratedLMEDS", "CrossValidation",
@@ -568,19 +570,16 @@ class SuperansacSamplerTestCase(unittest.TestCase):
         self.assertEqual(members, expected)
 
     def test_termination_enum_values(self):
-        T = homlib.SuperansacTerminationType
-        members = set(T.__members__)
+        members = {e.name for e in homlib.SuperansacTerminationType}
         self.assertIn("RANSAC", members)
 
     def test_inlier_selector_enum_values(self):
-        IS = homlib.SuperansacInlierSelectorType
-        members = set(IS.__members__)
+        members = {e.name for e in homlib.SuperansacInlierSelectorType}
         expected = {"None_", "SpacePartitioningRANSAC"}
         self.assertEqual(members, expected)
 
     def test_neighborhood_type_enum_values(self):
-        N = homlib.SuperansacNeighborhoodType
-        members = set(N.__members__)
+        members = {e.name for e in homlib.SuperansacNeighborhoodType}
         expected = {"Grid", "FLANN_KNN", "FLANN_Radius"}
         self.assertEqual(members, expected)
 
