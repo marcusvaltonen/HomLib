@@ -5,34 +5,38 @@
 
 static const double SMALL_NUMBER = 1e-8;
 static const double TOL_CONVERGENCE = 1e-10;
+static const double TOL_CONVERGENCE_SQ = TOL_CONVERGENCE * TOL_CONVERGENCE;
 static const double INITIAL_LM_DAMP = 1e-4;
 static const int MAX_ITER = 10;
 
 namespace {
-// Levenberg-Marquardt on H (H(2,2) = 1) and the distortion parameters of p, the loop that the
-// refinements below share: fill(H, J, res) computes the residuals and their Jacobian (in the
-// order h11, h21, h31, h12, h22, h32, h13, h23, then the distortion parameters) at H and p's
-// distortion parameters, and update_dist(dx) adds the steps of the distortion parameters to p.
-// N, the number of parameters (8 to 10), is a template parameter: JᵀJ, the gradient and the step
-// are fixed-size, which lets Eigen unroll and vectorize them.
-template <int N, class Fill, class UpdateDist>
-void refine(size_t n_pts, HomLib::PoseData &p, const Fill &fill, const UpdateDist &update_dist) {
+
+// Levenberg-Marquardt refinement with direct JtJ accumulation.
+//
+// The accumulate callback fills the upper triangle of JtJ and the gradient
+// g = -J^T r, and returns the squared cost.  This eliminates the O(2n × N)
+// Jacobian matrix and the subsequent J^T J / J^T r products.
+template <int N, class Accumulate, class UpdateDist>
+void refine(size_t n_pts, HomLib::PoseData &p, const Accumulate &accumulate, const UpdateDist &update_dist) {
     double lm_damp = INITIAL_LM_DAMP;
-    Eigen::Matrix<double, Eigen::Dynamic, N> J = Eigen::Matrix<double, Eigen::Dynamic, N>::Zero(2 * n_pts, N);
-    Eigen::VectorXd res = Eigen::VectorXd::Zero(2 * n_pts);
     for (int iter = 0; iter < MAX_ITER; iter++) {
         Eigen::Matrix3d H = p.homography;
         H /= H(2, 2);
-        fill(H, J, res);
-        if (res.norm() < TOL_CONVERGENCE)
+
+        Eigen::Matrix<double, N, N> JtJ = Eigen::Matrix<double, N, N>::Zero();
+        Eigen::Matrix<double, N, 1> g = Eigen::Matrix<double, N, 1>::Zero();
+        double cost = 0.0;
+
+        accumulate(H, JtJ, g, cost);
+
+        if (cost < TOL_CONVERGENCE_SQ)
             break;
-        Eigen::Matrix<double, N, N> Hess = J.transpose() * J;
-        Hess.diagonal().array() += lm_damp;   // LM dampening
-        const Eigen::Matrix<double, N, 1> g = -J.transpose() * res;
+        JtJ.diagonal().array() += lm_damp;
         if (g.cwiseAbs().maxCoeff() < TOL_CONVERGENCE)
             break;
-        const Eigen::Matrix<double, N, 1> dx = Hess.ldlt().solve(g);
-        if (!dx.allFinite())   // a degenerate model or sample: keep the last finite model
+        const Eigen::Matrix<double, N, 1> dx =
+            JtJ.template selfadjointView<Eigen::Upper>().ldlt().solve(g);
+        if (!dx.allFinite())
             break;
         Eigen::Map<Eigen::Matrix<double, 8, 1>>(H.data()) += dx.head(8);
         p.homography = H;
@@ -42,310 +46,337 @@ void refine(size_t n_pts, HomLib::PoseData &p, const Fill &fill, const UpdateDis
         lm_damp = std::max(1e-8, lm_damp / 10.0);
     }
 }
+
+// Accumulate the H-parameter block (cols 0-7) of JtJ (upper triangle) and g.
+//
+// The even/odd Jacobian rows have complementary sparsity: cols {0,3,6} are
+// zero in odd rows, cols {1,4,7} are zero in even rows.  This gives 9
+// structural zeros in the 8x8 block and makes the {0,3,6} diagonal block
+// identical to the {1,4,7} block (AA = BB), so 6 products serve both.
+template <int N>
+inline void accumulate_h_block(
+    Eigen::Matrix<double, N, N> &JtJ, Eigen::Matrix<double, N, 1> &g, double &cost,
+    double a, double b, double c,
+    double az0, double bz0, double az1, double bz1,
+    double re, double ro)
+{
+    cost += re * re + ro * ro;
+
+    // AA = BB diagonal blocks: {0,3,6} and {1,4,7}
+    const double aa = a * a, ab = a * b, ac = a * c;
+    const double bb = b * b, bc = b * c, cc = c * c;
+    JtJ(0, 0) += aa;  JtJ(1, 1) += aa;
+    JtJ(0, 3) += ab;  JtJ(1, 4) += ab;
+    JtJ(0, 6) += ac;  JtJ(1, 7) += ac;
+    JtJ(3, 3) += bb;  JtJ(4, 4) += bb;
+    JtJ(3, 6) += bc;  JtJ(4, 7) += bc;
+    JtJ(6, 6) += cc;  JtJ(7, 7) += cc;
+
+    // A x C cross (even rows: {0,3,6} x {2,5})
+    JtJ(0, 2) -= a * az0;
+    JtJ(0, 5) -= a * bz0;
+    JtJ(2, 3) -= az0 * b;
+    JtJ(3, 5) -= b * bz0;
+    JtJ(2, 6) -= az0 * c;
+    JtJ(5, 6) -= bz0 * c;
+
+    // B x C cross (odd rows: {1,4,7} x {2,5})
+    JtJ(1, 2) -= a * az1;
+    JtJ(1, 5) -= a * bz1;
+    JtJ(2, 4) -= az1 * b;
+    JtJ(4, 5) -= b * bz1;
+    JtJ(2, 7) -= az1 * c;
+    JtJ(5, 7) -= bz1 * c;
+
+    // C x C block ({2,5} x {2,5}, both rows)
+    JtJ(2, 2) += az0 * az0 + az1 * az1;
+    JtJ(2, 5) += az0 * bz0 + az1 * bz1;
+    JtJ(5, 5) += bz0 * bz0 + bz1 * bz1;
+
+    // Gradient g = -J^T r
+    g(0) -= a * re;
+    g(1) -= a * ro;
+    g(2) += az0 * re + az1 * ro;
+    g(3) -= b * re;
+    g(4) -= b * ro;
+    g(5) += bz0 * re + bz1 * ro;
+    g(6) -= c * re;
+    g(7) -= c * ro;
+}
+
 }  // namespace
 
 namespace HomLib {
-// Non-linear refinement of transfer error |x2 - pi(H*x1)|^2, parameterized by fixing H(2,2) = 1
+
 void refinement_no_dist(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p
-) {
-    refine<8>(x1.size(), p, [&](const Eigen::Matrix3d &H, auto &J, Eigen::VectorXd &res) {
-        const double H0_0 = H(0, 0), H0_1 = H(0, 1), H0_2 = H(0, 2);
-        const double H1_0 = H(1, 0), H1_1 = H(1, 1), H1_2 = H(1, 2);
-        const double H2_0 = H(2, 0), H2_1 = H(2, 1), H2_2 = H(2, 2);
+    HomLib::PoseData &p)
+{
+    refine<8>(x1.size(), p,
+        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
+            const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
+            const double H10 = H(1, 0), H11 = H(1, 1), H12 = H(1, 2);
+            const double H20 = H(2, 0), H21 = H(2, 1);
 
-        for (size_t i = 0; i < x1.size(); i++) {
-            const double x1_0 = x1[i](0);
-            const double x1_1 = x1[i](1);
-            const double x2_0 = x2[i](0);
-            const double x2_1 = x2[i](1);
+            for (size_t i = 0; i < x1.size(); i++) {
+                const double u = x1[i](0), v = x1[i](1);
+                const double p0 = x2[i](0), p1 = x2[i](1);
 
-            const double Hx1_0 = H0_0 * x1_0 + H0_1 * x1_1 + H0_2;
-            const double Hx1_1 = H1_0 * x1_0 + H1_1 * x1_1 + H1_2;
-            const double inv_Hx1_2 = 1.0 / (H2_0 * x1_0 + H2_1 * x1_1 + H2_2);
+                const double w = 1.0 / (H20 * u + H21 * v + H(2, 2));
+                const double z0 = (H00 * u + H01 * v + H02) * w;
+                const double z1 = (H10 * u + H11 * v + H12) * w;
 
-            const double z0 = Hx1_0 * inv_Hx1_2;
-            const double z1 = Hx1_1 * inv_Hx1_2;
-
-            // Residual
-            res(2 * i + 0) = z0 - x2_0;
-            res(2 * i + 1) = z1 - x2_1;
-
-            // Jacobian w.r.t. first element
-            J(2 * i + 0, 0) = x1_0 * inv_Hx1_2;
-            // J(2 * i + 0, 1) = 0.0;
-            J(2 * i + 0, 2) = -x1_0 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 3) = x1_1 * inv_Hx1_2;
-            // J(2 * i + 0, 4) = 0.0;
-            J(2 * i + 0, 5) = -x1_1 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 6) = 1.0 * inv_Hx1_2;
-            // J(2 * i + 0, 7) = 0.0;
-
-            // Jacobian w.r.t. second element
-            // J(2 * i + 1, 0) = 0.0;
-            J(2 * i + 1, 1) = x1_0 * inv_Hx1_2;
-            J(2 * i + 1, 2) = -x1_0 * z1 * inv_Hx1_2;
-            // J(2 * i + 1, 3) = 0.0;
-            J(2 * i + 1, 4) = x1_1 * inv_Hx1_2;
-            J(2 * i + 1, 5) = -x1_1 * z1 * inv_Hx1_2;
-            // J(2 * i + 1, 6) = 0.0;
-            J(2 * i + 1, 7) = 1.0 * inv_Hx1_2;
-
-        }
-
-    }, [](const auto &) {});
+                accumulate_h_block(JtJ, g, cost,
+                    u * w, v * w, w,
+                    u * w * z0, v * w * z0, u * w * z1, v * w * z1,
+                    z0 - p0, z1 - p1);
+            }
+        },
+        [](const auto &) {});
 }
-// Non-linear refinement of transfer error |x2(k) - pi(H*x1)|^2, parameterized by fixing H(2,2) = 1
+
 void refinement_onesided(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p
-) {
-    refine<9>(x1.size(), p, [&](const Eigen::Matrix3d &H, auto &J, Eigen::VectorXd &res) {
-        const double k = p.distortion_parameter2;
+    HomLib::PoseData &p)
+{
+    refine<9>(x1.size(), p,
+        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
+            const double k = p.distortion_parameter2;
+            const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
+            const double H10 = H(1, 0), H11 = H(1, 1), H12 = H(1, 2);
+            const double H20 = H(2, 0), H21 = H(2, 1);
 
-        const double H0_0 = H(0, 0), H0_1 = H(0, 1), H0_2 = H(0, 2);
-        const double H1_0 = H(1, 0), H1_1 = H(1, 1), H1_2 = H(1, 2);
-        const double H2_0 = H(2, 0), H2_1 = H(2, 1), H2_2 = H(2, 2);
+            for (size_t i = 0; i < x1.size(); i++) {
+                const double u = x1[i](0), v = x1[i](1);
+                const double p0 = x2[i](0), p1 = x2[i](1);
 
-        for (size_t i = 0; i < x1.size(); i++) {
-            const double x1_0 = x1[i](0);
-            const double x1_1 = x1[i](1);
-            const double x2_0 = x2[i](0);
-            const double x2_1 = x2[i](1);
+                const double w = 1.0 / (H20 * u + H21 * v + H(2, 2));
+                const double z0 = (H00 * u + H01 * v + H02) * w;
+                const double z1 = (H10 * u + H11 * v + H12) * w;
 
-            const double Hx1_0 = H0_0 * x1_0 + H0_1 * x1_1 + H0_2;
-            const double Hx1_1 = H1_0 * x1_0 + H1_1 * x1_1 + H1_2;
-            const double inv_Hx1_2 = 1.0 / (H2_0 * x1_0 + H2_1 * x1_1 + H2_2);
+                const double r22 = p0 * p0 + p1 * p1;
+                const double df = 1.0 / (1.0 + k * r22);
+                const double re = z0 - p0 * df;
+                const double ro = z1 - p1 * df;
 
-            const double z0 = Hx1_0 * inv_Hx1_2;
-            const double z1 = Hx1_1 * inv_Hx1_2;
+                const double a = u * w, b = v * w, c = w;
+                const double az0 = a * z0, bz0 = b * z0;
+                const double az1 = a * z1, bz1 = b * z1;
+                accumulate_h_block(JtJ, g, cost,
+                    a, b, c, az0, bz0, az1, bz1, re, ro);
 
-            // Residual
-            const double r22 = (x2_0 * x2_0 + x2_1 * x2_1);
-            const double dist_factor = 1.0 / (1.0 + k * r22);
-            res(2 * i + 0) = z0 - x2_0 * dist_factor;
-            res(2 * i + 1) = z1 - x2_1 * dist_factor;
+                const double r22df2 = r22 * df * df;
+                const double dk_e = p0 * r22df2;
+                const double dk_o = p1 * r22df2;
 
-            // Jacobian w.r.t. first element
-            J(2 * i + 0, 0) = x1_0 * inv_Hx1_2;
-            // J(2 * i + 0, 1) = 0.0;
-            J(2 * i + 0, 2) = -x1_0 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 3) = x1_1 * inv_Hx1_2;
-            // J(2 * i + 0, 4) = 0.0;
-            J(2 * i + 0, 5) = -x1_1 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 6) = 1.0 * inv_Hx1_2;
-            // J(2 * i + 0, 7) = 0.0;
-            J(2 * i + 0, 8) = x2_0 * r22 * dist_factor * dist_factor;  // Dist coeff.
+                JtJ(0, 8) += a * dk_e;
+                JtJ(3, 8) += b * dk_e;
+                JtJ(6, 8) += c * dk_e;
+                JtJ(1, 8) += a * dk_o;
+                JtJ(4, 8) += b * dk_o;
+                JtJ(7, 8) += c * dk_o;
+                JtJ(2, 8) -= az0 * dk_e + az1 * dk_o;
+                JtJ(5, 8) -= bz0 * dk_e + bz1 * dk_o;
+                JtJ(8, 8) += dk_e * dk_e + dk_o * dk_o;
 
-            // Jacobian w.r.t. second element
-            // J(2 * i + 1, 0) = 0.0;
-            J(2 * i + 1, 1) = x1_0 * inv_Hx1_2;
-            J(2 * i + 1, 2) = -x1_0 * z1 * inv_Hx1_2;
-            // J(2 * i + 1, 3) = 0.0;
-            J(2 * i + 1, 4) = x1_1 * inv_Hx1_2;
-            J(2 * i + 1, 5) = -x1_1 * z1 * inv_Hx1_2;
-            // J(2 * i + 1, 6) = 0.0;
-            J(2 * i + 1, 7) = 1.0 * inv_Hx1_2;
-            J(2 * i + 1, 8) = x2_1 * r22 * dist_factor * dist_factor;  // Dist coeff.
-
-        }
-
-    }, [&p](const auto &dx) {
-        p.distortion_parameter2 += dx(8);
-    });
+                g(8) -= dk_e * re + dk_o * ro;
+            }
+        },
+        [&p](const auto &dx) {
+            p.distortion_parameter2 += dx(8);
+        });
 }
 
-// Non-linear refinement of transfer error |x2 - pi(H*x1(k))|^2, parameterized by fixing H(2,2) = 1
 void refinement_onesided_right(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p
-) {
-    refine<9>(x1.size(), p, [&](const Eigen::Matrix3d &H, auto &J, Eigen::VectorXd &res) {
-        const double k = p.distortion_parameter;
+    HomLib::PoseData &p)
+{
+    refine<9>(x1.size(), p,
+        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
+            const double k = p.distortion_parameter;
+            const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
+            const double H10 = H(1, 0), H11 = H(1, 1), H12 = H(1, 2);
+            const double H20 = H(2, 0), H21 = H(2, 1), H22 = H(2, 2);
 
-        const double H0_0 = H(0, 0), H0_1 = H(0, 1), H0_2 = H(0, 2);
-        const double H1_0 = H(1, 0), H1_1 = H(1, 1), H1_2 = H(1, 2);
-        const double H2_0 = H(2, 0), H2_1 = H(2, 1), H2_2 = H(2, 2);
+            for (size_t i = 0; i < x1.size(); i++) {
+                const double u = x1[i](0), v = x1[i](1);
+                const double p0 = x2[i](0), p1 = x2[i](1);
 
-        for (size_t i = 0; i < x1.size(); i++) {          
-            double x1_0 = x1[i](0);
-            double x1_1 = x1[i](1);
-            double x2_0 = x2[i](0);
-            double x2_1 = x2[i](1);
+                const double r12 = u * u + v * v;
+                const double d1 = 1.0 + k * r12;
 
-            const double r12 = (x1_0 * x1_0 + x1_1 * x1_1);
-            const double inv_dist_factor1 = 1.0 + k * r12;
+                const double w = 1.0 / (H20 * u + H21 * v + H22 * d1);
+                const double z0 = (H00 * u + H01 * v + H02 * d1) * w;
+                const double z1 = (H10 * u + H11 * v + H12 * d1) * w;
 
-            const double Hx1_0 = H0_0 * x1_0 + H0_1 * x1_1 + H0_2 * inv_dist_factor1;
-            const double Hx1_1 = H1_0 * x1_0 + H1_1 * x1_1 + H1_2 * inv_dist_factor1;
-            const double inv_Hx1_2 = 1.0 / (H2_0 * x1_0 + H2_1 * x1_1 + H2_2 * inv_dist_factor1);
+                const double re = z0 - p0;
+                const double ro = z1 - p1;
 
-            const double z0 = Hx1_0 * inv_Hx1_2;
-            const double z1 = Hx1_1 * inv_Hx1_2;
+                const double a = u * w, b = v * w, c = d1 * w;
+                const double az0 = a * z0, bz0 = b * z0;
+                const double az1 = a * z1, bz1 = b * z1;
+                accumulate_h_block(JtJ, g, cost,
+                    a, b, c, az0, bz0, az1, bz1, re, ro);
 
-            // Residual
-            res(2 * i + 0) = z0 - x2_0;
-            res(2 * i + 1) = z1 - x2_1;
+                const double r12w = r12 * w;
+                const double dk_e = r12w * (H02 - z0 * H22);
+                const double dk_o = r12w * (H12 - z1 * H22);
 
-            // Jacobian w.r.t. first element
-            J(2 * i + 0, 0) = x1_0 * inv_Hx1_2;
-            // J(2 * i + 0, 1) = 0.0;
-            J(2 * i + 0, 2) = -x1_0 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 3) = x1_1 * inv_Hx1_2;
-            // J(2 * i + 0, 4) = 0.0;
-            J(2 * i + 0, 5) = -x1_1 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 6) = inv_dist_factor1 * inv_Hx1_2;
-            // J(2 * i + 0, 7) = 0.0;
-            J(2 * i + 0, 8) = H0_2 * r12 * inv_Hx1_2 - z0 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff. k
+                JtJ(0, 8) += a * dk_e;
+                JtJ(3, 8) += b * dk_e;
+                JtJ(6, 8) += c * dk_e;
+                JtJ(1, 8) += a * dk_o;
+                JtJ(4, 8) += b * dk_o;
+                JtJ(7, 8) += c * dk_o;
+                JtJ(2, 8) -= az0 * dk_e + az1 * dk_o;
+                JtJ(5, 8) -= bz0 * dk_e + bz1 * dk_o;
+                JtJ(8, 8) += dk_e * dk_e + dk_o * dk_o;
 
-            // Jacobian w.r.t. second element
-            // J(2 * i + 1, 0) = 0.0;
-            J(2 * i + 1, 1) = x1_0 * inv_Hx1_2;
-            J(2 * i + 1, 2) = -x1_0 * z1 * inv_Hx1_2;
-            // J(2 * i + 1, 3) = 0.0;
-            J(2 * i + 1, 4) = x1_1 * inv_Hx1_2;
-            J(2 * i + 1, 5) = -x1_1 * z1 * inv_Hx1_2;
-            // J(2 * i + 1, 6) = 0.0;
-            J(2 * i + 1, 7) = inv_dist_factor1 * inv_Hx1_2;
-            J(2 * i + 1, 8) = H1_2 * r12 * inv_Hx1_2 - z1 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff. k
-        }
-
-    }, [&p](const auto &dx) {
-        p.distortion_parameter += dx(8);
-    });
+                g(8) -= dk_e * re + dk_o * ro;
+            }
+        },
+        [&p](const auto &dx) {
+            p.distortion_parameter += dx(8);
+        });
 }
-// Non-linear refinement of transfer error |x2(k) - pi(H*x1(k))|^2, parameterized by fixing H(2,2) = 1
+
 void refinement_twosided_equal(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p
-) {
-    refine<9>(x1.size(), p, [&](const Eigen::Matrix3d &H, auto &J, Eigen::VectorXd &res) {
-        const double k = p.distortion_parameter;
+    HomLib::PoseData &p)
+{
+    refine<9>(x1.size(), p,
+        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
+            const double k = p.distortion_parameter;
+            const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
+            const double H10 = H(1, 0), H11 = H(1, 1), H12 = H(1, 2);
+            const double H20 = H(2, 0), H21 = H(2, 1), H22 = H(2, 2);
 
-        const double H0_0 = H(0, 0), H0_1 = H(0, 1), H0_2 = H(0, 2);
-        const double H1_0 = H(1, 0), H1_1 = H(1, 1), H1_2 = H(1, 2);
-        const double H2_0 = H(2, 0), H2_1 = H(2, 1), H2_2 = H(2, 2);
+            for (size_t i = 0; i < x1.size(); i++) {
+                const double u = x1[i](0), v = x1[i](1);
+                const double p0 = x2[i](0), p1 = x2[i](1);
 
-        for (size_t i = 0; i < x1.size(); i++) {          
-            double x1_0 = x1[i](0);
-            double x1_1 = x1[i](1);
-            double x2_0 = x2[i](0);
-            double x2_1 = x2[i](1);
+                const double r12 = u * u + v * v;
+                const double d1 = 1.0 + k * r12;
 
-            const double r12 = (x1_0 * x1_0 + x1_1 * x1_1);
-            const double inv_dist_factor1 = 1.0 + k * r12;
+                const double w = 1.0 / (H20 * u + H21 * v + H22 * d1);
+                const double z0 = (H00 * u + H01 * v + H02 * d1) * w;
+                const double z1 = (H10 * u + H11 * v + H12 * d1) * w;
 
-            const double Hx1_0 = H0_0 * x1_0 + H0_1 * x1_1 + H0_2 * inv_dist_factor1;
-            const double Hx1_1 = H1_0 * x1_0 + H1_1 * x1_1 + H1_2 * inv_dist_factor1;
-            const double inv_Hx1_2 = 1.0 / (H2_0 * x1_0 + H2_1 * x1_1 + H2_2 * inv_dist_factor1);
+                const double r22 = p0 * p0 + p1 * p1;
+                const double df = 1.0 / (1.0 + k * r22);
+                const double re = z0 - p0 * df;
+                const double ro = z1 - p1 * df;
 
-            const double z0 = Hx1_0 * inv_Hx1_2;
-            const double z1 = Hx1_1 * inv_Hx1_2;
+                const double a = u * w, b = v * w, c = d1 * w;
+                const double az0 = a * z0, bz0 = b * z0;
+                const double az1 = a * z1, bz1 = b * z1;
+                accumulate_h_block(JtJ, g, cost,
+                    a, b, c, az0, bz0, az1, bz1, re, ro);
 
-            // Residual
-            const double r22 = (x2_0 * x2_0 + x2_1 * x2_1);
-            const double dist_factor2 = 1.0 / (1.0 + k * r22);
-            res(2 * i + 0) = z0 - x2_0 * dist_factor2;
-            res(2 * i + 1) = z1 - x2_1 * dist_factor2;
+                // Col 8: shared k derivative = right-side + left-side
+                const double r12w = r12 * w;
+                const double r22df2 = r22 * df * df;
+                const double dk_e = p0 * r22df2 + r12w * (H02 - z0 * H22);
+                const double dk_o = p1 * r22df2 + r12w * (H12 - z1 * H22);
 
-            // Jacobian w.r.t. first element
-            J(2 * i + 0, 0) = x1_0 * inv_Hx1_2;
-            // J(2 * i + 0, 1) = 0.0;
-            J(2 * i + 0, 2) = -x1_0 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 3) = x1_1 * inv_Hx1_2;
-            // J(2 * i + 0, 4) = 0.0;
-            J(2 * i + 0, 5) = -x1_1 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 6) = inv_dist_factor1 * inv_Hx1_2;
-            // J(2 * i + 0, 7) = 0.0;
-            J(2 * i + 0, 8) = x2_0 * r22 * dist_factor2 * dist_factor2 + H0_2 * r12 * inv_Hx1_2 - z0 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff.
+                JtJ(0, 8) += a * dk_e;
+                JtJ(3, 8) += b * dk_e;
+                JtJ(6, 8) += c * dk_e;
+                JtJ(1, 8) += a * dk_o;
+                JtJ(4, 8) += b * dk_o;
+                JtJ(7, 8) += c * dk_o;
+                JtJ(2, 8) -= az0 * dk_e + az1 * dk_o;
+                JtJ(5, 8) -= bz0 * dk_e + bz1 * dk_o;
+                JtJ(8, 8) += dk_e * dk_e + dk_o * dk_o;
 
-            // Jacobian w.r.t. second element
-            // J(2 * i + 1, 0) = 0.0;
-            J(2 * i + 1, 1) = x1_0 * inv_Hx1_2;
-            J(2 * i + 1, 2) = -x1_0 * z1 * inv_Hx1_2;
-            // J(2 * i + 1, 3) = 0.0;
-            J(2 * i + 1, 4) = x1_1 * inv_Hx1_2;
-            J(2 * i + 1, 5) = -x1_1 * z1 * inv_Hx1_2;
-            // J(2 * i + 1, 6) = 0.0;
-            J(2 * i + 1, 7) = inv_dist_factor1 * inv_Hx1_2;
-            J(2 * i + 1, 8) = x2_1 * r22 * dist_factor2 * dist_factor2 + H1_2 * r12 * inv_Hx1_2 - z1 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff.
-        }
-
-    }, [&p](const auto &dx) {
-        p.distortion_parameter += dx(8);
-        p.distortion_parameter2 = p.distortion_parameter;
-    });
+                g(8) -= dk_e * re + dk_o * ro;
+            }
+        },
+        [&p](const auto &dx) {
+            p.distortion_parameter += dx(8);
+            p.distortion_parameter2 = p.distortion_parameter;
+        });
 }
-// Non-linear refinement of transfer error |x2(k2) - pi(H*x1(k1))|^2, parameterized by fixing H(2,2) = 1
+
 void refinement_twosided(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p
-) {
-    refine<10>(x1.size(), p, [&](const Eigen::Matrix3d &H, auto &J, Eigen::VectorXd &res) {
-        const double k1 = p.distortion_parameter;
-        const double k2 = p.distortion_parameter2;
+    HomLib::PoseData &p)
+{
+    refine<10>(x1.size(), p,
+        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
+            const double k1 = p.distortion_parameter;
+            const double k2 = p.distortion_parameter2;
+            const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
+            const double H10 = H(1, 0), H11 = H(1, 1), H12 = H(1, 2);
+            const double H20 = H(2, 0), H21 = H(2, 1), H22 = H(2, 2);
 
-        const double H0_0 = H(0, 0), H0_1 = H(0, 1), H0_2 = H(0, 2);
-        const double H1_0 = H(1, 0), H1_1 = H(1, 1), H1_2 = H(1, 2);
-        const double H2_0 = H(2, 0), H2_1 = H(2, 1), H2_2 = H(2, 2);
+            for (size_t i = 0; i < x1.size(); i++) {
+                const double u = x1[i](0), v = x1[i](1);
+                const double p0 = x2[i](0), p1 = x2[i](1);
 
-        for (size_t i = 0; i < x1.size(); i++) {          
-            double x1_0 = x1[i](0);
-            double x1_1 = x1[i](1);
-            double x2_0 = x2[i](0);
-            double x2_1 = x2[i](1);
+                const double r12 = u * u + v * v;
+                const double d1 = 1.0 + k1 * r12;
 
-            const double r12 = (x1_0 * x1_0 + x1_1 * x1_1);
-            const double inv_dist_factor1 = 1.0 + k1 * r12;
+                const double w = 1.0 / (H20 * u + H21 * v + H22 * d1);
+                const double z0 = (H00 * u + H01 * v + H02 * d1) * w;
+                const double z1 = (H10 * u + H11 * v + H12 * d1) * w;
 
-            const double Hx1_0 = H0_0 * x1_0 + H0_1 * x1_1 + H0_2 * inv_dist_factor1;
-            const double Hx1_1 = H1_0 * x1_0 + H1_1 * x1_1 + H1_2 * inv_dist_factor1;
-            const double inv_Hx1_2 = 1.0 / (H2_0 * x1_0 + H2_1 * x1_1 + H2_2 * inv_dist_factor1);
+                const double r22 = p0 * p0 + p1 * p1;
+                const double df = 1.0 / (1.0 + k2 * r22);
+                const double re = z0 - p0 * df;
+                const double ro = z1 - p1 * df;
 
-            const double z0 = Hx1_0 * inv_Hx1_2;
-            const double z1 = Hx1_1 * inv_Hx1_2;
+                const double a = u * w, b = v * w, c = d1 * w;
+                const double az0 = a * z0, bz0 = b * z0;
+                const double az1 = a * z1, bz1 = b * z1;
+                accumulate_h_block(JtJ, g, cost,
+                    a, b, c, az0, bz0, az1, bz1, re, ro);
 
-            // Residual
-            const double r22 = (x2_0 * x2_0 + x2_1 * x2_1);
-            const double dist_factor2 = 1.0 / (1.0 + k2 * r22);
-            res(2 * i + 0) = z0 - x2_0 * dist_factor2;
-            res(2 * i + 1) = z1 - x2_1 * dist_factor2;
+                // Col 8: k1 (right-side distortion on x1)
+                const double r12w = r12 * w;
+                const double dk1_e = r12w * (H02 - z0 * H22);
+                const double dk1_o = r12w * (H12 - z1 * H22);
 
-            // Jacobian w.r.t. first element
-            J(2 * i + 0, 0) = x1_0 * inv_Hx1_2;
-            // J(2 * i + 0, 1) = 0.0;
-            J(2 * i + 0, 2) = -x1_0 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 3) = x1_1 * inv_Hx1_2;
-            // J(2 * i + 0, 4) = 0.0;
-            J(2 * i + 0, 5) = -x1_1 * z0 * inv_Hx1_2;
-            J(2 * i + 0, 6) = inv_dist_factor1 * inv_Hx1_2;
-            // J(2 * i + 0, 7) = 0.0;
-            J(2 * i + 0, 8) = H0_2 * r12 * inv_Hx1_2 - z0 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff. k1
-            J(2 * i + 0, 9) = x2_0 * r22 * dist_factor2 * dist_factor2;  // Dist coeff. k2
+                JtJ(0, 8) += a * dk1_e;
+                JtJ(3, 8) += b * dk1_e;
+                JtJ(6, 8) += c * dk1_e;
+                JtJ(1, 8) += a * dk1_o;
+                JtJ(4, 8) += b * dk1_o;
+                JtJ(7, 8) += c * dk1_o;
+                JtJ(2, 8) -= az0 * dk1_e + az1 * dk1_o;
+                JtJ(5, 8) -= bz0 * dk1_e + bz1 * dk1_o;
+                JtJ(8, 8) += dk1_e * dk1_e + dk1_o * dk1_o;
 
-            // Jacobian w.r.t. second element
-            // J(2 * i + 1, 0) = 0.0;
-            J(2 * i + 1, 1) = x1_0 * inv_Hx1_2;
-            J(2 * i + 1, 2) = -x1_0 * z1 * inv_Hx1_2;
-            // J(2 * i + 1, 3) = 0.0;
-            J(2 * i + 1, 4) = x1_1 * inv_Hx1_2;
-            J(2 * i + 1, 5) = -x1_1 * z1 * inv_Hx1_2;
-            // J(2 * i + 1, 6) = 0.0;
-            J(2 * i + 1, 7) = inv_dist_factor1 * inv_Hx1_2;
-            J(2 * i + 1, 8) = H1_2 * r12 * inv_Hx1_2 - z1 * H2_2 * r12 * inv_Hx1_2;  // Dist coeff. k1
-            J(2 * i + 1, 9) = x2_1 * r22 * dist_factor2 * dist_factor2;  // Dist coeff. k2
-        }
+                g(8) -= dk1_e * re + dk1_o * ro;
 
-    }, [&p](const auto &dx) {
-        p.distortion_parameter += dx(8);
-        p.distortion_parameter2 += dx(9);
-    });
+                // Col 9: k2 (left-side distortion on x2)
+                const double r22df2 = r22 * df * df;
+                const double dk2_e = p0 * r22df2;
+                const double dk2_o = p1 * r22df2;
+
+                JtJ(0, 9) += a * dk2_e;
+                JtJ(3, 9) += b * dk2_e;
+                JtJ(6, 9) += c * dk2_e;
+                JtJ(1, 9) += a * dk2_o;
+                JtJ(4, 9) += b * dk2_o;
+                JtJ(7, 9) += c * dk2_o;
+                JtJ(2, 9) -= az0 * dk2_e + az1 * dk2_o;
+                JtJ(5, 9) -= bz0 * dk2_e + bz1 * dk2_o;
+                JtJ(8, 9) += dk1_e * dk2_e + dk1_o * dk2_o;
+                JtJ(9, 9) += dk2_e * dk2_e + dk2_o * dk2_o;
+
+                g(9) -= dk2_e * re + dk2_o * ro;
+            }
+        },
+        [&p](const auto &dx) {
+            p.distortion_parameter += dx(8);
+            p.distortion_parameter2 += dx(9);
+        });
 }
-}
 
+}
