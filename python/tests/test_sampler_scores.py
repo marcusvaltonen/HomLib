@@ -149,19 +149,18 @@ class GCRANSACSamplerTestCase(unittest.TestCase):
     # --- NonMinimalStrategy ---
 
     @retry()
-    def test_non_minimal_lomsac(self):
-        nms = homlib.NonMinimalStrategy.Lomsac
+    def test_non_minimal_sample(self):
+        nms = homlib.NonMinimalStrategy.Sample
         gc = homlib.GCRANSAC(
             self.solver, threshold=self.thr,
             non_minimal_strategy=nms)
         est, stats = gc.estimate(self.x, self.y)
         _assert_good(
-            self, est, stats, self.H, self.N, self.n_out,
-            check_inliers=False)
+            self, est, stats, self.H, self.N, self.n_out)
 
     @retry()
-    def test_non_minimal_multisample(self):
-        nms = homlib.NonMinimalStrategy.MultiSample
+    def test_non_minimal_overdetermined(self):
+        nms = homlib.NonMinimalStrategy.Overdetermined
         gc = homlib.GCRANSAC(
             self.solver, threshold=self.thr,
             non_minimal_strategy=nms)
@@ -186,7 +185,7 @@ class GCRANSACSamplerTestCase(unittest.TestCase):
 
     def test_settings_non_minimal_strategy_field(self):
         s = homlib.GCRANSACSettings()
-        nms = homlib.NonMinimalStrategy.Lomsac
+        nms = homlib.NonMinimalStrategy.Sample
         s.non_minimal_strategy = nms
         self.assertEqual(s.non_minimal_strategy, nms)
 
@@ -218,15 +217,13 @@ class GCRANSACSamplerTestCase(unittest.TestCase):
 
     def test_non_minimal_enum_values(self):
         members = {e.name for e in homlib.NonMinimalStrategy}
-        expected = {
-            "Lomsac", "SelectAndRefine", "MultiSample",
-        }
+        expected = {"Sample", "Overdetermined"}
         self.assertEqual(members, expected)
 
     def test_non_minimal_enum_iterable(self):
         values = list(homlib.NonMinimalStrategy)
-        self.assertEqual(len(values), 3)
-        self.assertIn(homlib.NonMinimalStrategy.Lomsac, values)
+        self.assertEqual(len(values), 2)
+        self.assertIn(homlib.NonMinimalStrategy.Overdetermined, values)
 
 
 # ---------------------------------------------------------------
@@ -315,8 +312,8 @@ class MAGSACSamplerTestCase(unittest.TestCase):
     # --- NonMinimalStrategy ---
 
     @retry()
-    def test_non_minimal_lomsac(self):
-        nms = homlib.NonMinimalStrategy.Lomsac
+    def test_non_minimal_sample(self):
+        nms = homlib.NonMinimalStrategy.Sample
         mg = homlib.MAGSAC(
             self.solver, sigma_max=self.sigma,
             non_minimal_strategy=nms)
@@ -326,8 +323,8 @@ class MAGSACSamplerTestCase(unittest.TestCase):
             check_inliers=False)
 
     @retry()
-    def test_non_minimal_multisample(self):
-        nms = homlib.NonMinimalStrategy.MultiSample
+    def test_non_minimal_overdetermined(self):
+        nms = homlib.NonMinimalStrategy.Overdetermined
         mg = homlib.MAGSAC(
             self.solver, sigma_max=self.sigma,
             non_minimal_strategy=nms)
@@ -354,7 +351,7 @@ class MAGSACSamplerTestCase(unittest.TestCase):
 
     def test_settings_non_minimal_strategy_field(self):
         s = homlib.MAGSACSettings()
-        nms = homlib.NonMinimalStrategy.MultiSample
+        nms = homlib.NonMinimalStrategy.Overdetermined
         s.non_minimal_strategy = nms
         self.assertEqual(s.non_minimal_strategy, nms)
 

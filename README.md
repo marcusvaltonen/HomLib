@@ -42,14 +42,14 @@ information of the corresponding descriptors.
 | Hartley and Zisserman (2003) / DLT       | 4      | :heavy_check_mark: |                          |                    | :heavy_check_mark: | P          |
 | Guo (2019)                               | 4      | :heavy_check_mark: |                          |                    | :heavy_check_mark: | P          |
 | Cai et al. (2025)                        | 4      | :heavy_check_mark: |                          |                    | :heavy_check_mark: | P          |
-| Fitzgibbon (2001)                        | 5      |                    | :heavy_check_mark: (e)   |                    | :heavy_check_mark: | P          |
-|                                          | 5      |                    | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | P          |
+| Fitzgibbon (2001)                        | 5+     |                    | :heavy_check_mark: (e)   |                    | :heavy_check_mark: | P          |
+|                                          | 5+     |                    | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | P          |
 | Kukelova et al. (2015)                   | 5      | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: | P          |
 |                                          | 6      |                    | :heavy_check_mark: (2)   |                    | :heavy_check_mark: | P          |
 | Valtonen Örnhag et al. (2020)            | 4      | :heavy_check_mark: |                          | :heavy_check_mark: |                    | P          |
 | Valtonen Örnhag et al. (2021)            | 3      | :heavy_check_mark: |                          | :heavy_check_mark: |                    | P          |
 |                                          | 4      | :heavy_check_mark: | :heavy_check_mark: (e)   | :heavy_check_mark: |                    | P          |
-| Nakano (2024)                            | 5      | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | P          |
+| Nakano (2024)                            | 5+     | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | P          |
 | Wadenbäck et al. (2026)                  | 5      | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | P          |
 |                                          | 5      | :heavy_check_mark: | :heavy_check_mark: (e)   |                    | :heavy_check_mark: | P          |
 |                                          | 5      | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: | P          |

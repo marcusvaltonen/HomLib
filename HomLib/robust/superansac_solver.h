@@ -133,7 +133,7 @@ template <class Solver>
 class HomLibPointNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
 public:
     explicit HomLibPointNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Lomsac)
+        NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
         : solver_(solver), strategy_(strategy) {}
 
     bool returnMultipleModels() const override { return false; }
@@ -184,7 +184,7 @@ template <class Solver>
 class HomLibAffineNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
 public:
     explicit HomLibAffineNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Lomsac)
+        NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
         : solver_(solver), strategy_(strategy) {}
 
     bool returnMultipleModels() const override { return false; }
@@ -241,7 +241,7 @@ template <class Solver>
 class HomLibOrientationNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
 public:
     explicit HomLibOrientationNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Lomsac)
+        NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
         : solver_(solver), strategy_(strategy) {}
 
     bool returnMultipleModels() const override { return false; }

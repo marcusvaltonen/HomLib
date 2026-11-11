@@ -1,5 +1,6 @@
 #include "binding_utils.h"
 #include <gcransac_runner.h>
+#include <solver_dispatch.h>
 
 using namespace pybind11::literals;
 
@@ -84,11 +85,6 @@ void bind_gcransac(py::module_& m) {
         .value("ImportanceSampler", HomLib::GCSamplerType::ImportanceSampler)
         .value("ARSampler", HomLib::GCSamplerType::ARSampler);
 
-    py::enum_<HomLib::NonMinimalStrategy>(m, "NonMinimalStrategy")
-        .value("Lomsac", HomLib::NonMinimalStrategy::Lomsac)
-        .value("SelectAndRefine", HomLib::NonMinimalStrategy::SelectAndRefine)
-        .value("MultiSample", HomLib::NonMinimalStrategy::MultiSample);
-
     py::class_<HomLib::GCRANSACSettings>(m, "GCRANSACSettings",
         "Settings for GC-RANSAC estimation.")
         .def(py::init<>())
@@ -113,7 +109,8 @@ void bind_gcransac(py::module_& m) {
 
     m.def("dispatch_gcransac_point", &dispatch_gcransac_point,
         "Run a point-based solver within the GC-RANSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{},
+        "settings"_a);
     m.def("dispatch_gcransac_affine", &dispatch_gcransac_affine,
         "Run an affine-covariant solver within the GC-RANSAC framework.",
         "solver"_a, "x"_a, "y"_a, "A"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);

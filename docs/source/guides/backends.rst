@@ -346,7 +346,7 @@ approaches:
   when the score magnitudes are informative (e.g. learned matcher
   confidences), but add more computational overhead per iteration.
 
-On real-world data (e.g. HPatches, see :doc:`benchmarking`), PROSAC with real
+On real-world data (e.g. HPatches, see :doc:`benchmarks/hpatches`), PROSAC with real
 scores typically matches or slightly improves Uniform accuracy while needing fewer
 iterations to converge.  The wall-clock difference is small because
 the per-iteration cost dominates, but PROSAC is particularly helpful
@@ -374,7 +374,7 @@ arguments. Settings are also accessible via namespace aliases for clarity:
        min_iterations=50,
        do_local_optimization=True,
        sampler=homlib.GCRANSAC.SamplerType.PROSAC,
-       non_minimal_strategy=homlib.GCRANSAC.NonMinimalStrategy.SelectAndRefine,
+       non_minimal_strategy=homlib.GCRANSAC.NonMinimalStrategy.Sample,
    )
 
    # MAGSAC (shares GCSamplerType with GC-RANSAC)
@@ -464,12 +464,10 @@ non-minimal sample is used for model refinement:
 
    * - Strategy
      - Description
-   * - ``Lomsac``
-     - LO-MSAC: iterative refinement on inlier set.
-   * - ``SelectAndRefine``
-     - Select the best model, then refine (default).
-   * - ``MultiSample``
-     - Evaluate multiple non-minimal samples.
+   * - ``Sample``
+     - Select the best model from a non-minimal sample, then refine (default).
+   * - ``Overdetermined``
+     - Fit with an overdetermined solver when available; falls back to ``Sample``.
 
 
 .. _threshold_conventions:

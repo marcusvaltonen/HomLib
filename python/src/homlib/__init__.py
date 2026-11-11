@@ -10,6 +10,7 @@ from ._core import (
     LORansacOptions,
     RansacStatistics,
     DistortionCase,
+    NonMinimalStrategy,
     ProblemConfig,
     ProblemInstance,
     generate_problem_instance,
@@ -42,6 +43,16 @@ class Solver(_CppSolver):
     (``FeatureType.Points``, ``FeatureType.Affine``, or
     ``FeatureType.Orientation``).
     """
+
+    def __init__(self, solver_id, **kwargs):
+        if isinstance(solver_id, str):
+            member = SolverId.__members__.get(solver_id)
+            if member is None:
+                raise ValueError(
+                    f"Unknown solver {solver_id!r}; "
+                    f"expected one of {sorted(SolverId.__members__)}")
+            solver_id = member
+        super().__init__(solver_id, **kwargs)
 
     def estimate(self, x, y, A=None, ori=None):
         ft = self.feature_type
@@ -111,14 +122,14 @@ class DLT(Solver):
 
 
 class FitzgibbonCVPR2001OneSided(Solver):
-    """One-sided radial distortion solver by Fitzgibbon (CVPR 2001), 5-point."""
+    """One-sided radial distortion solver by Fitzgibbon (CVPR 2001), 5+ points."""
 
     def __init__(self):
         super().__init__(SolverId.FitzgibbonCVPR2001OneSided)
 
 
 class FitzgibbonCVPR2001TwoSidedEqual(Solver):
-    """Two-sided equal radial distortion solver by Fitzgibbon (CVPR 2001), 5-point."""
+    """Two-sided equal radial distortion solver by Fitzgibbon (CVPR 2001), 5+ points."""
 
     def __init__(self):
         super().__init__(SolverId.FitzgibbonCVPR2001TwoSidedEqual)
@@ -153,14 +164,14 @@ class KukelovaCVPR2015TwoSided6Pt(Solver):
 
 
 class NakanoICPR2025OneSided(Solver):
-    """One-sided radial distortion solver by Nakano (ICPR 2025), 5-point."""
+    """One-sided radial distortion solver by Nakano (ICPR 2025), 5+ points."""
 
     def __init__(self, extra_check=False):
         super().__init__(SolverId.NakanoICPR2025OneSided, extra_check=extra_check)
 
 
 class NakanoICPR2025OneSidedRight(Solver):
-    """One-sided right radial distortion solver by Nakano (ICPR 2025), 5-point.
+    """One-sided right radial distortion solver by Nakano (ICPR 2025), 5+ points.
 
     Automatically derived from :class:`NakanoICPR2025OneSided` by swapping the
     point arguments and inverting the homography.
@@ -171,7 +182,7 @@ class NakanoICPR2025OneSidedRight(Solver):
 
 
 class FitzgibbonCVPR2001OneSidedRight(Solver):
-    """One-sided right radial distortion solver by Fitzgibbon (CVPR 2001), 5-point.
+    """One-sided right radial distortion solver by Fitzgibbon (CVPR 2001), 5+ points.
 
     Automatically derived from :class:`FitzgibbonCVPR2001OneSided` by swapping the
     point arguments and inverting the homography.
@@ -294,7 +305,7 @@ class RobustEstimator(ABC):
     """
 
     def __init__(self, solver):
-        self._solver = solver
+        self._solver = solver if isinstance(solver, Solver) else Solver(solver)
 
     @property
     def solver(self):
@@ -326,6 +337,28 @@ class RobustEstimator(ABC):
         tuple[PoseData, object]
             Best model and backend-specific estimation statistics.
         """
+
+
+_NON_MINIMAL_STRATEGY_STRINGS = {
+    "sample": NonMinimalStrategy.Sample,
+    "overdetermined": NonMinimalStrategy.Overdetermined,
+}
+
+
+def _parse_non_minimal_strategy(value):
+    if value is None or isinstance(value, NonMinimalStrategy):
+        return value
+    if isinstance(value, str):
+        key = value.lower()
+        if key not in _NON_MINIMAL_STRATEGY_STRINGS:
+            raise ValueError(
+                f"Unknown non_minimal_strategy {value!r}; "
+                f"expected one of {list(_NON_MINIMAL_STRATEGY_STRINGS)}"
+            )
+        return _NON_MINIMAL_STRATEGY_STRINGS[key]
+    raise TypeError(
+        f"non_minimal_strategy must be a str or NonMinimalStrategy, got {type(value).__name__}"
+    )
 
 
 class LOMSAC(RobustEstimator):
@@ -491,7 +524,6 @@ if _HAS_GCRANSAC:
         GCRANSACSettings,
         GCRANSACStatistics,
         GCSamplerType,
-        NonMinimalStrategy,
         dispatch_gcransac_point as _dispatch_gcransac_point,
         dispatch_gcransac_affine as _dispatch_gcransac_affine,
         dispatch_gcransac_orientation as _dispatch_gcransac_orientation,
@@ -528,6 +560,10 @@ class GCRANSAC(RobustEstimator):
             )
         super().__init__(solver)
         self._settings = settings if settings is not None else GCRANSACSettings()
+        # TODO: validate types of all kwargs, not just non_minimal_strategy
+        if "non_minimal_strategy" in kwargs:
+            kwargs["non_minimal_strategy"] = _parse_non_minimal_strategy(
+                kwargs["non_minimal_strategy"])
         for key, value in kwargs.items():
             if not hasattr(self._settings, key):
                 raise ValueError(f"Unknown GC-RANSAC setting: {key}")
@@ -605,6 +641,10 @@ class MAGSAC(RobustEstimator):
             )
         super().__init__(solver)
         self._settings = settings if settings is not None else MAGSACSettings()
+        # TODO: validate types of all kwargs, not just non_minimal_strategy
+        if "non_minimal_strategy" in kwargs:
+            kwargs["non_minimal_strategy"] = _parse_non_minimal_strategy(
+                kwargs["non_minimal_strategy"])
         for key, value in kwargs.items():
             if not hasattr(self._settings, key):
                 raise ValueError(f"Unknown MAGSAC setting: {key}")
@@ -646,6 +686,7 @@ __all__ = [
     "SolverId",
     "FeatureType",
     "DistortionCase",
+    "NonMinimalStrategy",
     # Base class
     "Solver",
     "solver_ids",

@@ -52,7 +52,18 @@ public:
 			yy.push_back(y[sample[i]]);
 		}
 
-		return detail::lomsac_non_minimal_point(solver, xx, yy, *pose) ? 1 : 0;
+		auto est_fn = [](const Solver& s,
+		                  const std::vector<Eigen::Vector2d>& xv,
+		                  const std::vector<Eigen::Vector2d>& yv,
+		                  const std::vector<size_t>& idx, size_t ss,
+		                  std::vector<PoseData>* poses) {
+			std::vector<Eigen::Vector2d> xs(ss), ys(ss);
+			for (size_t i = 0; i < ss; ++i) { xs[i] = xv[idx[i]]; ys[i] = yv[idx[i]]; }
+			s.estimate(xs, ys, poses);
+		};
+
+		return detail::non_minimal_dispatch_point(
+			NonMinimalStrategy::Sample, solver, xx, yy, est_fn, *pose) ? 1 : 0;
 	}
 
 	double EvaluateModelOnPoint(const HomLib::PoseData& pose, int i) const {

@@ -3,8 +3,18 @@
 The OpenCV SIFT matches of these pairs, and their ground-truth homographies, come from
 ``python/benchmark/hpatches/hpatches_features.py --export_subset``. The test gets them with
 ``tests.helpers.fetch_test_data``: from ``$HOMLIB_TEST_DATA``, or downloaded from ``SUBSET_URL``, and
-checked against ``SUBSET_SHA256``. Without them, it is skipped, except in CI
-(``HOMLIB_REQUIRE_TEST_DATA``), where it fails.
+checked against ``SUBSET_SHA256``, then cached in ``~/.cache/homlib/``. ``HOMLIB_TEST_DATA_URL``
+overrides the URL. Without them, it is skipped, except in CI (``HOMLIB_REQUIRE_TEST_DATA``), where it
+fails.
+
+To change the data, maintainers write the new file, publish it under a new release tag, and update
+``SUBSET_URL`` and ``SUBSET_SHA256``::
+
+    python benchmark/hpatches/hpatches_features.py --matches data/hpatches_sift.npz \
+        --export_subset hpatches_sift_subset.npz
+    gh release create test-data-v2 hpatches_sift_subset.npz -R marcusvaltonen/HomLib \
+        --latest=false --title "Test data" --notes "Data files for the tests (not a HomLib release)"
+    shasum -a 256 hpatches_sift_subset.npz
 """
 
 import os
@@ -17,7 +27,7 @@ from tests.helpers import fetch_test_data
 
 SUBSET_NAME = "hpatches_sift_subset.npz"
 # The release asset, and the SHA-256 of the file that the test expects: a new version of the data
-# changes both (see docs/source/guides/benchmarking.rst, "Test data")
+# changes both (see the docstring above)
 SUBSET_URL = os.environ.get(
     "HOMLIB_TEST_DATA_URL",
     "https://github.com/marcusvaltonen/HomLib/releases/download/test-data-v1/" + SUBSET_NAME)
