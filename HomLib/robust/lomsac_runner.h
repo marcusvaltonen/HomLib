@@ -46,9 +46,10 @@ std::pair<PoseData, ransac_lib::RansacStatistics> run_lomsac_affine(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Matrix2d>& A,
+    const NonMinimalSettings& nm,
     const ransac_lib::LORansacOptions& options)
 {
-    AffineRansacEstimator<Solver> estimator(x, y, A, solver);
+    AffineRansacEstimator<Solver> estimator(x, y, A, solver, nm);
 
     ransac_lib::RansacStatistics stats;
     PoseData best_model;
@@ -72,9 +73,10 @@ std::pair<PoseData, ransac_lib::RansacStatistics> run_lomsac_orientation(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Vector2d>& ori,
+    const NonMinimalSettings& nm,
     const ransac_lib::LORansacOptions& options)
 {
-    OrientationRansacEstimator<Solver> estimator(x, y, ori, solver);
+    OrientationRansacEstimator<Solver> estimator(x, y, ori, solver, nm);
 
     ransac_lib::RansacStatistics stats;
     PoseData best_model;

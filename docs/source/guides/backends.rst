@@ -538,7 +538,10 @@ parameter (a :class:`~homlib.NonMinimalSettings` instance or ``dict``) with
 two fields:
 
 - ``sample_size`` — override the non-minimal sample size
-  (default ``0``: automatic, typically 2× minimal).
+  (default ``0``: automatic, typically 2× minimal for point solvers, 4×
+  for affine/orientation).  Currently honoured by the LOMSAC backend;
+  GC-RANSAC, MAGSAC, and SupeRANSAC determine the non-minimal sample
+  size at compile time and ignore this field.
 - ``refine`` — enable/disable Gauss-Newton refinement after the
   non-minimal solve (default ``True``).
 

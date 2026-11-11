@@ -9,17 +9,21 @@ namespace HomLib {
 template<class Solver>
 class OrientationRansacEstimator {
 public:
-	OrientationRansacEstimator(const std::vector<Eigen::Vector2d> &x_, const std::vector<Eigen::Vector2d> &y_, const std::vector<Eigen::Vector2d> &ori_, Solver est) {
+	OrientationRansacEstimator(const std::vector<Eigen::Vector2d> &x_, const std::vector<Eigen::Vector2d> &y_, const std::vector<Eigen::Vector2d> &ori_, Solver est, const NonMinimalSettings& nm = {}) {
 		x = x_;
 		y = y_;
 		ori = ori_;
 		solver = est;
+		nm_settings = nm;
 	}
 
 	inline int min_sample_size() const {
 		return solver.minimal_sample_size();
 	}
 	inline int non_minimal_sample_size() const {
+		if (nm_settings.sample_size > 0)
+			return std::max(nm_settings.sample_size,
+			                solver.minimal_sample_size() + 1);
 		return solver.minimal_sample_size() * 4;
 	}
 	inline int num_data() const {
@@ -63,7 +67,8 @@ public:
 		};
 		if (!detail::lomsac_non_minimal_full(solver, xx, yy, est_fn, *pose))
 			return 0;
-		solver.refine(*pose, xx, yy);
+		if (nm_settings.refine)
+			solver.refine(*pose, xx, yy);
 		return 1;
 	}
 
@@ -76,7 +81,7 @@ public:
 		if (!use_local_opt)
 			return;
 		std::vector<Eigen::Vector2d> xx;
-		std::vector<Eigen::Vector2d> yy;	
+		std::vector<Eigen::Vector2d> yy;
 
 		for (size_t i = 0; i < sample.size(); i++) {
 			xx.push_back(x[sample[i]]);
@@ -88,6 +93,7 @@ public:
 
 	bool use_non_minimal = true;
 	bool use_local_opt = true;
+	NonMinimalSettings nm_settings;
 private:
 	Solver solver;
 	std::vector<Eigen::Vector2d> x;

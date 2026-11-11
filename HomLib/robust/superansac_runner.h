@@ -327,10 +327,11 @@ std::pair<PoseData, SuperansacStatistics> run_superansac_affine(
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Matrix2d>& A,
     const std::vector<double>& probabilities,
+    const NonMinimalSettings& nm,
     const superansac::RANSACSettings& settings)
 {
     auto data = detail::pack_affine_data(x, y, A);
-    SuperansacAffineEstimator<Solver> estimator(solver);
+    SuperansacAffineEstimator<Solver> estimator(solver, nm);
     auto result = detail::run_pipeline<8>(&estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
@@ -343,10 +344,11 @@ std::pair<PoseData, SuperansacStatistics> run_superansac_orientation(
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Vector2d>& ori,
     const std::vector<double>& probabilities,
+    const NonMinimalSettings& nm,
     const superansac::RANSACSettings& settings)
 {
     auto data = detail::pack_orientation_data(x, y, ori);
-    SuperansacOrientationEstimator<Solver> estimator(solver);
+    SuperansacOrientationEstimator<Solver> estimator(solver, nm);
     auto result = detail::run_pipeline<6>(&estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;

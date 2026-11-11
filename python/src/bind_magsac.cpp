@@ -34,6 +34,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_aff
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const Eigen::Matrix<double, 4, Eigen::Dynamic>& A_,
     const std::vector<double>& probabilities,
+    HomLib::NonMinimalSettings nm,
     const HomLib::MAGSACSettings& settings)
 {
     std::vector<Eigen::Vector2d> x, y;
@@ -43,7 +44,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_aff
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_magsac_affine(s, x, y, A, probabilities, settings);
+        return HomLib::run_magsac_affine(s, x, y, A, probabilities, nm, settings);
     });
 }
 
@@ -53,6 +54,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_ori
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& ori_,
     const std::vector<double>& probabilities,
+    HomLib::NonMinimalSettings nm,
     const HomLib::MAGSACSettings& settings)
 {
     std::vector<Eigen::Vector2d> x, y, ori;
@@ -61,7 +63,7 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_ori
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_magsac_orientation(s, x, y, ori, probabilities, settings);
+        return HomLib::run_magsac_orientation(s, x, y, ori, probabilities, nm, settings);
     });
 }
 
@@ -109,8 +111,10 @@ void bind_magsac(py::module_& m) {
         "non_minimal_solver"_a = py::none(), "settings"_a);
     m.def("dispatch_magsac_affine", &dispatch_magsac_affine,
         "Run an affine-covariant solver within the MAGSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "A"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "A"_a, "probabilities"_a = std::vector<double>{},
+        "nm"_a = HomLib::NonMinimalSettings{}, "settings"_a);
     m.def("dispatch_magsac_orientation", &dispatch_magsac_orientation,
         "Run an orientation-covariant solver within the MAGSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "ori"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "ori"_a, "probabilities"_a = std::vector<double>{},
+        "nm"_a = HomLib::NonMinimalSettings{}, "settings"_a);
 }

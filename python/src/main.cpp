@@ -104,6 +104,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_affine
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const Eigen::Matrix<double, 4, Eigen::Dynamic>& A_,
+    HomLib::NonMinimalSettings nm,
     const ransac_lib::LORansacOptions& options)
 {
     std::vector<Eigen::Vector2d> x, y;
@@ -113,7 +114,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_affine
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_lomsac_affine(s, x, y, A, options);
+        return HomLib::run_lomsac_affine(s, x, y, A, nm, options);
     });
 }
 
@@ -122,6 +123,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_orient
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& ori_,
+    HomLib::NonMinimalSettings nm,
     const ransac_lib::LORansacOptions& options)
 {
     std::vector<Eigen::Vector2d> x, y, ori;
@@ -130,7 +132,7 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_orient
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_lomsac_orientation(s, x, y, ori, options);
+        return HomLib::run_lomsac_orientation(s, x, y, ori, nm, options);
     });
 }
 
@@ -752,7 +754,8 @@ PYBIND11_MODULE(_core, m) {
             tuple[PoseData, RansacStatistics]
                 Best model and estimation statistics.
         )pbdoc",
-        "solver"_a, "x"_a, "y"_a, "A"_a, "options"_a);
+        "solver"_a, "x"_a, "y"_a, "A"_a,
+        "nm"_a = HomLib::NonMinimalSettings{}, "options"_a);
 
     m.def("dispatch_lomsac_orientation", &dispatch_lomsac_orientation,
         R"pbdoc(
@@ -776,7 +779,8 @@ PYBIND11_MODULE(_core, m) {
             tuple[PoseData, RansacStatistics]
                 Best model and estimation statistics.
         )pbdoc",
-        "solver"_a, "x"_a, "y"_a, "ori"_a, "options"_a);
+        "solver"_a, "x"_a, "y"_a, "ori"_a,
+        "nm"_a = HomLib::NonMinimalSettings{}, "options"_a);
 
     // --- Backend bindings (each in its own compilation unit) ---
 
