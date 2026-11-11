@@ -34,7 +34,9 @@ pair:
 
 The pairs are the five that the authors remember, DSC_2512/2513, 2513/2514,
 2514/2515, 2517/2518 and 2518/2519, and 2519/2520, the likely sixth.
-``--pairs`` selects others.
+There is one plane, the wall with the two towers: every pair's ground truth is
+the homography of that wall. ``--pairs`` selects other pairs of the matches
+file, which make sense only where that wall is the dominant plane.
 
 Running it
 ----------

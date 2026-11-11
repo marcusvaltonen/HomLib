@@ -69,7 +69,7 @@ TABLE3 = [("KukelovaCVPR2015TwoSided", "Kukelova et al. (5pt)", 0.039, 2657),
 def normalized(H):
     """H scaled to unit Frobenius norm and positive determinant"""
     H = H / np.linalg.norm(H)
-    return -H if np.linalg.det(H) < 0 else H
+    return H if np.linalg.det(H) > 0 else -H
 
 
 def homography_errors(H, H_est, K, center):
