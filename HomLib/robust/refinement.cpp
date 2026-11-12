@@ -11,8 +11,12 @@ static const int MAX_ITER = 10;
 
 namespace {
 
+// Levenberg-Marquardt on H (H(2,2) = 1) and the distortion parameters of p, shared by the
+// refinements below. accumulate(H, JtJ, g, cost) adds every point's contribution to JtJ (upper
+// triangle), g = -J^T r and the cost, with the parameters in the order h11, h21, h31, h12, h22,
+// h32, h13, h23, then the distortion parameters; update_dist(dx) adds the distortion steps to p.
 template <int N, class Accumulate, class UpdateDist>
-void refine(size_t n_pts, HomLib::PoseData &p, const Accumulate &accumulate, const UpdateDist &update_dist) {
+void refine(HomLib::PoseData &p, const Accumulate &accumulate, const UpdateDist &update_dist) {
     double lm_damp = INITIAL_LM_DAMP;
     for (int iter = 0; iter < MAX_ITER; iter++) {
         Eigen::Matrix3d H = p.homography;
@@ -31,7 +35,7 @@ void refine(size_t n_pts, HomLib::PoseData &p, const Accumulate &accumulate, con
             break;
         const Eigen::Matrix<double, N, 1> dx =
             JtJ.template selfadjointView<Eigen::Upper>().ldlt().solve(g);
-        if (!dx.allFinite())
+        if (!dx.allFinite())   // a degenerate model or sample: keep the last finite model
             break;
         Eigen::Map<Eigen::Matrix<double, 8, 1>>(H.data()) += dx.head(8);
         p.homography = H;
@@ -42,7 +46,11 @@ void refine(size_t n_pts, HomLib::PoseData &p, const Accumulate &accumulate, con
     }
 }
 
-// Accumulate the H-parameter block (cols 0-7) of JtJ (upper triangle) and g.
+// Accumulate the H-parameter block (cols 0-7) of JtJ (upper triangle) and g = -J^T r, for one
+// point's two Jacobian rows:
+//   even row: [a, 0, -az0, b, 0, -bz0, c, 0]
+//   odd row:  [0, a, -az1, 0, b, -bz1, 0, c]
+// (az0, bz0, az1, bz1 are passed positive; the Jacobian entries are their negatives.)
 //
 // The even/odd Jacobian rows have complementary sparsity: cols {0,3,6} are
 // zero in odd rows, cols {1,4,7} are zero in even rows.  This gives 9
@@ -119,12 +127,13 @@ inline void accumulate_dist_col(
 
 namespace HomLib {
 
+// Non-linear refinement of transfer error |x2 - pi(H*x1)|^2, parameterized by fixing H(2,2) = 1
 void refinement_no_dist(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
     HomLib::PoseData &p)
 {
-    refine<8>(x1.size(), p,
+    refine<8>(p,
         [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
             const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
             const double H10 = H(1, 0), H11 = H(1, 1), H12 = H(1, 2);
@@ -147,12 +156,13 @@ void refinement_no_dist(
         [](const auto &) {});
 }
 
+// Non-linear refinement of transfer error |x2(k) - pi(H*x1)|^2
 void refinement_onesided(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
     HomLib::PoseData &p)
 {
-    refine<9>(x1.size(), p,
+    refine<9>(p,
         [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
             const double k = p.distortion_parameter2;
             const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
@@ -187,12 +197,13 @@ void refinement_onesided(
         [&p](const auto &dx) { p.distortion_parameter2 += dx(8); });
 }
 
+// Non-linear refinement of transfer error |x2 - pi(H*x1(k))|^2
 void refinement_onesided_right(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
     HomLib::PoseData &p)
 {
-    refine<9>(x1.size(), p,
+    refine<9>(p,
         [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
             const double k = p.distortion_parameter;
             const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
@@ -228,12 +239,13 @@ void refinement_onesided_right(
         [&p](const auto &dx) { p.distortion_parameter += dx(8); });
 }
 
+// Non-linear refinement of transfer error |x2(k) - pi(H*x1(k))|^2
 void refinement_twosided_equal(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
     HomLib::PoseData &p)
 {
-    refine<9>(x1.size(), p,
+    refine<9>(p,
         [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
             const double k = p.distortion_parameter;
             const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
@@ -276,12 +288,13 @@ void refinement_twosided_equal(
         });
 }
 
+// Non-linear refinement of transfer error |x2(k2) - pi(H*x1(k1))|^2
 void refinement_twosided(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
     HomLib::PoseData &p)
 {
-    refine<10>(x1.size(), p,
+    refine<10>(p,
         [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
             const double k1 = p.distortion_parameter;
             const double k2 = p.distortion_parameter2;
