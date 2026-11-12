@@ -89,13 +89,14 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_point(
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
 
+    HomLib::NonMinimalEstimateFn nm_solver_fn;
     if (!non_minimal_solver_obj.is_none())
-        nm.solver_fn = resolve_non_minimal_fn(non_minimal_solver_obj.cast<PySolver>());
+        nm_solver_fn = resolve_non_minimal_fn(non_minimal_solver_obj.cast<PySolver>());
 
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_lomsac_point(s, x, y, nm, options);
+        return HomLib::run_lomsac_point(s, x, y, nm, options, nm_solver_fn);
     });
 }
 
@@ -105,16 +106,21 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_affine
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const Eigen::Matrix<double, 4, Eigen::Dynamic>& A_,
     HomLib::NonMinimalSettings nm,
+    const py::object& non_minimal_solver_obj,
     const ransac_lib::LORansacOptions& options)
 {
     std::vector<Eigen::Vector2d> x, y;
     std::vector<Eigen::Matrix2d> A;
     preprocess_affine(x_, y_, A_, &x, &y, &A);
 
+    HomLib::NonMinimalEstimateFn nm_solver_fn;
+    if (!non_minimal_solver_obj.is_none())
+        nm_solver_fn = resolve_non_minimal_fn(non_minimal_solver_obj.cast<PySolver>());
+
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_lomsac_affine(s, x, y, A, nm, options);
+        return HomLib::run_lomsac_affine(s, x, y, A, nm, options, nm_solver_fn);
     });
 }
 
@@ -124,15 +130,20 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_orient
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& ori_,
     HomLib::NonMinimalSettings nm,
+    const py::object& non_minimal_solver_obj,
     const ransac_lib::LORansacOptions& options)
 {
     std::vector<Eigen::Vector2d> x, y, ori;
     preprocess_orientation(x_, y_, ori_, &x, &y, &ori);
 
+    HomLib::NonMinimalEstimateFn nm_solver_fn;
+    if (!non_minimal_solver_obj.is_none())
+        nm_solver_fn = resolve_non_minimal_fn(non_minimal_solver_obj.cast<PySolver>());
+
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_lomsac_orientation(s, x, y, ori, nm, options);
+        return HomLib::run_lomsac_orientation(s, x, y, ori, nm, options, nm_solver_fn);
     });
 }
 
@@ -755,7 +766,9 @@ PYBIND11_MODULE(_core, m) {
                 Best model and estimation statistics.
         )pbdoc",
         "solver"_a, "x"_a, "y"_a, "A"_a,
-        "nm"_a = HomLib::NonMinimalSettings{}, "options"_a);
+        "nm"_a = HomLib::NonMinimalSettings{},
+        "non_minimal_solver"_a = py::none(),
+        "options"_a);
 
     m.def("dispatch_lomsac_orientation", &dispatch_lomsac_orientation,
         R"pbdoc(
@@ -780,7 +793,9 @@ PYBIND11_MODULE(_core, m) {
                 Best model and estimation statistics.
         )pbdoc",
         "solver"_a, "x"_a, "y"_a, "ori"_a,
-        "nm"_a = HomLib::NonMinimalSettings{}, "options"_a);
+        "nm"_a = HomLib::NonMinimalSettings{},
+        "non_minimal_solver"_a = py::none(),
+        "options"_a);
 
     // --- Backend bindings (each in its own compilation unit) ---
 

@@ -163,17 +163,53 @@ Solver make_solver(const PySolver& py_solver) {
 }
 
 inline HomLib::NonMinimalEstimateFn resolve_non_minimal_fn(const PySolver& py_solver) {
-    return HomLib::dispatch_point_solver(py_solver.id, [&py_solver](auto tag) -> HomLib::NonMinimalEstimateFn {
-        using SolverType = std::decay_t<decltype(tag)>;
-        auto solver = make_solver<SolverType>(py_solver);
-        return [s = std::move(solver)](
-            const std::vector<Eigen::Vector2d>& x,
-            const std::vector<Eigen::Vector2d>& y,
-            std::vector<HomLib::PoseData>* poses) -> int {
-            s.estimate(x, y, poses);
-            return static_cast<int>(poses->size());
-        };
-    });
+    switch (HomLib::feature_type_for(py_solver.id)) {
+    case HomLib::FeatureType::Points:
+        return HomLib::dispatch_point_solver(py_solver.id, [&py_solver](auto tag) -> HomLib::NonMinimalEstimateFn {
+            using S = std::decay_t<decltype(tag)>;
+            auto solver = make_solver<S>(py_solver);
+            return [s = std::move(solver)](
+                const std::vector<Eigen::Vector2d>& x,
+                const std::vector<Eigen::Vector2d>& y,
+                const std::vector<Eigen::Matrix2d>*,
+                const std::vector<Eigen::Vector2d>*,
+                std::vector<HomLib::PoseData>* poses) -> int {
+                s.estimate(x, y, poses);
+                return static_cast<int>(poses->size());
+            };
+        });
+    case HomLib::FeatureType::Affine:
+        return HomLib::dispatch_affine_solver(py_solver.id, [&py_solver](auto tag) -> HomLib::NonMinimalEstimateFn {
+            using S = std::decay_t<decltype(tag)>;
+            auto solver = make_solver<S>(py_solver);
+            return [s = std::move(solver)](
+                const std::vector<Eigen::Vector2d>& x,
+                const std::vector<Eigen::Vector2d>& y,
+                const std::vector<Eigen::Matrix2d>* A,
+                const std::vector<Eigen::Vector2d>*,
+                std::vector<HomLib::PoseData>* poses) -> int {
+                if (!A) return 0;
+                s.estimate(x, y, *A, poses);
+                return static_cast<int>(poses->size());
+            };
+        });
+    case HomLib::FeatureType::Orientation:
+        return HomLib::dispatch_orientation_solver(py_solver.id, [&py_solver](auto tag) -> HomLib::NonMinimalEstimateFn {
+            using S = std::decay_t<decltype(tag)>;
+            auto solver = make_solver<S>(py_solver);
+            return [s = std::move(solver)](
+                const std::vector<Eigen::Vector2d>& x,
+                const std::vector<Eigen::Vector2d>& y,
+                const std::vector<Eigen::Matrix2d>*,
+                const std::vector<Eigen::Vector2d>* ori,
+                std::vector<HomLib::PoseData>* poses) -> int {
+                if (!ori) return 0;
+                s.estimate(x, y, *ori, poses);
+                return static_cast<int>(poses->size());
+            };
+        });
+    }
+    return {};
 }
 
 // The range of estimate(), which calls the solver on the points as given (without the estimators'

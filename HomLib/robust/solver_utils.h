@@ -15,13 +15,14 @@ enum class NonMinimalStrategy { Sample, Overdetermined };
 using NonMinimalEstimateFn = std::function<int(
     const std::vector<Eigen::Vector2d>&,
     const std::vector<Eigen::Vector2d>&,
+    const std::vector<Eigen::Matrix2d>*,
+    const std::vector<Eigen::Vector2d>*,
     std::vector<PoseData>*)>;
 
 struct NonMinimalSettings {
     NonMinimalStrategy strategy = NonMinimalStrategy::Sample;
     int sample_size = 0;
     bool refine = true;
-    NonMinimalEstimateFn solver_fn;
 };
 
 namespace detail {
@@ -120,6 +121,33 @@ inline std::vector<size_t> spread_indices(size_t ss, size_t n) {
     return idx;
 }
 
+using BoundNmFn = std::function<int(
+    const std::vector<Eigen::Vector2d>&,
+    const std::vector<Eigen::Vector2d>&,
+    std::vector<PoseData>*)>;
+
+// Captures fn by reference — safe because the result is only used synchronously in non_minimal_dispatch.
+inline BoundNmFn bind_nm(const NonMinimalEstimateFn& fn) {
+    if (!fn) return {};
+    return [&fn](const std::vector<Eigen::Vector2d>& x,
+                 const std::vector<Eigen::Vector2d>& y,
+                 std::vector<PoseData>* p) { return fn(x, y, nullptr, nullptr, p); };
+}
+inline BoundNmFn bind_nm(const NonMinimalEstimateFn& fn,
+                          const std::vector<Eigen::Matrix2d>& A) {
+    if (!fn) return {};
+    return [&fn, &A](const std::vector<Eigen::Vector2d>& x,
+                     const std::vector<Eigen::Vector2d>& y,
+                     std::vector<PoseData>* p) { return fn(x, y, &A, nullptr, p); };
+}
+inline BoundNmFn bind_nm(const NonMinimalEstimateFn& fn,
+                          const std::vector<Eigen::Vector2d>& ori) {
+    if (!fn) return {};
+    return [&fn, &ori](const std::vector<Eigen::Vector2d>& x,
+                       const std::vector<Eigen::Vector2d>& y,
+                       std::vector<PoseData>* p) { return fn(x, y, nullptr, &ori, p); };
+}
+
 template <class Solver, class EstimateFunc>
 inline bool non_minimal_dispatch(
     const Solver& solver,
@@ -127,7 +155,8 @@ inline bool non_minimal_dispatch(
     const std::vector<Eigen::Vector2d>& y,
     EstimateFunc estimate_fn,
     PoseData& best,
-    const NonMinimalSettings& nm = {})
+    const NonMinimalSettings& nm = {},
+    const BoundNmFn& solver_fn = {})
 {
     const size_t n = x.size();
     const size_t ss = static_cast<size_t>(solver.minimal_sample_size());
@@ -136,15 +165,16 @@ inline bool non_minimal_dispatch(
 
     bool found = false;
 
-    if (nm.strategy == NonMinimalStrategy::Overdetermined && nm.solver_fn) {
+    if (nm.strategy == NonMinimalStrategy::Overdetermined && solver_fn) {
         std::vector<PoseData> poses;
-        nm.solver_fn(x, y, &poses);
+        solver_fn(x, y, &poses);
         int best_idx = find_best_pose(solver, poses, x, y);
         if (best_idx < 0)
             return false;
         best = poses[best_idx];
         found = true;
     } else {
+        // Overdetermined + non-OD solver silently falls back to Sample; Python validates upstream.
         const bool use_all = nm.strategy == NonMinimalStrategy::Overdetermined
                              && Solver::supports_overdetermined;
         auto idx = use_all ? spread_indices(n, n) : spread_indices(ss, n);

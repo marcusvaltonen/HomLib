@@ -75,7 +75,7 @@ public:
 		};
 
 		return detail::non_minimal_dispatch(
-			solver, xx, yy, est_fn, *pose, nm_settings) ? 1 : 0;
+			solver, xx, yy, est_fn, *pose, nm_settings, detail::bind_nm(nm_solver_fn, oo)) ? 1 : 0;
 	}
 
 	double EvaluateModelOnPoint(const HomLib::PoseData& pose, int i) const {
@@ -100,6 +100,7 @@ public:
 	bool use_non_minimal = true;
 	bool use_local_opt = true;
 	NonMinimalSettings nm_settings;
+	NonMinimalEstimateFn nm_solver_fn;
 private:
 	Solver solver;
 	std::vector<Eigen::Vector2d> x;
