@@ -363,30 +363,37 @@ TEST_CASE("LOMSAC - overdetermined fallback for non-OD solver") {
 }
 
 
-TEST_CASE("LOMSAC - overdetermined beats sample (no refine)") {
-    auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT, 1e-3);
+TEST_CASE("LOMSAC - overdetermined beats sample on average (no refine)") {
     HomLib::FitzgibbonCVPR2001::SolverSingleSided solver;
 
-    ransac_lib::LORansacOptions options;
-    options.squared_inlier_threshold_ = 0.003 * 0.003;
-    options.max_num_iterations_ = 5000;
-    options.random_seed_ = 42;
+    int od_wins = 0;
+    const int n_seeds = 5;
+    for (int seed = 0; seed < n_seeds; ++seed) {
+        auto data = generate_test_data(seed, 500, 100, HomLib::ONE_SIDED_LEFT, 1e-3);
 
-    HomLib::NonMinimalSettings nm_sample;
-    nm_sample.strategy = HomLib::NonMinimalStrategy::Sample;
-    nm_sample.refine = false;
-    auto [pose_s, stats_s] = HomLib::run_lomsac_point(
-        solver, data.x, data.y, nm_sample, options);
+        ransac_lib::LORansacOptions options;
+        options.squared_inlier_threshold_ = 0.003 * 0.003;
+        options.max_num_iterations_ = 5000;
+        options.random_seed_ = seed;
 
-    HomLib::NonMinimalSettings nm_od;
-    nm_od.strategy = HomLib::NonMinimalStrategy::Overdetermined;
-    nm_od.refine = false;
-    auto [pose_od, stats_od] = HomLib::run_lomsac_point(
-        solver, data.x, data.y, nm_od, options);
+        HomLib::NonMinimalSettings nm_sample;
+        nm_sample.strategy = HomLib::NonMinimalStrategy::Sample;
+        nm_sample.refine = false;
+        auto [pose_s, stats_s] = HomLib::run_lomsac_point(
+            solver, data.x, data.y, nm_sample, options);
 
-    double err_sample = data.instance.hom_error(pose_s.homography);
-    double err_od = data.instance.hom_error(pose_od.homography);
-    REQUIRE(err_od < err_sample);
+        HomLib::NonMinimalSettings nm_od;
+        nm_od.strategy = HomLib::NonMinimalStrategy::Overdetermined;
+        nm_od.refine = false;
+        auto [pose_od, stats_od] = HomLib::run_lomsac_point(
+            solver, data.x, data.y, nm_od, options);
+
+        double err_sample = data.instance.hom_error(pose_s.homography);
+        double err_od = data.instance.hom_error(pose_od.homography);
+        if (err_od < err_sample)
+            ++od_wins;
+    }
+    REQUIRE(od_wins >= 4);
 }
 
 
