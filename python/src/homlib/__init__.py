@@ -497,8 +497,10 @@ class LOMSAC(RobustEstimator):
         A solver instance, name, or enum (any feature type).
     non_minimal_solver : Solver or str or SolverId, optional
         A separate solver for non-minimal (overdetermined) estimation.
-        Must be point-based and have the same ``distortion_case`` as *solver*.
-        Implies ``strategy='overdetermined'``.
+        Must be a point solver or match the primary solver's feature type
+        (affine or orientation), and have the same ``distortion_case``.
+        Sets strategy to ``'overdetermined'`` when the settings don't
+        specify one.
     non_minimal_settings : NonMinimalSettings or dict, optional
         Settings for the non-minimal step: ``strategy`` (``"sample"`` or
         ``"overdetermined"``), ``sample_size``, ``refine``.
@@ -600,8 +602,10 @@ class SupeRANSAC(RobustEstimator):
         A solver instance, name, or enum (any feature type).
     non_minimal_solver : Solver or str or SolverId, optional
         A separate solver for non-minimal (overdetermined) estimation.
-        Must be point-based and have the same ``distortion_case`` as *solver*.
-        Implies ``strategy='overdetermined'``.
+        Must be a point solver or match the primary solver's feature type
+        (affine or orientation), and have the same ``distortion_case``.
+        Sets strategy to ``'overdetermined'`` when the settings don't
+        specify one.
     non_minimal_settings : NonMinimalSettings or dict, optional
         Settings for the non-minimal step: ``strategy`` (``"sample"`` or
         ``"overdetermined"``), ``sample_size``, ``refine``.
@@ -702,8 +706,10 @@ class GCRANSAC(RobustEstimator):
         A solver instance, name, or enum (any feature type).
     non_minimal_solver : Solver or str or SolverId, optional
         A separate solver for non-minimal (overdetermined) estimation.
-        Must be point-based and have the same ``distortion_case`` as *solver*.
-        Implies ``strategy='overdetermined'``.
+        Must be a point solver or match the primary solver's feature type
+        (affine or orientation), and have the same ``distortion_case``.
+        Sets strategy to ``'overdetermined'`` when the settings don't
+        specify one.
     non_minimal_settings : NonMinimalSettings or dict, optional
         Settings for the non-minimal step: ``strategy`` (``"sample"`` or
         ``"overdetermined"``), ``sample_size``, ``refine``.
@@ -795,8 +801,10 @@ class MAGSAC(RobustEstimator):
         A solver instance, name, or enum (any feature type).
     non_minimal_solver : Solver or str or SolverId, optional
         A separate solver for non-minimal (overdetermined) estimation.
-        Must be point-based and have the same ``distortion_case`` as *solver*.
-        Implies ``strategy='overdetermined'``.
+        Must be a point solver or match the primary solver's feature type
+        (affine or orientation), and have the same ``distortion_case``.
+        Sets strategy to ``'overdetermined'`` when the settings don't
+        specify one.
     non_minimal_settings : NonMinimalSettings or dict, optional
         Settings for the non-minimal step: ``strategy`` (``"sample"`` or
         ``"overdetermined"``), ``sample_size``, ``refine``.
