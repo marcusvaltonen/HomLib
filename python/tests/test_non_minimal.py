@@ -165,6 +165,36 @@ class CheckNonMinimalParamsTestCase(unittest.TestCase):
                 non_minimal_settings={"strategy": "overdetermined"},
                 inlier_threshold=1.0)
 
+    def test_nm_solver_with_settings_no_strategy_auto_sets_od(self):
+        lo = homlib.LOMSAC(
+            homlib.Wadenback3DV2026OneSided(),
+            non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided(),
+            non_minimal_settings={"refine": False},
+            inlier_threshold=1.0)
+        self.assertEqual(lo.non_minimal_strategy,
+                         homlib.NonMinimalStrategy.Overdetermined)
+
+    def test_nm_solver_with_cpp_settings_object_auto_sets_od(self):
+        nm = homlib.NonMinimalSettings()
+        nm.refine = False
+        lo = homlib.LOMSAC(
+            homlib.Wadenback3DV2026OneSided(),
+            non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided(),
+            non_minimal_settings=nm,
+            inlier_threshold=1.0)
+        self.assertEqual(lo.non_minimal_strategy,
+                         homlib.NonMinimalStrategy.Overdetermined)
+
+    def test_nm_solver_with_explicit_od_and_refine_off(self):
+        lo = homlib.LOMSAC(
+            homlib.Wadenback3DV2026OneSided(),
+            non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided(),
+            non_minimal_settings={"strategy": "overdetermined", "refine": False},
+            inlier_threshold=1.0)
+        self.assertEqual(lo.non_minimal_strategy,
+                         homlib.NonMinimalStrategy.Overdetermined)
+        self.assertFalse(lo._nm_settings.refine)
+
 
 @unittest.skipUnless(homlib._HAS_GCRANSAC, "GC-RANSAC not built")
 class GCRANSACValidationTestCase(unittest.TestCase):

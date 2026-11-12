@@ -430,6 +430,18 @@ def _check_non_minimal_params(solver, non_minimal_solver, nm_settings):
         )
 
 
+def _init_non_minimal(solver, non_minimal_solver, non_minimal_settings):
+    """Resolve, auto-set strategy, and validate non-minimal parameters."""
+    nm_solver = _resolve_non_minimal_solver(non_minimal_solver, solver)
+    nm_settings = _resolve_non_minimal_settings(non_minimal_settings)
+    if nm_solver is not None and not (
+            isinstance(non_minimal_settings, dict)
+            and "strategy" in non_minimal_settings):
+        nm_settings.strategy = NonMinimalStrategy.Overdetermined
+    _check_non_minimal_params(solver, nm_solver, nm_settings)
+    return nm_solver, nm_settings
+
+
 def _warn_sample_size_ignored(nm_settings, backend_name):
     if nm_settings.sample_size > 0:
         warnings.warn(
@@ -469,14 +481,8 @@ class LOMSAC(RobustEstimator):
     def __init__(self, solver, *, non_minimal_solver=None,
                  non_minimal_settings=None, options=None, **kwargs):
         super().__init__(solver)
-        self._non_minimal_solver = _resolve_non_minimal_solver(
-            non_minimal_solver, self._solver)
-        self._nm_settings = _resolve_non_minimal_settings(
-            non_minimal_settings)
-        if self._non_minimal_solver is not None and non_minimal_settings is None:
-            self._nm_settings.strategy = NonMinimalStrategy.Overdetermined
-        _check_non_minimal_params(
-            self._solver, self._non_minimal_solver, self._nm_settings)
+        self._non_minimal_solver, self._nm_settings = _init_non_minimal(
+            self._solver, non_minimal_solver, non_minimal_settings)
         self._options = options if options is not None else LORansacOptions()
         if "inlier_threshold" in kwargs:
             if "squared_inlier_threshold" in kwargs:
@@ -618,14 +624,8 @@ class SupeRANSAC(RobustEstimator):
                 "Rebuild with -DHOMLIB_USE_SUPERANSAC=ON"
             )
         super().__init__(solver)
-        self._non_minimal_solver = _resolve_non_minimal_solver(
-            non_minimal_solver, self._solver)
-        self._nm_settings = _resolve_non_minimal_settings(
-            non_minimal_settings)
-        if self._non_minimal_solver is not None and non_minimal_settings is None:
-            self._nm_settings.strategy = NonMinimalStrategy.Overdetermined
-        _check_non_minimal_params(
-            self._solver, self._non_minimal_solver, self._nm_settings)
+        self._non_minimal_solver, self._nm_settings = _init_non_minimal(
+            self._solver, non_minimal_solver, non_minimal_settings)
         _warn_sample_size_ignored(self._nm_settings, "SupeRANSAC")
         self._settings = settings if settings is not None else SuperansacSettings()
         for key, value in kwargs.items():
@@ -744,14 +744,8 @@ class GCRANSAC(RobustEstimator):
                 "Rebuild with -DHOMLIB_USE_GCRANSAC=ON"
             )
         super().__init__(solver)
-        self._non_minimal_solver = _resolve_non_minimal_solver(
-            non_minimal_solver, self._solver)
-        self._nm_settings = _resolve_non_minimal_settings(
-            non_minimal_settings)
-        if self._non_minimal_solver is not None and non_minimal_settings is None:
-            self._nm_settings.strategy = NonMinimalStrategy.Overdetermined
-        _check_non_minimal_params(
-            self._solver, self._non_minimal_solver, self._nm_settings)
+        self._non_minimal_solver, self._nm_settings = _init_non_minimal(
+            self._solver, non_minimal_solver, non_minimal_settings)
         _warn_sample_size_ignored(self._nm_settings, "GC-RANSAC")
         self._settings = settings if settings is not None else GCRANSACSettings()
         for key, value in kwargs.items():
@@ -870,14 +864,8 @@ class MAGSAC(RobustEstimator):
                 "Rebuild with -DHOMLIB_USE_MAGSAC=ON"
             )
         super().__init__(solver)
-        self._non_minimal_solver = _resolve_non_minimal_solver(
-            non_minimal_solver, self._solver)
-        self._nm_settings = _resolve_non_minimal_settings(
-            non_minimal_settings)
-        if self._non_minimal_solver is not None and non_minimal_settings is None:
-            self._nm_settings.strategy = NonMinimalStrategy.Overdetermined
-        _check_non_minimal_params(
-            self._solver, self._non_minimal_solver, self._nm_settings)
+        self._non_minimal_solver, self._nm_settings = _init_non_minimal(
+            self._solver, non_minimal_solver, non_minimal_settings)
         _warn_sample_size_ignored(self._nm_settings, "MAGSAC")
         self._settings = settings if settings is not None else MAGSACSettings()
         for key, value in kwargs.items():

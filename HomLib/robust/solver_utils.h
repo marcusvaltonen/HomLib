@@ -110,27 +110,6 @@ inline bool is_valid_model(const Eigen::Matrix3d& H)
     return H.norm() > 1e-15;
 }
 
-// LOMSAC full non-minimal: all points → estimate_fn → score → no refine.
-// estimate_fn signature: (std::vector<PoseData>*) → void
-template <class Solver, class EstimateFunc>
-inline bool lomsac_non_minimal_full(
-    const Solver& solver,
-    const std::vector<Eigen::Vector2d>& x,
-    const std::vector<Eigen::Vector2d>& y,
-    EstimateFunc estimate_fn,
-    PoseData& best)
-{
-    std::vector<PoseData> poses;
-    estimate_fn(&poses);
-
-    int best_idx = find_best_pose(solver, poses, x, y);
-    if (best_idx < 0)
-        return false;
-
-    best = poses[best_idx];
-    return true;
-}
-
 // Build spread indices: pick ss points evenly spaced over [0, n).
 // GC-RANSAC and MAGSAC++ pass inliers in index order, and SIFT matches
 // are often sorted by x, so spreading avoids fitting a spatial cluster.
