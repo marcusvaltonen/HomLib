@@ -512,9 +512,12 @@ and a different (overdetermined) solver for refinement via ``non_minimal_solver`
        threshold=0.07,
    )
 
-Passing ``non_minimal_solver`` automatically sets the strategy to
-``Overdetermined``. The non-minimal solver's ``distortion_case`` must match
-the primary solver's.
+Passing ``non_minimal_solver`` sets the strategy to ``Overdetermined`` when
+``non_minimal_settings`` doesn't give one (no settings, or a ``dict`` without
+``"strategy"``); a ``NonMinimalSettings`` object always gives one, so it must
+be ``Overdetermined``. The non-minimal solver's ``distortion_case`` must match
+the primary solver's, and it must be a point solver or have the primary
+solver's feature type (an affine solver for an affine primary solver, for example).
 
 .. note::
 

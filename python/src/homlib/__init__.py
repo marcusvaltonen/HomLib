@@ -400,7 +400,9 @@ def _resolve_non_minimal_settings(value):
     if value is None:
         return NonMinimalSettings()
     if isinstance(value, NonMinimalSettings):
-        return value
+        return NonMinimalSettings(strategy=value.strategy,
+                                  sample_size=value.sample_size,
+                                  refine=value.refine)
     if isinstance(value, dict):
         kw = dict(value)
         if "strategy" in kw:

@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numeric>
 #include <cfenv>
 #include <catch2/catch_test_macros.hpp>
 
@@ -33,13 +34,19 @@
 #include "radial.hpp"
 #include "problem_instance.hpp"
 #include "generate_problem_instance.hpp"
-#include "get_wadenback_3dv_2026.hpp"
+#include "get_barath_visapp_2016.hpp"
+#include "get_dlt.hpp"
 #include "get_fitzgibbon_cvpr_2001.hpp"
 #include "get_kukelova_cvpr_2015.hpp"
+#include "get_nakano_icpr_2025.hpp"
 #include "get_valtonenornhag_icpr_2026.hpp"
+#include "get_wadenback_3dv_2026.hpp"
 #include "pose_estimator.h"
 
+#include "affine_ransac_estimator.h"
 #include "lomsac_runner.h"
+#include "orientation_ransac_estimator.h"
+#include "ransac_estimator.h"
 #include "solver_utils.h"
 
 #ifdef HOMLIB_HAS_GCRANSAC
@@ -61,6 +68,8 @@ struct TestData {
     HomLib::ProblemInstance instance;
     std::vector<Eigen::Vector2d> x;
     std::vector<Eigen::Vector2d> y;
+    std::vector<Eigen::Matrix2d> A;
+    std::vector<Eigen::Vector2d> ori;
     int n_total;
     int n_outliers;
 };
@@ -91,6 +100,8 @@ TestData generate_test_data(int seed, int n_points, int n_outliers, HomLib::Dist
     data.instance = inst;
     data.x = inst.x1;
     data.y = inst.x2;
+    data.A = inst.A;
+    data.ori = inst.ori;
     data.n_total = n_points;
     data.n_outliers = n_outliers;
     return data;
@@ -363,37 +374,116 @@ TEST_CASE("LOMSAC - overdetermined fallback for non-OD solver") {
 }
 
 
-TEST_CASE("LOMSAC - overdetermined beats sample on average (no refine)") {
-    HomLib::FitzgibbonCVPR2001::SolverSingleSided solver;
-
-    int od_wins = 0;
-    const int n_seeds = 5;
-    for (int seed = 0; seed < n_seeds; ++seed) {
-        auto data = generate_test_data(seed, 500, 100, HomLib::ONE_SIDED_LEFT, 1e-3);
-
-        ransac_lib::LORansacOptions options;
-        options.squared_inlier_threshold_ = 0.003 * 0.003;
-        options.max_num_iterations_ = 5000;
-        options.random_seed_ = seed;
-
-        HomLib::NonMinimalSettings nm_sample;
-        nm_sample.strategy = HomLib::NonMinimalStrategy::Sample;
-        nm_sample.refine = false;
-        auto [pose_s, stats_s] = HomLib::run_lomsac_point(
-            solver, data.x, data.y, nm_sample, options);
-
-        HomLib::NonMinimalSettings nm_od;
-        nm_od.strategy = HomLib::NonMinimalStrategy::Overdetermined;
-        nm_od.refine = false;
-        auto [pose_od, stats_od] = HomLib::run_lomsac_point(
-            solver, data.x, data.y, nm_od, options);
-
-        double err_sample = data.instance.hom_error(pose_s.homography);
-        double err_od = data.instance.hom_error(pose_od.homography);
-        if (err_od < err_sample)
-            ++od_wins;
+// Helper: total residual for point solvers over 10 seeds via NonMinimalSolver directly.
+template <class Solver>
+double point_od_residual(const Solver& solver, HomLib::DistortionCase dc,
+                         HomLib::NonMinimalStrategy strategy) {
+    double total = 0.0;
+    for (int seed = 0; seed < 10; ++seed) {
+        auto data = generate_test_data(seed, 100, 0, dc, 1e-3);
+        HomLib::RansacEstimator<Solver> estimator(data.x, data.y, solver);
+        estimator.nm_settings.strategy = strategy;
+        estimator.nm_settings.refine = false;
+        std::vector<int> all(static_cast<int>(data.x.size()));
+        std::iota(all.begin(), all.end(), 0);
+        HomLib::PoseData pose;
+        if (!estimator.NonMinimalSolver(all, &pose))
+            return std::numeric_limits<double>::infinity();
+        for (int i : all)
+            total += estimator.EvaluateModelOnPoint(pose, i);
     }
-    REQUIRE(od_wins >= 4);
+    return total;
+}
+
+// Helper: total residual for affine solvers.
+template <class Solver>
+double affine_od_residual(const Solver& solver, HomLib::DistortionCase dc,
+                          HomLib::NonMinimalStrategy strategy) {
+    double total = 0.0;
+    for (int seed = 0; seed < 10; ++seed) {
+        auto data = generate_test_data(seed, 100, 0, dc, 1e-3);
+        HomLib::AffineRansacEstimator<Solver> estimator(data.x, data.y, data.A, solver);
+        estimator.nm_settings.strategy = strategy;
+        estimator.nm_settings.refine = false;
+        std::vector<int> all(static_cast<int>(data.x.size()));
+        std::iota(all.begin(), all.end(), 0);
+        HomLib::PoseData pose;
+        if (!estimator.NonMinimalSolver(all, &pose))
+            return std::numeric_limits<double>::infinity();
+        for (int i : all)
+            total += estimator.EvaluateModelOnPoint(pose, i);
+    }
+    return total;
+}
+
+// Helper: total residual for orientation solvers.
+template <class Solver>
+double orientation_od_residual(const Solver& solver, HomLib::DistortionCase dc,
+                               HomLib::NonMinimalStrategy strategy) {
+    double total = 0.0;
+    for (int seed = 0; seed < 10; ++seed) {
+        auto data = generate_test_data(seed, 100, 0, dc, 1e-3);
+        HomLib::OrientationRansacEstimator<Solver> estimator(data.x, data.y, data.ori, solver);
+        estimator.nm_settings.strategy = strategy;
+        estimator.nm_settings.refine = false;
+        std::vector<int> all(static_cast<int>(data.x.size()));
+        std::iota(all.begin(), all.end(), 0);
+        HomLib::PoseData pose;
+        if (!estimator.NonMinimalSolver(all, &pose))
+            return std::numeric_limits<double>::infinity();
+        for (int i : all)
+            total += estimator.EvaluateModelOnPoint(pose, i);
+    }
+    return total;
+}
+
+TEST_CASE("Overdetermined beats sample - DLT") {
+    HomLib::DLT::Solver solver;
+    REQUIRE(point_od_residual(solver, HomLib::NO_DISTORTION, HomLib::NonMinimalStrategy::Overdetermined)
+            < point_od_residual(solver, HomLib::NO_DISTORTION, HomLib::NonMinimalStrategy::Sample));
+}
+
+TEST_CASE("Overdetermined beats sample - DLT use_qr") {
+    HomLib::DLT::Solver solver;
+    solver.use_qr = true;
+    REQUIRE(point_od_residual(solver, HomLib::NO_DISTORTION, HomLib::NonMinimalStrategy::Overdetermined)
+            < point_od_residual(solver, HomLib::NO_DISTORTION, HomLib::NonMinimalStrategy::Sample));
+}
+
+TEST_CASE("Overdetermined beats sample - Fitzgibbon single-sided") {
+    HomLib::FitzgibbonCVPR2001::SolverSingleSided solver;
+    REQUIRE(point_od_residual(solver, HomLib::ONE_SIDED_LEFT, HomLib::NonMinimalStrategy::Overdetermined)
+            < point_od_residual(solver, HomLib::ONE_SIDED_LEFT, HomLib::NonMinimalStrategy::Sample));
+}
+
+TEST_CASE("Overdetermined beats sample - Fitzgibbon two-sided-equal") {
+    HomLib::FitzgibbonCVPR2001::SolverTwoSidedEqual solver;
+    REQUIRE(point_od_residual(solver, HomLib::TWO_SIDED_EQUAL, HomLib::NonMinimalStrategy::Overdetermined)
+            < point_od_residual(solver, HomLib::TWO_SIDED_EQUAL, HomLib::NonMinimalStrategy::Sample));
+}
+
+TEST_CASE("Overdetermined beats sample - Nakano") {
+    HomLib::NakanoICPR2025::SolverSingleSided solver;
+    REQUIRE(point_od_residual(solver, HomLib::ONE_SIDED_LEFT, HomLib::NonMinimalStrategy::Overdetermined)
+            < point_od_residual(solver, HomLib::ONE_SIDED_LEFT, HomLib::NonMinimalStrategy::Sample));
+}
+
+TEST_CASE("Overdetermined beats sample - Barath affine") {
+    HomLib::BarathVISAPP2016::AffineSolver solver;
+    REQUIRE(affine_od_residual(solver, HomLib::NO_DISTORTION, HomLib::NonMinimalStrategy::Overdetermined)
+            < affine_od_residual(solver, HomLib::NO_DISTORTION, HomLib::NonMinimalStrategy::Sample));
+}
+
+TEST_CASE("Overdetermined beats sample - Valtonen Ornhag affine") {
+    HomLib::ValtonenOrnhagICPR2026::AffineSolverSingleSided solver;
+    REQUIRE(affine_od_residual(solver, HomLib::ONE_SIDED_RIGHT, HomLib::NonMinimalStrategy::Overdetermined)
+            < affine_od_residual(solver, HomLib::ONE_SIDED_RIGHT, HomLib::NonMinimalStrategy::Sample));
+}
+
+TEST_CASE("Overdetermined beats sample - Valtonen Ornhag orientation") {
+    HomLib::ValtonenOrnhagICPR2026::OrientationSolverSingleSided solver;
+    REQUIRE(orientation_od_residual(solver, HomLib::ONE_SIDED_RIGHT, HomLib::NonMinimalStrategy::Overdetermined)
+            < orientation_od_residual(solver, HomLib::ONE_SIDED_RIGHT, HomLib::NonMinimalStrategy::Sample));
 }
 
 
