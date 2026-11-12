@@ -35,6 +35,7 @@
 #include "generate_problem_instance.hpp"
 #include "get_wadenback_3dv_2026.hpp"
 #include "get_fitzgibbon_cvpr_2001.hpp"
+#include "get_kukelova_cvpr_2015.hpp"
 #include "get_valtonenornhag_icpr_2026.hpp"
 #include "pose_estimator.h"
 
@@ -64,10 +65,11 @@ struct TestData {
     int n_outliers;
 };
 
-TestData generate_test_data(int seed, int n_points, int n_outliers, HomLib::DistortionCase distortion) {
+TestData generate_test_data(int seed, int n_points, int n_outliers, HomLib::DistortionCase distortion,
+                           double noise = 1e-4) {
     HomLib::ProblemConfig config;
     config.distortion = distortion;
-    config.point_noise = 0.0001;
+    config.point_noise = noise;
     config.number_points = n_points;
     config.seed = static_cast<unsigned int>(seed);
 
@@ -280,8 +282,70 @@ TEST_CASE("LOMSAC - orientation features") {
 }
 
 TEST_CASE("LOMSAC - overdetermined non-minimal") {
-    auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
+    // Higher noise so non-minimal strategy actually affects the result
+    auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT, 1e-3);
     HomLib::FitzgibbonCVPR2001::SolverSingleSided solver;
+
+    HomLib::NonMinimalSettings nm;
+    nm.strategy = HomLib::NonMinimalStrategy::Overdetermined;
+
+    ransac_lib::LORansacOptions options;
+    options.squared_inlier_threshold_ = 0.003 * 0.003;
+    options.max_num_iterations_ = 5000;
+    options.random_seed_ = 42;
+
+    auto [pose, stats] = HomLib::run_lomsac_point(solver, data.x, data.y, nm, options);
+
+    double expected_inlier_ratio = 1.0 - static_cast<double>(data.n_outliers) / data.n_total;
+    REQUIRE(stats.inlier_ratio > 0.9 * expected_inlier_ratio);
+    REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
+}
+
+TEST_CASE("LOMSAC - overdetermined affine") {
+    auto data = generate_test_data(43, 200, 40, HomLib::ONE_SIDED_RIGHT, 1e-3);
+    HomLib::ValtonenOrnhagICPR2026::AffineSolverSingleSided solver;
+
+    HomLib::NonMinimalSettings nm;
+    nm.strategy = HomLib::NonMinimalStrategy::Overdetermined;
+
+    ransac_lib::LORansacOptions options;
+    options.squared_inlier_threshold_ = 0.005 * 0.005;
+    options.max_num_iterations_ = 5000;
+    options.random_seed_ = 43;
+
+    auto [pose, stats] = HomLib::run_lomsac_affine(
+        solver, data.x, data.y, data.instance.A, nm, options);
+
+    double expected_inlier_ratio = 1.0 - static_cast<double>(data.n_outliers) / data.n_total;
+    REQUIRE(stats.inlier_ratio > 0.8 * expected_inlier_ratio);
+    REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
+}
+
+TEST_CASE("LOMSAC - overdetermined orientation") {
+    auto data = generate_test_data(44, 200, 40, HomLib::ONE_SIDED_RIGHT, 1e-3);
+    HomLib::ValtonenOrnhagICPR2026::OrientationSolverSingleSided solver;
+
+    HomLib::NonMinimalSettings nm;
+    nm.strategy = HomLib::NonMinimalStrategy::Overdetermined;
+
+    ransac_lib::LORansacOptions options;
+    options.squared_inlier_threshold_ = 0.005 * 0.005;
+    options.max_num_iterations_ = 5000;
+    options.random_seed_ = 44;
+
+    auto [pose, stats] = HomLib::run_lomsac_orientation(
+        solver, data.x, data.y, data.instance.ori, nm, options);
+
+    double expected_inlier_ratio = 1.0 - static_cast<double>(data.n_outliers) / data.n_total;
+    REQUIRE(stats.inlier_ratio > 0.8 * expected_inlier_ratio);
+    REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
+}
+
+TEST_CASE("LOMSAC - overdetermined fallback for non-OD solver") {
+    // Kukelova doesn't support overdetermined; the dispatch should
+    // fall back to Sample without crashing or asserting.
+    auto data = generate_test_data(42, 500, 100, HomLib::TWO_SIDED_EQUAL, 1e-3);
+    HomLib::KukelovaCVPR2015::SolverTwoSidedEqual solver;
 
     HomLib::NonMinimalSettings nm;
     nm.strategy = HomLib::NonMinimalStrategy::Overdetermined;
@@ -294,7 +358,7 @@ TEST_CASE("LOMSAC - overdetermined non-minimal") {
     auto [pose, stats] = HomLib::run_lomsac_point(solver, data.x, data.y, nm, options);
 
     double expected_inlier_ratio = 1.0 - static_cast<double>(data.n_outliers) / data.n_total;
-    REQUIRE(stats.inlier_ratio > 0.9 * expected_inlier_ratio);
+    REQUIRE(stats.inlier_ratio > 0.8 * expected_inlier_ratio);
     REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
 }
 

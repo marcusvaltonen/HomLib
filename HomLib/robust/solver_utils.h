@@ -131,8 +131,18 @@ inline bool lomsac_non_minimal_full(
     return true;
 }
 
+// Build spread indices: pick ss points evenly spaced over [0, n).
+// GC-RANSAC and MAGSAC++ pass inliers in index order, and SIFT matches
+// are often sorted by x, so spreading avoids fitting a spatial cluster.
+inline std::vector<size_t> spread_indices(size_t ss, size_t n) {
+    std::vector<size_t> idx(ss);
+    for (size_t i = 0; i < ss; ++i)
+        idx[i] = i * n / ss;
+    return idx;
+}
+
 template <class Solver, class EstimateFunc>
-inline bool non_minimal_dispatch_point(
+inline bool non_minimal_dispatch(
     const Solver& solver,
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
@@ -147,66 +157,21 @@ inline bool non_minimal_dispatch_point(
 
     bool found = false;
 
-    switch (nm.strategy) {
-        case NonMinimalStrategy::Sample: {
-            std::vector<size_t> idx(ss);
-            std::iota(idx.begin(), idx.end(), 0);
-            std::vector<PoseData> poses;
-            estimate_fn(solver, x, y, idx, ss, &poses);
-            found = select_best(solver, poses, x, y, best);
-            break;
-        }
-        case NonMinimalStrategy::Overdetermined: {
-            if (nm.solver_fn) {
-                std::vector<PoseData> poses;
-                nm.solver_fn(x, y, &poses);
-                int best_idx = find_best_pose(solver, poses, x, y);
-                if (best_idx < 0)
-                    return false;
-                best = poses[best_idx];
-                found = true;
-            } else {
-                std::vector<size_t> idx(n);
-                std::iota(idx.begin(), idx.end(), 0);
-                std::vector<PoseData> poses;
-                estimate_fn(solver, x, y, idx, n, &poses);
-                found = select_best(solver, poses, x, y, best);
-            }
-            break;
-        }
-    }
-
-    if (found && nm.refine)
-        solver.refine(best, x, y);
-    return found;
-}
-
-// Dispatch for full non-minimal solving (affine/orientation — uses all points).
-template <class Solver, class EstimateFunc>
-inline bool non_minimal_dispatch_full(
-    const Solver& solver,
-    const std::vector<Eigen::Vector2d>& x,
-    const std::vector<Eigen::Vector2d>& y,
-    EstimateFunc estimate_fn,
-    PoseData& best,
-    const NonMinimalSettings& nm = {})
-{
-    const size_t n = x.size();
-    if (n < static_cast<size_t>(solver.minimal_sample_size()))
-        return false;
-
-    bool found = false;
-
-    switch (nm.strategy) {
-        case NonMinimalStrategy::Sample:
-        case NonMinimalStrategy::Overdetermined: {
-            std::vector<size_t> idx(n);
-            std::iota(idx.begin(), idx.end(), 0);
-            std::vector<PoseData> poses;
-            estimate_fn(solver, x, y, idx, n, &poses);
-            found = select_best(solver, poses, x, y, best);
-            break;
-        }
+    if (nm.strategy == NonMinimalStrategy::Overdetermined && nm.solver_fn) {
+        std::vector<PoseData> poses;
+        nm.solver_fn(x, y, &poses);
+        int best_idx = find_best_pose(solver, poses, x, y);
+        if (best_idx < 0)
+            return false;
+        best = poses[best_idx];
+        found = true;
+    } else {
+        const bool use_all = nm.strategy == NonMinimalStrategy::Overdetermined
+                             && Solver::supports_overdetermined;
+        auto idx = use_all ? spread_indices(n, n) : spread_indices(ss, n);
+        std::vector<PoseData> poses;
+        estimate_fn(solver, x, y, idx, idx.size(), &poses);
+        found = select_best(solver, poses, x, y, best);
     }
 
     if (found && nm.refine)

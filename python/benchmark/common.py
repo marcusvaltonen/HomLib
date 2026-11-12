@@ -41,8 +41,11 @@ def make_estimator(backend, solver, threshold, iterations, seed,
         options[min_name] = min_iterations
     if backend == "lomsac":
         options["random_seed"] = seed
+    nm_settings = {}
     if non_minimal_strategy is not None:
-        options["non_minimal_strategy"] = non_minimal_strategy
+        nm_settings["strategy"] = non_minimal_strategy
+    if nm_settings:
+        options["non_minimal_settings"] = nm_settings
     if non_minimal_solver is not None:
         options["non_minimal_solver"] = non_minimal_solver
     return getattr(homlib, cls)(solver, **options)

@@ -170,8 +170,8 @@ GC-RANSAC configuration types
 - **GCSamplerType** — ``Uniform``, ``PROSAC``, ``ARSampler``,
   ``ImportanceSampler``. Shared by GC-RANSAC and MAGSAC.
 - **NonMinimalStrategy** — ``Sample``, ``Overdetermined``.
-  Shared by all backends. Passed as ``non_minimal_strategy=`` to
-  the backend constructor.
+  Shared by all backends. Set via ``non_minimal_settings=`` (as a
+  ``NonMinimalSettings`` or dict with ``"strategy"`` key).
 
 The ``estimate()`` method accepts an optional ``scores`` parameter: a 1-D
 array of per-match confidence values in [0, 1], sorted in descending order.

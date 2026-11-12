@@ -373,7 +373,8 @@ arguments. Settings are also accessible via namespace aliases for clarity:
        min_iterations=50,
        do_local_optimization=True,
        sampler=homlib.GCRANSAC.SamplerType.PROSAC,
-       non_minimal_strategy="overdetermined",
+       non_minimal_settings={"strategy": "overdetermined"},
+       non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided(),
    )
 
    # GC-RANSAC with a separate non-minimal solver
@@ -469,7 +470,8 @@ Non-minimal and overdetermined estimation
 -----------------------------------------
 
 All backends support two strategies for model refinement on non-minimal
-(larger than minimal) point sets, controlled by ``non_minimal_strategy``:
+(larger than minimal) point sets, controlled by the ``strategy`` field
+of ``non_minimal_settings``:
 
 .. list-table::
    :header-rows: 1
@@ -481,18 +483,20 @@ All backends support two strategies for model refinement on non-minimal
      - Select the best model from a non-minimal sample, then refine (default).
    * - ``Overdetermined``
      - Fit with an overdetermined solver that natively handles N > minimal
-       points. Falls back to ``Sample`` if unavailable.
+       points. Raises ``ValueError`` for solvers without overdetermined
+       support; pass ``non_minimal_solver=`` instead.
 
 **Overdetermined estimation** uses a solver whose ``solve()`` accepts any
 number of points. This can improve accuracy during local optimisation.
-Pass ``non_minimal_strategy="overdetermined"`` when the solver supports it:
+Pass ``non_minimal_settings={"strategy": "overdetermined"}`` when the solver
+supports it:
 
 .. code-block:: python
 
    # Fitzgibbon supports overdetermined natively
    lomsac = homlib.LOMSAC(
        homlib.FitzgibbonCVPR2001OneSided(),
-       non_minimal_strategy="overdetermined",
+       non_minimal_settings={"strategy": "overdetermined"},
        inlier_threshold=0.07,
    )
 
@@ -511,6 +515,13 @@ and a different (overdetermined) solver for refinement via ``non_minimal_solver`
 Passing ``non_minimal_solver`` automatically sets the strategy to
 ``Overdetermined``. The non-minimal solver's ``distortion_case`` must match
 the primary solver's.
+
+.. note::
+
+   When the non-minimal solver is given as a string or ``SolverId``, it
+   inherits the main solver's ``k_range`` (if one was set with
+   ``set_k_range()``).  When it is given as a pre-constructed ``Solver``
+   object, its own ``k_range`` is used as-is.
 
 **Solvers with overdetermined support:**
 
@@ -537,11 +548,14 @@ the primary solver's.
 parameter (a :class:`~homlib.NonMinimalSettings` instance or ``dict``) with
 two fields:
 
-- ``sample_size`` — override the non-minimal sample size
-  (default ``0``: automatic, typically 2× minimal for point solvers, 4×
-  for affine/orientation).  Currently honoured by the LOMSAC backend;
+- ``sample_size`` — floor on the non-minimal sample size
+  (default ``0``: automatic).  Only honoured by the LOMSAC backend;
   GC-RANSAC, MAGSAC, and SupeRANSAC determine the non-minimal sample
   size at compile time and ignore this field.
+  For LOMSAC, the actual sample drawn is
+  ``max(non_minimal_sample_size, min(3m, inliers / 2))`` where *m* is
+  the minimal sample size, so the effective sample is 3× minimal unless
+  ``sample_size`` is set higher or inliers are scarce.
 - ``refine`` — enable/disable Gauss-Newton refinement after the
   non-minimal solve (default ``True``).
 

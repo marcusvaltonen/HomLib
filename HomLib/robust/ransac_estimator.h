@@ -68,7 +68,7 @@ public:
 			s.estimate(xs, ys, poses);
 		};
 
-		return detail::non_minimal_dispatch_point(
+		return detail::non_minimal_dispatch(
 			solver, xx, yy, est_fn, *pose, nm_settings) ? 1 : 0;
 	}
 

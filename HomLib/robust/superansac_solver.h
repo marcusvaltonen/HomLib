@@ -128,7 +128,7 @@ private:
     Solver solver_;
 };
 
-// Point non-minimal solver: dispatches via shared non_minimal_dispatch_point.
+// Point non-minimal solver: dispatches via shared non_minimal_dispatch.
 template <class Solver>
 class HomLibPointNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
 public:
@@ -168,7 +168,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_point(solver_, x, y, est_fn, best, nm_))
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_))
             return false;
         models.push_back(pose_to_model(best));
         return true;
@@ -179,7 +179,7 @@ private:
     NonMinimalSettings nm_;
 };
 
-// Affine non-minimal solver: dispatches via shared non_minimal_dispatch_full.
+// Affine non-minimal solver: dispatches via shared non_minimal_dispatch.
 template <class Solver>
 class HomLibAffineNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
 public:
@@ -225,7 +225,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_full(solver_, x, y, est_fn, best, nm_))
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_))
             return false;
         models.push_back(pose_to_model(best));
         return true;
@@ -236,7 +236,7 @@ private:
     NonMinimalSettings nm_;
 };
 
-// Orientation non-minimal solver: dispatches via shared non_minimal_dispatch_full.
+// Orientation non-minimal solver: dispatches via shared non_minimal_dispatch.
 template <class Solver>
 class HomLibOrientationNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
 public:
@@ -280,7 +280,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_full(solver_, x, y, est_fn, best, nm_))
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_))
             return false;
         models.push_back(pose_to_model(best));
         return true;

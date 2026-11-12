@@ -175,7 +175,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_point(solver_, x, y, est_fn, best, nm_))
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_))
             return false;
 
         models_.push_back(pose_to_gc_model(best));
@@ -234,7 +234,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_full(solver_, x, y, est_fn, best, nm_))
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_))
             return false;
 
         models_.push_back(pose_to_gc_model(best));
@@ -292,7 +292,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_full(solver_, x, y, est_fn, best, nm_))
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_))
             return false;
 
         models_.push_back(pose_to_gc_model(best));

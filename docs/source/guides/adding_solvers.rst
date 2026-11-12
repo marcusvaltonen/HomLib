@@ -133,8 +133,8 @@ is automatically available as a ``non_minimal_solver`` in all backends:
    # Use Wadenback's minimal solver with Nakano's overdetermined solver
    lomsac = homlib.LOMSAC(
        "Wadenback3DV2026OneSided",
-       non_minimal_strategy="overdetermined",
        non_minimal_solver="NakanoICPR2025OneSided",
+       non_minimal_settings={"strategy": "overdetermined"},
        inlier_threshold=0.07,
    )
 

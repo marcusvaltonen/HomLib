@@ -5,43 +5,46 @@ import homlib
 
 
 class ParseNonMinimalStrategyTestCase(unittest.TestCase):
-    """Tests for _parse_non_minimal_strategy (exposed through constructors)."""
+    """Tests for strategy parsing via non_minimal_settings dict."""
 
     def test_string_sample(self):
-        lo = homlib.LOMSAC(homlib.DLT(), non_minimal_strategy="sample",
+        lo = homlib.LOMSAC(homlib.DLT(),
+                           non_minimal_settings={"strategy": "sample"},
                            inlier_threshold=1.0)
         self.assertEqual(lo.non_minimal_strategy,
                          homlib.NonMinimalStrategy.Sample)
 
     def test_string_overdetermined(self):
         lo = homlib.LOMSAC(homlib.FitzgibbonCVPR2001OneSided(),
-                           non_minimal_strategy="overdetermined",
+                           non_minimal_settings={"strategy": "overdetermined"},
                            inlier_threshold=1.0)
         self.assertEqual(lo.non_minimal_strategy,
                          homlib.NonMinimalStrategy.Overdetermined)
 
     def test_string_case_insensitive(self):
         lo = homlib.LOMSAC(homlib.FitzgibbonCVPR2001OneSided(),
-                           non_minimal_strategy="Overdetermined",
+                           non_minimal_settings={"strategy": "Overdetermined"},
                            inlier_threshold=1.0)
         self.assertEqual(lo.non_minimal_strategy,
                          homlib.NonMinimalStrategy.Overdetermined)
 
     def test_enum_value(self):
         lo = homlib.LOMSAC(homlib.DLT(),
-                           non_minimal_strategy=homlib.NonMinimalStrategy.Sample,
+                           non_minimal_settings={"strategy": homlib.NonMinimalStrategy.Sample},
                            inlier_threshold=1.0)
         self.assertEqual(lo.non_minimal_strategy,
                          homlib.NonMinimalStrategy.Sample)
 
     def test_invalid_string_raises(self):
         with self.assertRaises(ValueError):
-            homlib.LOMSAC(homlib.DLT(), non_minimal_strategy="bogus",
+            homlib.LOMSAC(homlib.DLT(),
+                          non_minimal_settings={"strategy": "bogus"},
                           inlier_threshold=1.0)
 
     def test_invalid_type_raises(self):
         with self.assertRaises(TypeError):
-            homlib.LOMSAC(homlib.DLT(), non_minimal_strategy=42,
+            homlib.LOMSAC(homlib.DLT(),
+                          non_minimal_settings={"strategy": 42},
                           inlier_threshold=1.0)
 
     def test_none_defaults_to_sample(self):
@@ -56,19 +59,19 @@ class CheckOverdeterminedTestCase(unittest.TestCase):
     def test_od_with_non_od_solver_raises(self):
         with self.assertRaises(ValueError, msg="Wadenback does not support OD"):
             homlib.LOMSAC(homlib.Wadenback3DV2026OneSided(),
-                          non_minimal_strategy="overdetermined",
+                          non_minimal_settings={"strategy": "overdetermined"},
                           inlier_threshold=1.0)
 
     def test_od_with_od_solver_ok(self):
         lo = homlib.LOMSAC(homlib.FitzgibbonCVPR2001OneSided(),
-                           non_minimal_strategy="overdetermined",
+                           non_minimal_settings={"strategy": "overdetermined"},
                            inlier_threshold=1.0)
         self.assertEqual(lo.non_minimal_strategy,
                          homlib.NonMinimalStrategy.Overdetermined)
 
     def test_od_with_dlt_ok(self):
         lo = homlib.LOMSAC(homlib.DLT(),
-                           non_minimal_strategy="overdetermined",
+                           non_minimal_settings={"strategy": "overdetermined"},
                            inlier_threshold=1.0)
         self.assertEqual(lo.non_minimal_strategy,
                          homlib.NonMinimalStrategy.Overdetermined)
@@ -143,14 +146,14 @@ class CheckNonMinimalParamsTestCase(unittest.TestCase):
             homlib.LOMSAC(
                 homlib.Wadenback3DV2026OneSided(),
                 non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided(),
-                non_minimal_strategy="sample",
+                non_minimal_settings={"strategy": "sample"},
                 inlier_threshold=1.0)
 
     def test_nm_solver_with_od_strategy_ok(self):
         lo = homlib.LOMSAC(
             homlib.Wadenback3DV2026OneSided(),
             non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided(),
-            non_minimal_strategy="overdetermined",
+            non_minimal_settings={"strategy": "overdetermined"},
             inlier_threshold=1.0)
         self.assertIsNotNone(lo.non_minimal_solver)
 
@@ -159,7 +162,7 @@ class CheckNonMinimalParamsTestCase(unittest.TestCase):
             homlib.LOMSAC(
                 homlib.Wadenback3DV2026OneSided(),
                 non_minimal_solver=homlib.Wadenback3DV2026OneSided(),
-                non_minimal_strategy="overdetermined",
+                non_minimal_settings={"strategy": "overdetermined"},
                 inlier_threshold=1.0)
 
 
@@ -170,7 +173,7 @@ class GCRANSACValidationTestCase(unittest.TestCase):
     def test_od_with_non_od_solver_raises(self):
         with self.assertRaises(ValueError):
             homlib.GCRANSAC(homlib.Wadenback3DV2026OneSided(),
-                            non_minimal_strategy="overdetermined",
+                            non_minimal_settings={"strategy": "overdetermined"},
                             threshold=1.0)
 
     def test_nm_solver_with_sample_raises(self):
@@ -178,7 +181,7 @@ class GCRANSACValidationTestCase(unittest.TestCase):
             homlib.GCRANSAC(
                 homlib.Wadenback3DV2026OneSided(),
                 non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided(),
-                non_minimal_strategy="sample",
+                non_minimal_settings={"strategy": "sample"},
                 threshold=1.0)
 
     def test_nm_solver_auto_sets_od(self):
@@ -197,7 +200,7 @@ class MAGSACValidationTestCase(unittest.TestCase):
     def test_od_with_non_od_solver_raises(self):
         with self.assertRaises(ValueError):
             homlib.MAGSAC(homlib.Wadenback3DV2026OneSided(),
-                          non_minimal_strategy="overdetermined",
+                          non_minimal_settings={"strategy": "overdetermined"},
                           sigma_max=1.0)
 
     def test_nm_solver_auto_sets_od(self):
@@ -216,7 +219,7 @@ class SupeRANSACValidationTestCase(unittest.TestCase):
     def test_od_with_non_od_solver_raises(self):
         with self.assertRaises(ValueError):
             homlib.SupeRANSAC(homlib.Wadenback3DV2026OneSided(),
-                              non_minimal_strategy="overdetermined",
+                              non_minimal_settings={"strategy": "overdetermined"},
                               inlier_threshold=1.0)
 
     def test_nm_solver_auto_sets_od(self):
@@ -244,3 +247,36 @@ class LONonMinimalStrategyPropertyTestCase(unittest.TestCase):
                            inlier_threshold=1.0)
         with self.assertRaises(ValueError):
             lo.non_minimal_strategy = "sample"
+
+
+class KRangePropagationTestCase(unittest.TestCase):
+    """k_range propagation from main solver to non-minimal solver."""
+
+    def test_string_nm_solver_inherits_k_range(self):
+        s = homlib.FitzgibbonCVPR2001OneSided()
+        s.set_k_range(-0.5, 0.05)
+        lo = homlib.LOMSAC(s, non_minimal_solver="FitzgibbonCVPR2001OneSided",
+                           inlier_threshold=1.0)
+        self.assertEqual(lo.non_minimal_solver.k_range, (-0.5, 0.05))
+
+    def test_solver_id_nm_solver_inherits_k_range(self):
+        s = homlib.FitzgibbonCVPR2001OneSided()
+        s.set_k_range(-0.3, 0.08)
+        lo = homlib.LOMSAC(
+            s, non_minimal_solver=homlib.SolverId.FitzgibbonCVPR2001OneSided,
+            inlier_threshold=1.0)
+        self.assertEqual(lo.non_minimal_solver.k_range, (-0.3, 0.08))
+
+    def test_preconstructed_nm_solver_keeps_own_k_range(self):
+        s = homlib.FitzgibbonCVPR2001OneSided()
+        s.set_k_range(-0.5, 0.05)
+        nm = homlib.FitzgibbonCVPR2001OneSided()
+        nm.set_k_range(-0.2, 0.02)
+        lo = homlib.LOMSAC(s, non_minimal_solver=nm, inlier_threshold=1.0)
+        self.assertEqual(lo.non_minimal_solver.k_range, (-0.2, 0.02))
+
+    def test_no_k_range_no_propagation(self):
+        s = homlib.FitzgibbonCVPR2001OneSided()
+        lo = homlib.LOMSAC(s, non_minimal_solver="FitzgibbonCVPR2001OneSided",
+                           inlier_threshold=1.0)
+        self.assertIsNone(lo.non_minimal_solver.k_range)
