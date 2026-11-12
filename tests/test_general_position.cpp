@@ -80,6 +80,17 @@ TEST_CASE("General position - four points") {
     REQUIRE_FALSE(HomLib::is_valid_sample(d, y));
     Eigen::Vector2d e[4] = {{0, 0}, {1, 0}, {NAN, 1}, {0, 1}};
     REQUIRE_FALSE(HomLib::is_valid_sample(e, y));
+
+    // Four collinear points, up to rounding: (0.1, 0.3) + t (1, 0.2) for t = 0, 0.7, 1.9, 3.1, as
+    // computed in double. Their four triangles are all flat, the largest one too
+    Eigen::Vector2d l[4] = {{0.1, 0.3},
+                            {0.79999999999999993, 0.43999999999999995},
+                            {2.0, 0.67999999999999994},
+                            {3.2000000000000002, 0.92000000000000015}};
+    for (int i = 0; i < 4; i++)
+        y[i] = apply(kH, l[i]);
+    REQUIRE_FALSE(HomLib::is_valid_sample(l, y));
+    REQUIRE_FALSE(HomLib::is_valid_sample(y, l));
 }
 
 TEST_CASE("General position - choosing four of five points") {
