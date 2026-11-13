@@ -120,6 +120,7 @@ class GCRANSACIntegrationTestCase(unittest.TestCase):
 
     def test_different_seeds_different_results(self):
         solver = homlib.Wadenback3DV2026OneSided()
+
         def run(seed):
             est = homlib.GCRANSAC(solver, threshold=0.07, max_iterations=20, min_iterations=20, seed=seed)
             stats = est.estimate(self.x, self.y)[1]
