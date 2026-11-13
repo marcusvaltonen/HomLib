@@ -9,17 +9,21 @@ namespace HomLib {
 template<class Solver>
 class AffineRansacEstimator {
 public:
-	AffineRansacEstimator(const std::vector<Eigen::Vector2d> &x_, const std::vector<Eigen::Vector2d> &y_, const std::vector<Eigen::Matrix2d> &A_, Solver est) {
+	AffineRansacEstimator(const std::vector<Eigen::Vector2d> &x_, const std::vector<Eigen::Vector2d> &y_, const std::vector<Eigen::Matrix2d> &A_, Solver est, const NonMinimalSettings& nm = {}) {
 		x = x_;
 		y = y_;
 		A = A_;
 		solver = est;
+		nm_settings = nm;
 	}
 
 	inline int min_sample_size() const {
 		return solver.minimal_sample_size();
 	}
 	inline int non_minimal_sample_size() const {
+		if (nm_settings.sample_size > 0)
+			return std::max(nm_settings.sample_size,
+			                solver.minimal_sample_size() + 1);
 		return solver.minimal_sample_size() * 4;
 	}
 	inline int num_data() const {
@@ -58,13 +62,21 @@ public:
 			AA.push_back(A[sample[i]]);
 		}
 
-		auto est_fn = [&](std::vector<HomLib::PoseData>* poses) {
-			solver.estimate(xx, yy, AA, poses);
+		auto est_fn = [&AA](const Solver& s,
+		                     const std::vector<Eigen::Vector2d>& xv,
+		                     const std::vector<Eigen::Vector2d>& yv,
+		                     const std::vector<size_t>& idx, size_t ss,
+		                     std::vector<HomLib::PoseData>* poses) {
+			std::vector<Eigen::Vector2d> xs(ss), ys(ss);
+			std::vector<Eigen::Matrix2d> As(ss);
+			for (size_t i = 0; i < ss; ++i) {
+				xs[i] = xv[idx[i]]; ys[i] = yv[idx[i]]; As[i] = AA[idx[i]];
+			}
+			s.estimate(xs, ys, As, poses);
 		};
-		if (!detail::lomsac_non_minimal_full(solver, xx, yy, est_fn, *pose))
-			return 0;
-		solver.refine(*pose, xx, yy);
-		return 1;
+
+		return detail::non_minimal_dispatch(
+			solver, xx, yy, est_fn, *pose, nm_settings, detail::bind_nm(nm_solver_fn, AA)) ? 1 : 0;
 	}
 
 	double EvaluateModelOnPoint(const HomLib::PoseData& pose, int i) const {
@@ -88,6 +100,8 @@ public:
 
 	bool use_non_minimal = true;
 	bool use_local_opt = true;
+	NonMinimalSettings nm_settings;
+	NonMinimalEstimateFn nm_solver_fn;
 private:
 	Solver solver;
 	std::vector<Eigen::Vector2d> x;

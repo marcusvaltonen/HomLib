@@ -373,7 +373,14 @@ arguments. Settings are also accessible via namespace aliases for clarity:
        min_iterations=50,
        do_local_optimization=True,
        sampler=homlib.GCRANSAC.SamplerType.PROSAC,
-       non_minimal_strategy=homlib.GCRANSAC.NonMinimalStrategy.Sample,
+       non_minimal_settings={"strategy": "overdetermined"},
+       non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided(),
+   )
+
+   # GC-RANSAC with a separate non-minimal solver
+   gc = homlib.GCRANSAC(solver,
+       threshold=3.0,
+       non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided(),
    )
 
    # MAGSAC (shares GCSamplerType with GC-RANSAC)
@@ -401,6 +408,9 @@ types, so you can write ``homlib.GCRANSAC.SamplerType`` instead of
    * - Backend
      - Alias
      - Resolves to
+   * - LOMSAC
+     - ``LOMSAC.NonMinimalStrategy``
+     - ``NonMinimalStrategy``
    * - GC-RANSAC
      - ``GCRANSAC.Settings``
      - ``GCRANSACSettings``
@@ -454,8 +464,14 @@ The sub-settings structs are:
 - ``SuperansacDegensacSettings`` — degenerate model handling.
 - ``SuperansacNeighborhoodSettings`` — neighbourhood graph parameters.
 
-**Non-minimal strategy** (GC-RANSAC and MAGSAC). Controls how the
-non-minimal sample is used for model refinement:
+.. _non_minimal_estimation:
+
+Non-minimal and overdetermined estimation
+-----------------------------------------
+
+All backends support two strategies for model refinement on non-minimal
+(larger than minimal) point sets, controlled by the ``strategy`` field
+of ``non_minimal_settings``:
 
 .. list-table::
    :header-rows: 1
@@ -466,7 +482,85 @@ non-minimal sample is used for model refinement:
    * - ``Sample``
      - Select the best model from a non-minimal sample, then refine (default).
    * - ``Overdetermined``
-     - Fit with an overdetermined solver when available; falls back to ``Sample``.
+     - Fit with an overdetermined solver that natively handles N > minimal
+       points. Raises ``ValueError`` for solvers without overdetermined
+       support; pass ``non_minimal_solver=`` instead.
+
+**Overdetermined estimation** uses a solver whose ``solve()`` accepts any
+number of points. This can improve accuracy during local optimisation.
+Pass ``non_minimal_settings={"strategy": "overdetermined"}`` when the solver
+supports it:
+
+.. code-block:: python
+
+   # Fitzgibbon supports overdetermined natively
+   lomsac = homlib.LOMSAC(
+       homlib.FitzgibbonCVPR2001OneSided(),
+       non_minimal_settings={"strategy": "overdetermined"},
+       inlier_threshold=0.07,
+   )
+
+**Separate non-minimal solver.** You can use one solver for minimal sampling
+and a different (overdetermined) solver for refinement via ``non_minimal_solver``:
+
+.. code-block:: python
+
+   # Wadenback for minimal, Fitzgibbon for non-minimal refinement
+   gc = homlib.GCRANSAC(
+       homlib.Wadenback3DV2026OneSided(),
+       non_minimal_solver=homlib.FitzgibbonCVPR2001OneSided(),
+       threshold=0.07,
+   )
+
+Passing ``non_minimal_solver`` sets the strategy to ``Overdetermined`` when
+``non_minimal_settings`` doesn't give one (no settings, or a ``dict`` without
+``"strategy"``); a ``NonMinimalSettings`` object always gives one, so it must
+be ``Overdetermined``. The non-minimal solver's ``distortion_case`` must match
+the primary solver's, and it must be a point solver or have the primary
+solver's feature type (an affine solver for an affine primary solver, for example).
+
+.. note::
+
+   When the non-minimal solver is given as a string or ``SolverId``, it
+   inherits the main solver's ``k_range`` (if one was set with
+   ``set_k_range()``).  When it is given as a pre-constructed ``Solver``
+   object, its own ``k_range`` is used as-is.
+
+**Solvers with overdetermined support:**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 50 50
+
+   * - Solver
+     - Feature type
+   * - ``DLT``
+     - Points (no distortion)
+   * - ``FitzgibbonCVPR2001OneSided``, ``FitzgibbonCVPR2001TwoSidedEqual``
+     - Points
+   * - ``NakanoICPR2025OneSided``
+     - Points
+   * - ``BarathVISAPP2016Affine``
+     - Affine
+   * - ``ValtonenOrnhagICPR2026AffineOneSided``
+     - Affine
+   * - ``ValtonenOrnhagICPR2026OrientationOneSided``
+     - Orientation
+
+**Non-minimal settings.** All backends accept a ``non_minimal_settings``
+parameter (a :class:`~homlib.NonMinimalSettings` instance or ``dict``) with
+two fields:
+
+- ``sample_size`` — floor on the non-minimal sample size
+  (default ``0``: automatic).  Only honoured by the LOMSAC backend;
+  GC-RANSAC, MAGSAC, and SupeRANSAC determine the non-minimal sample
+  size at compile time and ignore this field.
+  For LOMSAC, the actual sample drawn is
+  ``max(non_minimal_sample_size, min(3m, inliers / 2))`` where *m* is
+  the minimal sample size, so the effective sample is 3× minimal unless
+  ``sample_size`` is set higher or inliers are scarce.
+- ``refine`` — enable/disable Gauss-Newton refinement after the
+  non-minimal solve (default ``True``).
 
 
 .. _threshold_conventions:

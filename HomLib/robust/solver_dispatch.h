@@ -102,4 +102,10 @@ inline DistortionCase distortion_case_for(SolverId id) {
     });
 }
 
+inline bool supports_overdetermined_for(SolverId id) {
+    return dispatch_solver(id, [](auto solver) {
+        return std::decay_t<decltype(solver)>::supports_overdetermined;
+    });
+}
+
 } // namespace HomLib

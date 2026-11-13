@@ -20,6 +20,7 @@
 #include <distortion_range.h>
 #include <solver_id.h>
 #include <solver_dispatch.h>
+#include <solver_utils.h>
 
 namespace py = pybind11;
 
@@ -96,6 +97,7 @@ struct PySolver {
     HomLib::SolverId id;
     HomLib::FeatureType feature_type;
     HomLib::DistortionCase distortion_case;
+    bool supports_overdetermined;
     py::dict options;
     // The range on the distortion parameters set by Solver.set_k_range, in HomLib's normalized
     // coordinates (see DistortionRange); without it, the estimators' default, [-1, 0.1]
@@ -107,7 +109,9 @@ struct PySolver {
 
     PySolver(HomLib::SolverId id, py::kwargs kwargs)
         : id(id), feature_type(HomLib::feature_type_for(id)),
-          distortion_case(HomLib::distortion_case_for(id)), options(kwargs) {}
+          distortion_case(HomLib::distortion_case_for(id)),
+          supports_overdetermined(HomLib::supports_overdetermined_for(id)),
+          options(kwargs) {}
 };
 
 // The range set by Solver.set_k_range; set_k_range() without bounds means no check at all
@@ -134,6 +138,7 @@ inline HomLib::DistortionRange user_range(const PySolver& py_solver) {
     }
 
 HOMLIB_DEFINE_OPTION(extra_check)
+HOMLIB_DEFINE_OPTION(use_qr)
 
 // Detect flipped solver wrappers (they have a public inner_ member).
 template <typename T, typename = void>
@@ -141,20 +146,70 @@ struct has_inner : std::false_type {};
 template <typename T>
 struct has_inner<T, std::void_t<decltype(std::declval<T&>().inner_)>> : std::true_type {};
 
-// The C++ solver of a PySolver: its options (extra_check), normalize_image_coord and, if set, its
-// range on the distortion
 template <typename Solver>
 Solver make_solver(const PySolver& py_solver) {
     Solver s{};
     HOMLIB_COPY_OPTION(s, py_solver.options, extra_check, bool)
+    HOMLIB_COPY_OPTION(s, py_solver.options, use_qr, bool)
     if constexpr (has_inner<Solver>::value) {
         HOMLIB_COPY_OPTION(s.inner_, py_solver.options, extra_check, bool)
+        HOMLIB_COPY_OPTION(s.inner_, py_solver.options, use_qr, bool)
     }
     s.normalize_image_coord = py_solver.normalize_image_coord;
     if (py_solver.has_k_range) {
         s.k_range = user_range(py_solver);
     }
     return s;
+}
+
+inline HomLib::NonMinimalEstimateFn resolve_non_minimal_fn(const PySolver& py_solver) {
+    switch (HomLib::feature_type_for(py_solver.id)) {
+    case HomLib::FeatureType::Points:
+        return HomLib::dispatch_point_solver(py_solver.id, [&py_solver](auto tag) -> HomLib::NonMinimalEstimateFn {
+            using S = std::decay_t<decltype(tag)>;
+            auto solver = make_solver<S>(py_solver);
+            return [s = std::move(solver)](
+                const std::vector<Eigen::Vector2d>& x,
+                const std::vector<Eigen::Vector2d>& y,
+                const std::vector<Eigen::Matrix2d>*,
+                const std::vector<Eigen::Vector2d>*,
+                std::vector<HomLib::PoseData>* poses) -> int {
+                s.estimate(x, y, poses);
+                return static_cast<int>(poses->size());
+            };
+        });
+    case HomLib::FeatureType::Affine:
+        return HomLib::dispatch_affine_solver(py_solver.id, [&py_solver](auto tag) -> HomLib::NonMinimalEstimateFn {
+            using S = std::decay_t<decltype(tag)>;
+            auto solver = make_solver<S>(py_solver);
+            return [s = std::move(solver)](
+                const std::vector<Eigen::Vector2d>& x,
+                const std::vector<Eigen::Vector2d>& y,
+                const std::vector<Eigen::Matrix2d>* A,
+                const std::vector<Eigen::Vector2d>*,
+                std::vector<HomLib::PoseData>* poses) -> int {
+                if (!A) return 0;
+                s.estimate(x, y, *A, poses);
+                return static_cast<int>(poses->size());
+            };
+        });
+    case HomLib::FeatureType::Orientation:
+        return HomLib::dispatch_orientation_solver(py_solver.id, [&py_solver](auto tag) -> HomLib::NonMinimalEstimateFn {
+            using S = std::decay_t<decltype(tag)>;
+            auto solver = make_solver<S>(py_solver);
+            return [s = std::move(solver)](
+                const std::vector<Eigen::Vector2d>& x,
+                const std::vector<Eigen::Vector2d>& y,
+                const std::vector<Eigen::Matrix2d>*,
+                const std::vector<Eigen::Vector2d>* ori,
+                std::vector<HomLib::PoseData>* poses) -> int {
+                if (!ori) return 0;
+                s.estimate(x, y, *ori, poses);
+                return static_cast<int>(poses->size());
+            };
+        });
+    }
+    return {};
 }
 
 // The range of estimate(), which calls the solver on the points as given (without the estimators'

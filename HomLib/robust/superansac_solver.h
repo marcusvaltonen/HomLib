@@ -128,13 +128,14 @@ private:
     Solver solver_;
 };
 
-// Point non-minimal solver: dispatches via shared non_minimal_dispatch_point.
+// Point non-minimal solver: dispatches via shared non_minimal_dispatch.
 template <class Solver>
 class HomLibPointNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
 public:
     explicit HomLibPointNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
-        : solver_(solver), strategy_(strategy) {}
+        const NonMinimalSettings& nm = {},
+        const NonMinimalEstimateFn& nm_solver_fn = {})
+        : solver_(solver), nm_(nm), nm_solver_fn_(nm_solver_fn) {}
 
     bool returnMultipleModels() const override { return false; }
     size_t maximumSolutions() const override { return 1; }
@@ -168,7 +169,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_point(strategy_, solver_, x, y, est_fn, best))
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_)))
             return false;
         models.push_back(pose_to_model(best));
         return true;
@@ -176,16 +177,18 @@ public:
 
 private:
     Solver solver_;
-    NonMinimalStrategy strategy_;
+    NonMinimalSettings nm_;
+    NonMinimalEstimateFn nm_solver_fn_;
 };
 
-// Affine non-minimal solver: dispatches via shared non_minimal_dispatch_full.
+// Affine non-minimal solver: dispatches via shared non_minimal_dispatch.
 template <class Solver>
 class HomLibAffineNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
 public:
     explicit HomLibAffineNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
-        : solver_(solver), strategy_(strategy) {}
+        const NonMinimalSettings& nm = {},
+        const NonMinimalEstimateFn& nm_solver_fn = {})
+        : solver_(solver), nm_(nm), nm_solver_fn_(nm_solver_fn) {}
 
     bool returnMultipleModels() const override { return false; }
     size_t maximumSolutions() const override { return 1; }
@@ -225,7 +228,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_full(strategy_, solver_, x, y, est_fn, best))
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_, A)))
             return false;
         models.push_back(pose_to_model(best));
         return true;
@@ -233,16 +236,18 @@ public:
 
 private:
     Solver solver_;
-    NonMinimalStrategy strategy_;
+    NonMinimalSettings nm_;
+    NonMinimalEstimateFn nm_solver_fn_;
 };
 
-// Orientation non-minimal solver: dispatches via shared non_minimal_dispatch_full.
+// Orientation non-minimal solver: dispatches via shared non_minimal_dispatch.
 template <class Solver>
 class HomLibOrientationNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
 public:
     explicit HomLibOrientationNonMinimalSolver(const Solver& solver,
-        NonMinimalStrategy strategy = NonMinimalStrategy::Sample)
-        : solver_(solver), strategy_(strategy) {}
+        const NonMinimalSettings& nm = {},
+        const NonMinimalEstimateFn& nm_solver_fn = {})
+        : solver_(solver), nm_(nm), nm_solver_fn_(nm_solver_fn) {}
 
     bool returnMultipleModels() const override { return false; }
     size_t maximumSolutions() const override { return 1; }
@@ -280,7 +285,7 @@ public:
         };
 
         PoseData best;
-        if (!detail::non_minimal_dispatch_full(strategy_, solver_, x, y, est_fn, best))
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_, ori)))
             return false;
         models.push_back(pose_to_model(best));
         return true;
@@ -288,7 +293,8 @@ public:
 
 private:
     Solver solver_;
-    NonMinimalStrategy strategy_;
+    NonMinimalSettings nm_;
+    NonMinimalEstimateFn nm_solver_fn_;
 };
 
 } // namespace HomLib

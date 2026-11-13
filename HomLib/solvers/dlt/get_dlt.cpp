@@ -61,7 +61,7 @@ std::vector<HomLib::PoseData> get(
     }
 
     Eigen::Matrix<double, 9, 1> h;
-    if (use_qr) {
+    if (use_qr && n == 4) {
         Eigen::HouseholderQR<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>> qr(A.transpose());
         h = qr.householderQ() * Eigen::Matrix<double, 9, 1>::Unit(8);
     } else {

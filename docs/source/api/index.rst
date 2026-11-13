@@ -46,6 +46,7 @@ Data types
     LORansacOptions
     RansacStatistics
     DistortionCase
+    NonMinimalSettings
     ProblemConfig
     ProblemInstance
 
@@ -57,6 +58,7 @@ Enums
 
     SolverId
     FeatureType
+    NonMinimalStrategy
 
 Functions
 ---------
@@ -160,7 +162,7 @@ GC-RANSAC configuration types
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - **GCRANSACSettings** — full configuration object (threshold, confidence,
-  spatial coherence weight, grid size, sampler, non-minimal strategy, etc.).
+  spatial coherence weight, grid size, sampler, etc.).
   Pass as ``settings=`` to :class:`GCRANSAC`, or set individual fields via
   keyword arguments.
 - **GCRANSACStatistics** — results returned alongside the best model
@@ -168,7 +170,8 @@ GC-RANSAC configuration types
 - **GCSamplerType** — ``Uniform``, ``PROSAC``, ``ARSampler``,
   ``ImportanceSampler``. Shared by GC-RANSAC and MAGSAC.
 - **NonMinimalStrategy** — ``Sample``, ``Overdetermined``.
-  Shared by GC-RANSAC and MAGSAC.
+  Shared by all backends. Set via ``non_minimal_settings=`` (as a
+  ``NonMinimalSettings`` or dict with ``"strategy"`` key).
 
 The ``estimate()`` method accepts an optional ``scores`` parameter: a 1-D
 array of per-match confidence values in [0, 1], sorted in descending order.
@@ -193,9 +196,8 @@ MAGSAC++ configuration types
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - **MAGSACSettings** — full configuration object (sigma_max, confidence,
-  partition number, sampler, non-minimal strategy, etc.). Pass as
-  ``settings=`` to :class:`MAGSAC`, or set individual fields via keyword
-  arguments.
+  partition number, sampler, etc.). Pass as ``settings=`` to :class:`MAGSAC`,
+  or set individual fields via keyword arguments.
 - **MAGSACStatistics** — results returned alongside the best model
   (``num_iterations``, ``inliers``, ``score``).
 

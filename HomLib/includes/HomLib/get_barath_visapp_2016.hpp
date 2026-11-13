@@ -39,6 +39,7 @@ std::vector<HomLib::PoseData> get_affine(
 class AffineSolver : public AffinePoseEstimator<AffineSolver> {
     public:
         static constexpr int minimal_sample_size_value = 2;
+        static constexpr bool supports_overdetermined = true;
         static constexpr DistortionCase DISTORTION_CASE = NO_DISTORTION;
         AffineSolver() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Matrix2d> &A, std::vector<HomLib::PoseData> *poses,
