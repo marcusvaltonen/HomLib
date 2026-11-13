@@ -121,7 +121,9 @@ inline bool select_valid_sample(Eigen::Vector2d *x, Eigen::Vector2d *y) {
     if (!(mx > 0 && my > 0))
         return false;
     // score[d]: the most collinear triangle (relative area, the smaller in both images) of the 4
-    // points other than d, i.e. of the triangles without d
+    // points other than d, i.e. of the triangles without d. The areas are relative to the largest
+    // triangle, not to the size of the points as in is_valid_sample: this only ranks the choices,
+    // and is_valid_sample makes the decision
     double score[5] = {INFINITY, INFINITY, INFINITY, INFINITY, INFINITY};
     for (int t = 0; t < 10; t++) {
         const double s = std::min(ax[t] / mx, ay[t] / my);

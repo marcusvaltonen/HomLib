@@ -91,6 +91,15 @@ TEST_CASE("General position - four points") {
         y[i] = apply(kH, l[i]);
     REQUIRE_FALSE(HomLib::is_valid_sample(l, y));
     REQUIRE_FALSE(HomLib::is_valid_sample(y, l));
+
+    // Three points at unit distance and a fourth one at distance about D: the first three count as
+    // collinear once D is above about 6e4 (see is_valid_sample)
+    auto far = [](double D) {
+        Eigen::Vector2d f[4] = {{0, 0}, {1, 0}, {0, 1}, {D, 0.37 * D + 0.5}};
+        return HomLib::is_valid_sample(f, f);
+    };
+    REQUIRE(far(1e4));
+    REQUIRE_FALSE(far(1e6));
 }
 
 TEST_CASE("General position - choosing four of five points") {
