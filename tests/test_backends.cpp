@@ -545,6 +545,23 @@ TEST_CASE("GC-RANSAC - orientation features") {
     REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
 }
 
+TEST_CASE("GC-RANSAC - fewer points than a minimal sample") {
+    // GC-RANSAC's PROSAC and adaptive reordering samplers drew points that don't exist
+    // (an AddressSanitizer error, or a heap corruption): HomLib doesn't run it
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;  // 5 points per sample
+    auto data = generate_test_data(45, 4, 0, HomLib::ONE_SIDED_LEFT);
+    const std::vector<double> probabilities(4, 0.5);
+
+    using S = HomLib::GCSamplerType;
+    for (S sampler : {S::Uniform, S::PROSAC, S::ImportanceSampler, S::ARSampler}) {
+        HomLib::GCRANSACSettings settings;
+        settings.sampler = sampler;
+        auto [pose, stats] = HomLib::run_gcransac_point(solver, data.x, data.y, probabilities, {}, settings);
+        CHECK(stats.num_iterations == 0);
+        CHECK(stats.inliers.empty());
+    }
+}
+
 #endif // HOMLIB_HAS_GCRANSAC
 
 
@@ -675,6 +692,23 @@ TEST_CASE("SupeRANSAC - the uniform sampler draws only indices of points") {
             in_range = in_range && j < 5;
     }
     REQUIRE(in_range);
+}
+
+TEST_CASE("SupeRANSAC - fewer points than a minimal sample") {
+    // SupeRANSAC's PROSAC and adaptive reordering samplers drew points that don't exist
+    // (an AddressSanitizer error, or a heap corruption): HomLib doesn't run it
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;  // 5 points per sample
+    auto data = generate_test_data(45, 4, 0, HomLib::ONE_SIDED_LEFT);
+    const std::vector<double> probabilities(4, 0.5);
+
+    using S = superansac::samplers::SamplerType;
+    for (S sampler : {S::Uniform, S::PROSAC, S::ImportanceSampler, S::ARSampler}) {
+        superansac::RANSACSettings settings;
+        settings.sampler = sampler;
+        auto [pose, stats] = HomLib::run_superansac_point(solver, data.x, data.y, probabilities, {}, settings);
+        CHECK(stats.num_iterations == 0);
+        CHECK(stats.inliers.empty());
+    }
 }
 
 #endif // HOMLIB_HAS_SUPERANSAC
