@@ -65,14 +65,7 @@ endfunction()
 
 option(HOMLIB_USE_SUPERANSAC "Enable SupeRANSAC backend (requires Boost, OpenCV)" ON)
 option(HOMLIB_USE_GCRANSAC "Enable GC-RANSAC backend (requires OpenCV)" ON)
-option(HOMLIB_USE_MAGSAC "Enable MAGSAC backend (requires OpenCV, gflags; enables GC-RANSAC)" ON)
-# MAGSAC++ uses GC-RANSAC's code, and its Python bindings use GC-RANSAC's (GCSamplerType,
-# NonMinimalStrategy): it needs no other dependency, so it enables the GC-RANSAC backend too. The
-# cache entry is changed, so that ccmake and cmake -L show the value used.
-if(HOMLIB_USE_MAGSAC AND NOT HOMLIB_USE_GCRANSAC)
-    message(WARNING "HOMLIB_USE_MAGSAC needs GC-RANSAC: setting HOMLIB_USE_GCRANSAC to ON")
-    set(HOMLIB_USE_GCRANSAC ON CACHE BOOL "Enable GC-RANSAC backend (requires OpenCV)" FORCE)
-endif()
+option(HOMLIB_USE_MAGSAC "Enable MAGSAC backend (requires OpenCV, gflags)" ON)
 option(HOMLIB_NATIVE_ARCH "Use -march=native for CPU-specific optimizations (not portable)" OFF)
 
 find_package(Eigen3 REQUIRED)
@@ -95,7 +88,7 @@ if(HOMLIB_USE_SUPERANSAC)
     target_compile_definitions(SupeRANSAC PUBLIC Graph=SuperansacGraph Energy=SuperansacEnergy)
 endif()
 
-if(HOMLIB_USE_GCRANSAC)
+if(HOMLIB_USE_GCRANSAC OR HOMLIB_USE_MAGSAC)
     find_package(OpenCV REQUIRED)
     set(_gcransac_dir ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/graph-cut-ransac/src/pygcransac/include)
     set(GCRANSAC_INCLUDE_DIR ${_gcransac_dir})

@@ -181,8 +181,7 @@ of threshold.
    mag = homlib.MAGSAC(solver, sigma_max=10.0)
    estimate, stats = mag.estimate(x, y)
 
-Requires building with ``-DHOMLIB_USE_MAGSAC=ON``, which also enables
-GC-RANSAC. Check availability:
+Requires building with ``-DHOMLIB_USE_MAGSAC=ON``. Check availability:
 
 .. code-block:: python
 

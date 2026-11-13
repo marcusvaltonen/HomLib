@@ -117,6 +117,10 @@ if(HOMLIB_USE_MAGSAC)
 
     target_link_libraries(_core PRIVATE bind_magsac_obj gflags)
     target_compile_definitions(_core PRIVATE HOMLIB_HAS_MAGSAC)
+    if(NOT HOMLIB_USE_GCRANSAC)
+        target_link_libraries(_core PRIVATE GCoptimization ${OpenCV_LIBS})
+        target_compile_definitions(_core PRIVATE HOMLIB_HAS_GCRANSAC)
+    endif()
 endif()
 
 # The install directory is the output (wheel) directory
