@@ -230,7 +230,7 @@ print(f"{len(stats.inlier_indices)} inliers")
 ```
 
 ### Robust estimation with GC-RANSAC
-Requires building with `-DHOMLIB_USE_GCRANSAC=ON`.
+Requires building with `-DHOMLIB_USE_GCRANSAC=ON` (or `-DHOMLIB_USE_MAGSAC=ON`, which enables it too).
 
 ```python
 solver = homlib.Wadenback3DV2026OneSided()
