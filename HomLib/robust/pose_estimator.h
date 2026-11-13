@@ -39,6 +39,7 @@ namespace HomLib {
 	class NoDistortionPointEstimator : public PoseEstimator<Solver> {
 	public:
 		static constexpr DistortionCase DISTORTION_CASE = NO_DISTORTION;
+		static constexpr bool supports_overdetermined = false;
 
 		int minimal_sample_size() const {
 			return Solver::minimal_sample_size_value;
@@ -63,6 +64,7 @@ namespace HomLib {
 	class OneSidedLeftPointEstimator : public PoseEstimator<Solver> {
 	public:
 		static constexpr DistortionCase DISTORTION_CASE = ONE_SIDED_LEFT;
+		static constexpr bool supports_overdetermined = false;
 
 		int minimal_sample_size() const {
 			return Solver::minimal_sample_size_value;
@@ -82,6 +84,7 @@ namespace HomLib {
 	class TwoSidedEqualPointEstimator : public PoseEstimator<Solver> {
 	public:
 		static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED_EQUAL;
+		static constexpr bool supports_overdetermined = false;
 
 		int minimal_sample_size() const {
 			return Solver::minimal_sample_size_value;
@@ -96,6 +99,7 @@ namespace HomLib {
 	class TwoSidedPointEstimator : public PoseEstimator<Solver> {
 	public:
 		static constexpr DistortionCase DISTORTION_CASE = TWO_SIDED;
+		static constexpr bool supports_overdetermined = false;
 
 		int minimal_sample_size() const {
 			return Solver::minimal_sample_size_value;

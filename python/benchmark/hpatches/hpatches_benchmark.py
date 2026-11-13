@@ -171,6 +171,10 @@ def main():
     point_solvers = homlib.solver_ids(homlib.FeatureType.Points)
     parser.add_argument("--solvers", nargs="+", choices=[s.name for s in point_solvers], default=None,
                         help="SolverId names (default: every point solver)")
+    parser.add_argument("--non_minimal_strategy", choices=["sample", "overdetermined"], default=None,
+                        help="Non-minimal strategy: 'sample' (default) or 'overdetermined'")
+    parser.add_argument("--non_minimal_solver", type=str, default=None,
+                        help="Separate non-minimal solver name (e.g. FitzgibbonCVPR2001OneSided)")
     parser.add_argument("--output", type=str, default=None,
                         help="Save the command, the environment, the settings and the results to this JSON file")
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
@@ -192,6 +196,7 @@ def main():
             parser.error(f"{e} (--data_dir: the directory that contains {HPATCHES_DIRNAME})")
 
     solvers = homlib.solver_ids(names=args.solvers) if args.solvers else point_solvers
+    nm_solver_obj = homlib.Solver(args.non_minimal_solver) if args.non_minimal_solver else None
     # results[solver][pair] = per seed: (share of the true inliers found, corner error, time)
     results = {s.name: {} for s in solvers}
     for key, pair in tqdm(pairs.items(), desc="Pairs"):
@@ -202,7 +207,9 @@ def main():
         for s in solvers:
             runs = []
             for seed in range(1, args.seeds + 1):
-                estimator = make_estimator(args.backend, homlib.Solver(s), args.threshold, args.iterations, seed)
+                estimator = make_estimator(args.backend, homlib.Solver(s), args.threshold, args.iterations, seed,
+                                           non_minimal_strategy=args.non_minimal_strategy,
+                                           non_minimal_solver=nm_solver_obj)
                 t0 = time.perf_counter()
                 pose, stats = estimator.estimate(x, y)
                 elapsed = time.perf_counter() - t0
@@ -214,7 +221,9 @@ def main():
             results[s.name][key] = runs
     if args.output:
         settings = dict(matches=Path(args.matches).name, threshold=args.threshold, backend=args.backend,
-                        seeds=args.seeds, iterations=args.iterations, protocol=args.protocol)
+                        seeds=args.seeds, iterations=args.iterations, protocol=args.protocol,
+                        non_minimal_strategy=args.non_minimal_strategy,
+                        non_minimal_solver=args.non_minimal_solver)
         with open(args.output, "w") as f:
             # Strict JSON: null for the share of the true inliers found of a pair with none (NaN), and
             # for the corner error of a failure (infinite); load_results maps them back

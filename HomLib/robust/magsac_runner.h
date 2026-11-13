@@ -37,7 +37,6 @@ struct MAGSACSettings {
     size_t min_iterations = 50;
     int partition_number = 5;
     bool use_magsac_plus_plus = true;
-    NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::Sample;
     GCSamplerType sampler = GCSamplerType::Uniform;
     // The seed of the samplers (none: from std::random_device, a different run each time)
     std::optional<unsigned int> seed;
@@ -126,7 +125,9 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_point(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<double>& probabilities,
-    const MAGSACSettings& settings)
+    const NonMinimalSettings& nm,
+    const MAGSACSettings& settings,
+    const NonMinimalEstimateFn& nm_solver_fn = {})
 {
     constexpr size_t SS = Solver::minimal_sample_size_value;
     using MinSolver = GCPointMinimalSolver<Solver, SS>;
@@ -134,7 +135,7 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_point(
     using Est = HomLibMAGSACEstimator<Solver, MinSolver, NonMinSolver>;
 
     auto data = detail::pack_point_cvmat(x, y);
-    Est estimator(solver, settings.non_minimal_strategy);
+    Est estimator(solver, nm, nm_solver_fn);
     auto result = detail::run_magsac_pipeline(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
@@ -147,7 +148,9 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_affine(
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Matrix2d>& A,
     const std::vector<double>& probabilities,
-    const MAGSACSettings& settings)
+    const NonMinimalSettings& nm,
+    const MAGSACSettings& settings,
+    const NonMinimalEstimateFn& nm_solver_fn = {})
 {
     constexpr size_t SS = Solver::minimal_sample_size_value;
     using MinSolver = GCAffineMinimalSolver<Solver, SS>;
@@ -155,7 +158,7 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_affine(
     using Est = HomLibMAGSACEstimator<Solver, MinSolver, NonMinSolver>;
 
     auto data = detail::pack_affine_cvmat(x, y, A);
-    Est estimator(solver, settings.non_minimal_strategy);
+    Est estimator(solver, nm, nm_solver_fn);
     auto result = detail::run_magsac_pipeline(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
@@ -168,7 +171,9 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_orientation(
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Vector2d>& ori,
     const std::vector<double>& probabilities,
-    const MAGSACSettings& settings)
+    const NonMinimalSettings& nm,
+    const MAGSACSettings& settings,
+    const NonMinimalEstimateFn& nm_solver_fn = {})
 {
     constexpr size_t SS = Solver::minimal_sample_size_value;
     using MinSolver = GCOrientationMinimalSolver<Solver, SS>;
@@ -176,7 +181,7 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_orientation(
     using Est = HomLibMAGSACEstimator<Solver, MinSolver, NonMinSolver>;
 
     auto data = detail::pack_orientation_cvmat(x, y, ori);
-    Est estimator(solver, settings.non_minimal_strategy);
+    Est estimator(solver, nm, nm_solver_fn);
     auto result = detail::run_magsac_pipeline(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
