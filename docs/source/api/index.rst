@@ -201,7 +201,8 @@ MAGSAC++ configuration types
 - **MAGSACStatistics** — results returned alongside the best model
   (``num_iterations``, ``inliers``, ``score``).
 
-MAGSAC shares ``GCSamplerType`` and ``NonMinimalStrategy`` with GC-RANSAC.
+MAGSAC shares ``GCSamplerType`` and ``NonMinimalStrategy`` with GC-RANSAC
+(``GCSamplerType`` is defined when either backend is built).
 The ``estimate()`` method accepts an optional ``scores`` parameter.
 See :ref:`confidence_scores` for details.
 

@@ -88,6 +88,8 @@ if(HOMLIB_USE_SUPERANSAC)
     target_compile_definitions(SupeRANSAC PUBLIC Graph=SuperansacGraph Energy=SuperansacEnergy)
 endif()
 
+# GC-RANSAC's headers: the GC-RANSAC backend uses them, and so does the MAGSAC backend (MAGSAC++
+# is built on GC-RANSAC's samplers, model and estimator classes)
 if(HOMLIB_USE_GCRANSAC OR HOMLIB_USE_MAGSAC)
     find_package(OpenCV REQUIRED)
     set(_gcransac_dir ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/graph-cut-ransac/src/pygcransac/include)
@@ -115,14 +117,17 @@ if(HOMLIB_USE_GCRANSAC OR HOMLIB_USE_MAGSAC)
             set(_gcransac_fixed_any TRUE PARENT_SCOPE)
         endif()
     endfunction()
-    # GCRANSAC::run reads models[0] when the final least-squares fit returns no model
-    # ("if (models.size() == 0) so_far_the_best_model.descriptor = models[0].descriptor;"): a
-    # destroyed element of an empty vector, which aborts at random on macOS. The fixed copy
-    # removes these two lines (the best model stays the one of the minimal samples).
-    homlib_fix_gcransac_header(GCRANSAC.h
-        "if \\(models\\.size\\(\\) == 0\\)[ \t\r\n]*so_far_the_best_model\\.descriptor = models\\[0\\]\\.descriptor;"
-        "// (HomLib: removed the copy of models[0] when models is empty)"
-        "reads models[0] of an empty vector")
+    # GCRANSAC::run (GCRANSAC.h) belongs to the GC-RANSAC backend only
+    if(HOMLIB_USE_GCRANSAC)
+        # GCRANSAC::run reads models[0] when the final least-squares fit returns no model
+        # ("if (models.size() == 0) so_far_the_best_model.descriptor = models[0].descriptor;"): a
+        # destroyed element of an empty vector, which aborts at random on macOS. The fixed copy
+        # removes these two lines (the best model stays the one of the minimal samples).
+        homlib_fix_gcransac_header(GCRANSAC.h
+            "if \\(models\\.size\\(\\) == 0\\)[ \t\r\n]*so_far_the_best_model\\.descriptor = models\\[0\\]\\.descriptor;"
+            "// (HomLib: removed the copy of models[0] when models is empty)"
+            "reads models[0] of an empty vector")
+    endif()
     # Each generator of GC-RANSAC's samplers is seeded from std::random_device: the fixed copy
     # seeds it from HomLib's seed setting, if any (HomLib/robust/backend_seed.h). The regular
     # expression patches a single constructor (its "(.*)" would skip all but the last one).
@@ -142,7 +147,10 @@ if(HOMLIB_USE_GCRANSAC OR HOMLIB_USE_MAGSAC)
     else()
         file(REMOVE_RECURSE ${_gcransac_fixed_dir})
     endif()
+endif()
 
+# GC-RANSAC's graph-cut code (GCoptimization): the GC-RANSAC backend only
+if(HOMLIB_USE_GCRANSAC)
     # GCoptimization sources needed by GCRANSAC headers
     set(GCOPTIMIZATION_SOURCES
         ${_gcransac_dir}/GCoptimization.cpp

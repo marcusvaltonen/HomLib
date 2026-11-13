@@ -12,6 +12,9 @@ namespace HomLib {
 
 enum class NonMinimalStrategy { Sample, Overdetermined };
 
+// The samplers of GC-RANSAC's library, used by the GC-RANSAC and MAGSAC++ backends
+enum class GCSamplerType { Uniform, PROSAC, ImportanceSampler, ARSampler };
+
 using NonMinimalEstimateFn = std::function<int(
     const std::vector<Eigen::Vector2d>&,
     const std::vector<Eigen::Vector2d>&,

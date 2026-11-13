@@ -73,13 +73,16 @@ need OpenCV 4.x:
 
    apt install libopencv-dev
 
-Pull the graph-cut-ransac submodule:
+Pull the graph-cut-ransac submodule, used by both backends (MAGSAC++ is built
+on GC-RANSAC's samplers and model classes), and the magsac submodule for
+MAGSAC++, which also needs gflags and OpenMP:
 
 .. code-block:: bash
 
-   git submodule update --init thirdparty/graph-cut-ransac
+   git submodule update --init thirdparty/graph-cut-ransac thirdparty/magsac
 
-Then build with ``-DHOMLIB_USE_GCRANSAC=ON`` and/or ``-DHOMLIB_USE_MAGSAC=ON``:
+Then build with ``-DHOMLIB_USE_GCRANSAC=ON`` and/or ``-DHOMLIB_USE_MAGSAC=ON``
+(each one works without the other):
 
 .. code-block:: bash
 

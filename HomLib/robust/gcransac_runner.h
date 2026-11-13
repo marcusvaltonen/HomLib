@@ -92,11 +92,15 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_pipeline(
 
     // Main sampler — type depends on settings + probabilities
     std::unique_ptr<SamplerBase> main_sampler;
-    const size_t sample_size = Estimator::sampleSize();
+    const int sample_size = Estimator::sampleSize();
     if ((opts.sampler == GCSamplerType::ImportanceSampler ||
          opts.sampler == GCSamplerType::ARSampler) && probabilities.empty())
         throw std::runtime_error(
             "ImportanceSampler and ARSampler require probabilities.");
+    // Fewer points than a minimal sample: no model, and GC-RANSAC's PROSAC and adaptive
+    // reordering samplers would read and write past their points
+    if (data.rows < sample_size)
+        return {};
     switch (opts.sampler) {
         case GCSamplerType::PROSAC:
             main_sampler = std::make_unique<gcransac::sampler::ProsacSampler>(

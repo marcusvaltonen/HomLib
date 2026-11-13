@@ -107,20 +107,17 @@ if(HOMLIB_USE_GCRANSAC)
     target_compile_definitions(_core PRIVATE HOMLIB_HAS_GCRANSAC)
 endif()
 
-# MAGSAC backend — separate compilation unit with MAGSAC + GCRANSAC includes
+# MAGSAC backend — separate compilation unit with MAGSAC includes, and GC-RANSAC's headers
+# (MAGSAC++ uses GC-RANSAC's samplers and model classes)
 if(HOMLIB_USE_MAGSAC)
     add_library(bind_magsac_obj OBJECT src/bind_magsac.cpp)
     configure_binding_object(bind_magsac_obj)
     target_include_directories(bind_magsac_obj SYSTEM PRIVATE ${GCRANSAC_INCLUDE_DIR} ${MAGSAC_INCLUDE_DIR})
-    target_link_libraries(bind_magsac_obj PRIVATE GCoptimization ${OpenCV_LIBS} gflags OpenMP::OpenMP_CXX)
-    target_compile_definitions(bind_magsac_obj PRIVATE HOMLIB_HAS_GCRANSAC HOMLIB_HAS_MAGSAC USE_OPENMP)
+    target_link_libraries(bind_magsac_obj PRIVATE ${OpenCV_LIBS} gflags OpenMP::OpenMP_CXX)
+    target_compile_definitions(bind_magsac_obj PRIVATE HOMLIB_HAS_MAGSAC USE_OPENMP)
 
-    target_link_libraries(_core PRIVATE bind_magsac_obj gflags)
+    target_link_libraries(_core PRIVATE bind_magsac_obj ${OpenCV_LIBS} gflags)
     target_compile_definitions(_core PRIVATE HOMLIB_HAS_MAGSAC)
-    if(NOT HOMLIB_USE_GCRANSAC)
-        target_link_libraries(_core PRIVATE GCoptimization ${OpenCV_LIBS})
-        target_compile_definitions(_core PRIVATE HOMLIB_HAS_GCRANSAC)
-    endif()
 endif()
 
 # The install directory is the output (wheel) directory

@@ -53,11 +53,13 @@ Optional (GC-RANSAC and MAGSAC++ backends)
 -------------------------------------------
 
 To build with the GC-RANSAC [Barath2018]_ or MAGSAC++ [Barath2020]_ backends you
-need **OpenCV** 4.x. These backends share the same third-party submodule:
+need **OpenCV** 4.x. Both use GC-RANSAC's code (MAGSAC++ is built on its
+samplers and model classes); MAGSAC++ also needs its own submodule, **gflags**
+and **OpenMP**:
 
 .. code-block:: bash
 
-   git submodule update --init thirdparty/graph-cut-ransac
+   git submodule update --init thirdparty/graph-cut-ransac thirdparty/magsac
 
 Build with one or both flags:
 
