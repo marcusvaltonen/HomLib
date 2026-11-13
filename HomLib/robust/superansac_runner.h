@@ -211,6 +211,12 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
     const std::vector<double>& probabilities,
     const superansac::RANSACSettings& settings)
 {
+    // Fewer points than a minimal sample: no model, and SupeRANSAC's PROSAC and adaptive
+    // reordering samplers would read and write past their points
+    const Eigen::Index sample_size = estimator->sampleSize();
+    if (data.rows() < sample_size)
+        return {};
+
     // Neighborhood graph (lazily initialized for GCRANSAC LO, NAPSAC samplers, GRID scoring)
     std::unique_ptr<superansac::neighborhood::AbstractNeighborhoodGraph> neighborhoodGraph;
     bool useNeighborhood = needs_neighborhood(
