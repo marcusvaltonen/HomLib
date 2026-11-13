@@ -124,7 +124,15 @@ if(HOMLIB_USE_GCRANSAC OR HOMLIB_USE_MAGSAC)
         "// (HomLib: removed the copy of models[0] when models is empty)"
         "reads models[0] of an empty vector")
     # Each generator of GC-RANSAC's samplers is seeded from std::random_device: the fixed copy
-    # seeds it from HomLib's seed setting, if any (HomLib/robust/backend_seed.h)
+    # seeds it from HomLib's seed setting, if any (HomLib/robust/backend_seed.h). The regular
+    # expression patches a single constructor (its "(.*)" would skip all but the last one).
+    file(READ ${_gcransac_dir}/uniform_random_generator.h _gcransac_urg)
+    string(REGEX MATCHALL "std::random_device" _gcransac_devices "${_gcransac_urg}")
+    list(LENGTH _gcransac_devices _gcransac_device_count)
+    if(_gcransac_device_count GREATER 1)
+        message(FATAL_ERROR "GC-RANSAC: uniform_random_generator.h now has ${_gcransac_device_count} "
+            "std::random_device, the seed fix in ${CMAKE_CURRENT_LIST_FILE} patches only one")
+    endif()
     homlib_fix_gcransac_header(uniform_random_generator.h
         "#include <random>(.*)std::random_device rand_dev;[ \t\r\n]*generator = std::mt19937\\(rand_dev\\(\\)\\);"
         "#include <random>\n#include \"backend_seed.h\"  // (HomLib)\\1generator = HomLib::backend_seed::next_generator();  // (HomLib)"

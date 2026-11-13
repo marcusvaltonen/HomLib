@@ -130,6 +130,18 @@ class MAGSACIntegrationTestCase(unittest.TestCase):
         self.assertEqual(s1.inliers, s2.inliers)
         self.assertEqual(s1.num_iterations, s2.num_iterations)
 
+    def test_different_seeds_different_results(self):
+        solver = homlib.Wadenback3DV2026OneSided()
+        def run(seed):
+            est = homlib.MAGSAC(solver, sigma_max=0.5, max_iterations=20, min_iterations=20, seed=seed)
+            stats = est.estimate(self.x, self.y)[1]
+            return stats.inliers, stats.num_iterations, stats.score
+        first = run(3)
+        # Some of three other seeds (not necessarily all) must give another run
+        self.assertTrue(any(run(seed) != first for seed in (1000, 2000, 3000)))
+        with self.assertRaises(TypeError):   # seeds have 32 bits
+            homlib.MAGSAC(solver, seed=2**32)
+
 
 @unittest.skipIf(homlib._HAS_MAGSAC, "MAGSAC IS built — skip negative test")
 class MAGSACImportErrorTestCase(unittest.TestCase):

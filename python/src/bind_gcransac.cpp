@@ -100,8 +100,8 @@ void bind_gcransac(py::module_& m) {
         .def_readwrite("sampler", &HomLib::GCRANSACSettings::sampler)
         .def_readwrite("non_minimal_strategy", &HomLib::GCRANSACSettings::non_minimal_strategy)
         .def_readwrite("seed", &HomLib::GCRANSACSettings::seed,
-            "Seed of the samplers (None: from std::random_device, a different run each time). "
-            "The same seed gives the same results on the same platform.")
+            "Seed of the samplers, from 0 to 2**32 - 1 (None: from std::random_device, a different run each time). "
+            "The same seed gives the same results on the same platform. A seed also reseeds C's rand(), for the whole process.")
         .def("__repr__",
             [](const HomLib::GCRANSACSettings& s) {
                 return "GCRANSACSettings("

@@ -164,7 +164,7 @@ Requires building with ``-DHOMLIB_USE_GCRANSAC=ON``. Check availability:
      - Final refinement on inliers
    * - ``seed``
      - ``None``
-     - Seed of the samplers (``None``: a different run each time)
+     - Seed of the samplers, from 0 to 2³² − 1 (``None``: a different run each time). It also reseeds ``std::rand``, for the whole process
 
 **When to use:** When spatially coherent inlier selection matters — e.g.
 natural images with clustered outlier distributions.
@@ -214,7 +214,7 @@ Requires building with ``-DHOMLIB_USE_MAGSAC=ON``. Check availability:
      - Partitions in the sigma consensus integral
    * - ``seed``
      - ``None``
-     - Seed of the samplers (``None``: a different run each time)
+     - Seed of the samplers, from 0 to 2³² − 1 (``None``: a different run each time). It also reseeds ``std::rand``, for the whole process
 
 **When to use:** When you want to avoid tuning a precise inlier threshold.
 The sigma consensus scoring is more forgiving of threshold mis-specification.

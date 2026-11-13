@@ -40,7 +40,7 @@ struct MAGSACSettings {
     NonMinimalStrategy non_minimal_strategy = NonMinimalStrategy::Sample;
     GCSamplerType sampler = GCSamplerType::Uniform;
     // The seed of the samplers (none: from std::random_device, a different run each time)
-    std::optional<uint64_t> seed;
+    std::optional<unsigned int> seed;
 };
 
 namespace detail {

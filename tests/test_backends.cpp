@@ -352,6 +352,26 @@ TEST_CASE("GC-RANSAC - the same seed gives the same results") {
     REQUIRE(stats1.num_iterations == stats2.num_iterations);
 }
 
+TEST_CASE("GC-RANSAC - different seeds give different results") {
+    auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
+    HomLib::GCRANSACSettings settings;
+    settings.threshold = 0.005;
+    settings.max_iterations = 200;   // fewer than needed: the result depends on the samples
+    settings.seed = 7;
+    auto stats7 = HomLib::run_gcransac_point(solver, data.x, data.y, {}, settings).second;
+    // Some of three other seeds (not necessarily all) must give another run (the inliers can be
+    // the same: the matches have no noise)
+    bool differs = false;
+    for (unsigned int seed : {1000u, 2000u, 3000u}) {
+        settings.seed = seed;
+        auto stats = HomLib::run_gcransac_point(solver, data.x, data.y, {}, settings).second;
+        differs = differs || stats.inliers != stats7.inliers || stats.score != stats7.score ||
+                  stats.num_iterations != stats7.num_iterations;
+    }
+    REQUIRE(differs);
+}
+
 #endif // HOMLIB_HAS_GCRANSAC
 
 
@@ -420,6 +440,25 @@ TEST_CASE("MAGSAC++ - the same seed gives the same results") {
     REQUIRE(pose1.distortion_parameter == pose2.distortion_parameter);
     REQUIRE(stats1.inliers == stats2.inliers);
     REQUIRE(stats1.num_iterations == stats2.num_iterations);
+}
+
+TEST_CASE("MAGSAC++ - different seeds give different results") {
+    auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
+    HomLib::MAGSACSettings settings;
+    settings.max_iterations = 200;   // fewer than needed: the result depends on the samples
+    settings.seed = 7;
+    auto stats7 = HomLib::run_magsac_point(solver, data.x, data.y, {}, settings).second;
+    // Some of three other seeds (not necessarily all) must give another run (the inliers can be
+    // the same: the matches have no noise)
+    bool differs = false;
+    for (unsigned int seed : {1000u, 2000u, 3000u}) {
+        settings.seed = seed;
+        auto stats = HomLib::run_magsac_point(solver, data.x, data.y, {}, settings).second;
+        differs = differs || stats.inliers != stats7.inliers || stats.score != stats7.score ||
+                  stats.num_iterations != stats7.num_iterations;
+    }
+    REQUIRE(differs);
 }
 
 #endif // HOMLIB_HAS_MAGSAC
