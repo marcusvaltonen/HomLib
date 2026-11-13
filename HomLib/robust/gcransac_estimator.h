@@ -1,5 +1,5 @@
 #pragma once
-#ifdef HOMLIB_HAS_GCRANSAC
+#if defined(HOMLIB_HAS_GCRANSAC) || defined(HOMLIB_HAS_MAGSAC)
 
 #include <cmath>
 #include <vector>
@@ -201,4 +201,4 @@ public:
 
 } // namespace HomLib
 
-#endif // HOMLIB_HAS_GCRANSAC
+#endif // HOMLIB_HAS_GCRANSAC || HOMLIB_HAS_MAGSAC

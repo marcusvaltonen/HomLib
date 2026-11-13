@@ -97,12 +97,6 @@ void bind_gcransac(py::module_& m) {
                     "score=" + std::to_string(s.score) + ")";
             });
 
-    py::enum_<HomLib::GCSamplerType>(m, "GCSamplerType")
-        .value("Uniform", HomLib::GCSamplerType::Uniform)
-        .value("PROSAC", HomLib::GCSamplerType::PROSAC)
-        .value("ImportanceSampler", HomLib::GCSamplerType::ImportanceSampler)
-        .value("ARSampler", HomLib::GCSamplerType::ARSampler);
-
     py::class_<HomLib::GCRANSACSettings>(m, "GCRANSACSettings",
         "Settings for GC-RANSAC estimation.")
         .def(py::init<>())

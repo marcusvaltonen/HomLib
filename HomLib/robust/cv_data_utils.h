@@ -6,14 +6,6 @@
 #include <opencv2/core/core.hpp>
 
 namespace HomLib {
-
-enum class GCSamplerType {
-    Uniform,
-    PROSAC,
-    ImportanceSampler,
-    ARSampler
-};
-
 namespace detail {
 
 inline cv::Mat pack_point_cvmat(

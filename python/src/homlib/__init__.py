@@ -683,12 +683,16 @@ class SupeRANSAC(RobustEstimator):
 # ---------------------------------------------------------------------------
 
 _HAS_GCRANSAC = getattr(_core, "_has_gcransac", False)
+_HAS_MAGSAC = getattr(_core, "_has_magsac", False)
+
+# The samplers of GC-RANSAC's library, used by GC-RANSAC and MAGSAC
+if _HAS_GCRANSAC or _HAS_MAGSAC:
+    from ._core import GCSamplerType
 
 if _HAS_GCRANSAC:
     from ._core import (
         GCRANSACSettings,
         GCRANSACStatistics,
-        GCSamplerType,
         dispatch_gcransac_point as _dispatch_gcransac_point,
         dispatch_gcransac_affine as _dispatch_gcransac_affine,
         dispatch_gcransac_orientation as _dispatch_gcransac_orientation,
@@ -778,8 +782,6 @@ class GCRANSAC(RobustEstimator):
 # MAGSAC backend (optional)
 # ---------------------------------------------------------------------------
 
-_HAS_MAGSAC = getattr(_core, "_has_magsac", False)
-
 if _HAS_MAGSAC:
     from ._core import (
         MAGSACSettings,
@@ -819,7 +821,6 @@ class MAGSAC(RobustEstimator):
     if _HAS_MAGSAC:
         Settings = MAGSACSettings
         Statistics = MAGSACStatistics
-    if _HAS_GCRANSAC:
         SamplerType = GCSamplerType
         NonMinimalStrategy = NonMinimalStrategy
 

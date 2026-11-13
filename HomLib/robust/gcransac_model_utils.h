@@ -1,5 +1,5 @@
 #pragma once
-#ifdef HOMLIB_HAS_GCRANSAC
+#if defined(HOMLIB_HAS_GCRANSAC) || defined(HOMLIB_HAS_MAGSAC)
 
 #include <vector>
 #include <Eigen/Dense>
@@ -35,4 +35,4 @@ inline PoseData gc_model_to_pose(const gcransac::Model& model) {
 
 } // namespace HomLib
 
-#endif // HOMLIB_HAS_GCRANSAC
+#endif // HOMLIB_HAS_GCRANSAC || HOMLIB_HAS_MAGSAC
