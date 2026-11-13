@@ -797,6 +797,16 @@ PYBIND11_MODULE(_core, m) {
         "non_minimal_solver"_a = py::none(),
         "options"_a);
 
+    // --- GCSamplerType (GC-RANSAC's samplers, shared by GC-RANSAC and MAGSAC) ---
+
+#if defined(HOMLIB_HAS_GCRANSAC) || defined(HOMLIB_HAS_MAGSAC)
+    py::enum_<HomLib::GCSamplerType>(m, "GCSamplerType")
+        .value("Uniform", HomLib::GCSamplerType::Uniform)
+        .value("PROSAC", HomLib::GCSamplerType::PROSAC)
+        .value("ImportanceSampler", HomLib::GCSamplerType::ImportanceSampler)
+        .value("ARSampler", HomLib::GCSamplerType::ARSampler);
+#endif
+
     // --- Backend bindings (each in its own compilation unit) ---
 
 #ifdef HOMLIB_HAS_SUPERANSAC

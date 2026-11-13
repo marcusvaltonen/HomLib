@@ -88,11 +88,16 @@ if(HOMLIB_USE_SUPERANSAC)
     target_compile_definitions(SupeRANSAC PUBLIC Graph=SuperansacGraph Energy=SuperansacEnergy)
 endif()
 
+# GC-RANSAC's headers: the GC-RANSAC backend uses them, and so does the MAGSAC backend (MAGSAC++
+# is built on GC-RANSAC's samplers, model and estimator classes)
 if(HOMLIB_USE_GCRANSAC OR HOMLIB_USE_MAGSAC)
     find_package(OpenCV REQUIRED)
     set(_gcransac_dir ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/graph-cut-ransac/src/pygcransac/include)
     set(GCRANSAC_INCLUDE_DIR ${_gcransac_dir})
+endif()
 
+# GC-RANSAC's graph-cut code and its GCRANSAC::run (GCRANSAC.h): the GC-RANSAC backend only
+if(HOMLIB_USE_GCRANSAC)
     # GCRANSAC::run reads models[0] when the final least-squares fit returns no model
     # ("if (models.size() == 0) so_far_the_best_model.descriptor = models[0].descriptor;"): a
     # destroyed element of an empty vector, which aborts at random on macOS. A fixed copy of
