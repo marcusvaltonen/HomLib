@@ -11,15 +11,21 @@ static std::pair<HomLib::PoseData, HomLib::GCRANSACStatistics> dispatch_gcransac
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const std::vector<double>& probabilities,
+    HomLib::NonMinimalSettings nm,
+    const py::object& non_minimal_solver_obj,
     const HomLib::GCRANSACSettings& settings)
 {
     std::vector<Eigen::Vector2d> x, y;
     preprocess(x_, y_, &x, &y);
 
+    HomLib::NonMinimalEstimateFn nm_solver_fn;
+    if (!non_minimal_solver_obj.is_none())
+        nm_solver_fn = resolve_non_minimal_fn(non_minimal_solver_obj.cast<PySolver>());
+
     return HomLib::dispatch_point_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_gcransac_point(s, x, y, probabilities, settings);
+        return HomLib::run_gcransac_point(s, x, y, probabilities, nm, settings, nm_solver_fn);
     });
 }
 
@@ -29,16 +35,22 @@ static std::pair<HomLib::PoseData, HomLib::GCRANSACStatistics> dispatch_gcransac
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const Eigen::Matrix<double, 4, Eigen::Dynamic>& A_,
     const std::vector<double>& probabilities,
+    HomLib::NonMinimalSettings nm,
+    const py::object& non_minimal_solver_obj,
     const HomLib::GCRANSACSettings& settings)
 {
     std::vector<Eigen::Vector2d> x, y;
     std::vector<Eigen::Matrix2d> A;
     preprocess_affine(x_, y_, A_, &x, &y, &A);
 
+    HomLib::NonMinimalEstimateFn nm_solver_fn;
+    if (!non_minimal_solver_obj.is_none())
+        nm_solver_fn = resolve_non_minimal_fn(non_minimal_solver_obj.cast<PySolver>());
+
     return HomLib::dispatch_affine_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_gcransac_affine(s, x, y, A, probabilities, settings);
+        return HomLib::run_gcransac_affine(s, x, y, A, probabilities, nm, settings, nm_solver_fn);
     });
 }
 
@@ -48,15 +60,21 @@ static std::pair<HomLib::PoseData, HomLib::GCRANSACStatistics> dispatch_gcransac
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
     const Eigen::Matrix<double, 2, Eigen::Dynamic>& ori_,
     const std::vector<double>& probabilities,
+    HomLib::NonMinimalSettings nm,
+    const py::object& non_minimal_solver_obj,
     const HomLib::GCRANSACSettings& settings)
 {
     std::vector<Eigen::Vector2d> x, y, ori;
     preprocess_orientation(x_, y_, ori_, &x, &y, &ori);
 
+    HomLib::NonMinimalEstimateFn nm_solver_fn;
+    if (!non_minimal_solver_obj.is_none())
+        nm_solver_fn = resolve_non_minimal_fn(non_minimal_solver_obj.cast<PySolver>());
+
     return HomLib::dispatch_orientation_solver(solver.id, [&](auto tag) {
         using Solver = std::decay_t<decltype(tag)>;
         auto s = make_solver<Solver>(solver);
-        return HomLib::run_gcransac_orientation(s, x, y, ori, probabilities, settings);
+        return HomLib::run_gcransac_orientation(s, x, y, ori, probabilities, nm, settings, nm_solver_fn);
     });
 }
 
@@ -98,7 +116,6 @@ void bind_gcransac(py::module_& m) {
         .def_readwrite("do_graph_cut", &HomLib::GCRANSACSettings::do_graph_cut)
         .def_readwrite("do_final_least_squares", &HomLib::GCRANSACSettings::do_final_least_squares)
         .def_readwrite("sampler", &HomLib::GCRANSACSettings::sampler)
-        .def_readwrite("non_minimal_strategy", &HomLib::GCRANSACSettings::non_minimal_strategy)
         .def("__repr__",
             [](const HomLib::GCRANSACSettings& s) {
                 return "GCRANSACSettings("
@@ -110,11 +127,16 @@ void bind_gcransac(py::module_& m) {
     m.def("dispatch_gcransac_point", &dispatch_gcransac_point,
         "Run a point-based solver within the GC-RANSAC framework.",
         "solver"_a, "x"_a, "y"_a, "probabilities"_a = std::vector<double>{},
-        "settings"_a);
+        "nm"_a = HomLib::NonMinimalSettings{},
+        "non_minimal_solver"_a = py::none(), "settings"_a);
     m.def("dispatch_gcransac_affine", &dispatch_gcransac_affine,
         "Run an affine-covariant solver within the GC-RANSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "A"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "A"_a, "probabilities"_a = std::vector<double>{},
+        "nm"_a = HomLib::NonMinimalSettings{},
+        "non_minimal_solver"_a = py::none(), "settings"_a);
     m.def("dispatch_gcransac_orientation", &dispatch_gcransac_orientation,
         "Run an orientation-covariant solver within the GC-RANSAC framework.",
-        "solver"_a, "x"_a, "y"_a, "ori"_a, "probabilities"_a = std::vector<double>{}, "settings"_a);
+        "solver"_a, "x"_a, "y"_a, "ori"_a, "probabilities"_a = std::vector<double>{},
+        "nm"_a = HomLib::NonMinimalSettings{},
+        "non_minimal_solver"_a = py::none(), "settings"_a);
 }

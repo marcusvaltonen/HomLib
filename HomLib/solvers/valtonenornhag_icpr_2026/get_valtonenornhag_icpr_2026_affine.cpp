@@ -159,11 +159,9 @@ namespace ValtonenOrnhagICPR2026 {
             ++rowIdx;
         }
 
-        // Compute nullspace using QR
-        Eigen::Matrix<double, 12, 12> Q = M.transpose().householderQr().householderQ();
-        
         std::vector<HomLib::PoseData> output;
         if (M.rows() < 12) {
+            Eigen::Matrix<double, 12, 12> Q = M.transpose().householderQr().householderQ();
             Eigen::Matrix<double, 12, 3> N = Q.rightCols(3);
 
             // Create generalized eigenvalue problem
@@ -171,7 +169,7 @@ namespace ValtonenOrnhagICPR2026 {
             A << N.row(0), N.row(4), N.row(8);
             Eigen::Matrix3d B;
             B << N.row(3), N.row(7), N.row(11);
-            
+
             // Eigen's RealQZ doesn't terminate when A = 0 (and B is singular), as with all the
             // points at the origin
             if (A.isZero(0.0)) {
@@ -230,8 +228,13 @@ namespace ValtonenOrnhagICPR2026 {
                 return output2;
             }
         } else {
-            // Non-minimal
-            Eigen::Matrix<double, 12, 1> g = Q.rightCols(1);
+            Eigen::Matrix<double, 12, 1> g;
+            if (M.rows() == 12) {
+                g = M.transpose().householderQr().householderQ() * Eigen::Matrix<double, 12, 1>::Unit(11);
+            } else {
+                Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 12>> svd(M, Eigen::ComputeFullV);
+                g = svd.matrixV().col(11);
+            }
             Eigen::Matrix<double, 3, 4> G = Eigen::Map<const Eigen::Matrix<double, 4, 3>>(g.data()).transpose();
             Eigen::Matrix3d H = G.bottomRightCorner(3, 3);
             // Package output

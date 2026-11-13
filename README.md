@@ -39,7 +39,7 @@ information of the corresponding descriptors.
 
 | Authors (year)                           | #Corrs | Minimal            | Radial distortion coeff. | IMU data           | General homography | Descriptor |
 | ---------------------------------------- | ------ | ------------------ | ------------------------ | ------------------ | ------------------ | ---------- |
-| Hartley and Zisserman (2003) / DLT       | 4      | :heavy_check_mark: |                          |                    | :heavy_check_mark: | P          |
+| Hartley and Zisserman (2003) / DLT       | 4+     | :heavy_check_mark: |                          |                    | :heavy_check_mark: | P          |
 | Guo (2019)                               | 4      | :heavy_check_mark: |                          |                    | :heavy_check_mark: | P          |
 | Cai et al. (2025)                        | 4      | :heavy_check_mark: |                          |                    | :heavy_check_mark: | P          |
 | Fitzgibbon (2001)                        | 5+     |                    | :heavy_check_mark: (e)   |                    | :heavy_check_mark: | P          |
@@ -53,9 +53,9 @@ information of the corresponding descriptors.
 | Wadenbäck et al. (2026)                  | 5      | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | P          |
 |                                          | 5      | :heavy_check_mark: | :heavy_check_mark: (e)   |                    | :heavy_check_mark: | P          |
 |                                          | 5      | :heavy_check_mark: | :heavy_check_mark: (2)   |                    | :heavy_check_mark: | P          |
-| Barath and Hajder (2016)                 | 2      |                    |                          |                    | :heavy_check_mark: | A          |
-| Valtonen Örnhag and Adalbjörnsson (2026) | 2      |                    | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | A          |
-|                                          | 3      | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | O          |
+| Barath and Hajder (2016)                 | 2+     |                    |                          |                    | :heavy_check_mark: | A          |
+| Valtonen Örnhag and Adalbjörnsson (2026) | 2+     |                    | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | A          |
+|                                          | 3+     | :heavy_check_mark: | :heavy_check_mark: (1)   |                    | :heavy_check_mark: | O          |
 
 We use the following convention for the different distortion cases: (1) - single-sided, (e) two-sided and equal, and (2) two-sided.
 The following descriptor types: (P) - point-based, (A) affine-covariant, and (O) orientation-covariant.

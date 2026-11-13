@@ -310,10 +310,12 @@ std::pair<PoseData, SuperansacStatistics> run_superansac_point(
     const std::vector<Eigen::Vector2d>& x,
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<double>& probabilities,
-    const superansac::RANSACSettings& settings)
+    const NonMinimalSettings& nm,
+    const superansac::RANSACSettings& settings,
+    const NonMinimalEstimateFn& nm_solver_fn = {})
 {
     auto data = detail::pack_point_data(x, y);
-    SuperansacPointEstimator<Solver> estimator(solver);
+    SuperansacPointEstimator<Solver> estimator(solver, nm, nm_solver_fn);
     auto result = detail::run_pipeline<4>(&estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
@@ -326,10 +328,12 @@ std::pair<PoseData, SuperansacStatistics> run_superansac_affine(
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Matrix2d>& A,
     const std::vector<double>& probabilities,
-    const superansac::RANSACSettings& settings)
+    const NonMinimalSettings& nm,
+    const superansac::RANSACSettings& settings,
+    const NonMinimalEstimateFn& nm_solver_fn = {})
 {
     auto data = detail::pack_affine_data(x, y, A);
-    SuperansacAffineEstimator<Solver> estimator(solver);
+    SuperansacAffineEstimator<Solver> estimator(solver, nm, nm_solver_fn);
     auto result = detail::run_pipeline<8>(&estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
@@ -342,10 +346,12 @@ std::pair<PoseData, SuperansacStatistics> run_superansac_orientation(
     const std::vector<Eigen::Vector2d>& y,
     const std::vector<Eigen::Vector2d>& ori,
     const std::vector<double>& probabilities,
-    const superansac::RANSACSettings& settings)
+    const NonMinimalSettings& nm,
+    const superansac::RANSACSettings& settings,
+    const NonMinimalEstimateFn& nm_solver_fn = {})
 {
     auto data = detail::pack_orientation_data(x, y, ori);
-    SuperansacOrientationEstimator<Solver> estimator(solver);
+    SuperansacOrientationEstimator<Solver> estimator(solver, nm, nm_solver_fn);
     auto result = detail::run_pipeline<6>(&estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;

@@ -148,7 +148,7 @@ Point-based solvers
      - None
      - [Cai2025]_
    * - :class:`~homlib.DLT`
-     - 4
+     - 4+
      - None
      - [HartleyZisserman2003]_
    * - :class:`~homlib.FitzgibbonCVPR2001OneSided`
@@ -220,15 +220,15 @@ Affine-covariant solvers
      - Distortion
      - Reference
    * - :class:`~homlib.BarathVISAPP2016Affine`
-     - 2
+     - 2+
      - None
      - [Barath2016]_
    * - :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSided`
-     - 2
+     - 2+
      - One-sided (left)
      - [ValtonenOrnhagAdalbjornsson2026]_
    * - :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSidedRight`
-     - 2
+     - 2+
      - One-sided (right)
      - [ValtonenOrnhagAdalbjornsson2026]_
 
@@ -244,11 +244,11 @@ Orientation-covariant solvers
      - Distortion
      - Reference
    * - :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSided`
-     - 3
+     - 3+
      - One-sided (left)
      - [ValtonenOrnhagAdalbjornsson2026]_
    * - :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSidedRight`
-     - 3
+     - 3+
      - One-sided (right)
      - [ValtonenOrnhagAdalbjornsson2026]_
 
@@ -290,6 +290,27 @@ Many of the solvers were generated using the automatic generator by
    :ref:`api` for the full API reference, :ref:`references` for the original
    papers, and the :ref:`examples` for worked examples.
 
+
+Sample check
+------------
+
+The 4-point solvers (:class:`~homlib.DLT`, :class:`~homlib.GuoPRL2019`,
+:class:`~homlib.CaiPAMI2025`) can check their four points before computing a homography, and
+return no solution for an invalid sample (RANSAC then moves on to the next one). The check is on
+by default, in Python and in the robust estimators; in C++, ``get<false>`` skips it, which is
+faster, but an invalid sample can then give a wrong homography. The Wadenbäck 3DV 2026 solvers
+always check the undistorted points of each root, and drop the roots that give an invalid sample
+(from five points, they first choose the four that are farthest from being collinear).
+
+A sample is valid when:
+
+- **no three points are collinear**, in either image: a triangle counts as collinear when its
+  area is below :math:`10^{-10}` times the sum of the six squared distances between the four
+  points. This only catches collinearity up to rounding errors (in particular four collinear
+  points), and doesn't depend on the scale of the coordinates;
+- **the four triangles all keep their orientation, or all flip it**, from one image to the other:
+  otherwise the homography would map some of the points from behind a camera, which a plane seen
+  by two cameras can't do.
 
 Range check on the distortion
 -----------------------------

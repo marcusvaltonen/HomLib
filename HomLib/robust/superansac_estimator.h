@@ -23,9 +23,12 @@ namespace HomLib {
 template <class Solver>
 class SuperansacPointEstimator : public superansac::estimator::Estimator {
 public:
-    explicit SuperansacPointEstimator(const Solver& solver) : solver_(solver) {
+    explicit SuperansacPointEstimator(const Solver& solver,
+        const NonMinimalSettings& nm = {},
+        const NonMinimalEstimateFn& nm_solver_fn = {})
+        : solver_(solver) {
         setMinimalSolver(new HomLibMinimalSolver<Solver>(solver));
-        setNonMinimalSolver(new HomLibPointNonMinimalSolver<Solver>(solver));
+        setNonMinimalSolver(new HomLibPointNonMinimalSolver<Solver>(solver, nm, nm_solver_fn));
     }
 
     // superansac's AbstractSolver has no virtual destructor, so deleting the solvers through
@@ -109,9 +112,11 @@ private:
 template <class Solver>
 class SuperansacAffineEstimator : public superansac::estimator::Estimator {
 public:
-    explicit SuperansacAffineEstimator(const Solver& solver) : solver_(solver) {
+    explicit SuperansacAffineEstimator(const Solver& solver,
+        const NonMinimalSettings& nm = {},
+        const NonMinimalEstimateFn& nm_solver_fn = {}) : solver_(solver) {
         setMinimalSolver(new HomLibAffineMinimalSolver<Solver>(solver));
-        setNonMinimalSolver(new HomLibAffineNonMinimalSolver<Solver>(solver));
+        setNonMinimalSolver(new HomLibAffineNonMinimalSolver<Solver>(solver, nm, nm_solver_fn));
     }
 
     // superansac's AbstractSolver has no virtual destructor, so deleting the solvers through
@@ -195,9 +200,11 @@ private:
 template <class Solver>
 class SuperansacOrientationEstimator : public superansac::estimator::Estimator {
 public:
-    explicit SuperansacOrientationEstimator(const Solver& solver) : solver_(solver) {
+    explicit SuperansacOrientationEstimator(const Solver& solver,
+        const NonMinimalSettings& nm = {},
+        const NonMinimalEstimateFn& nm_solver_fn = {}) : solver_(solver) {
         setMinimalSolver(new HomLibOrientationMinimalSolver<Solver>(solver));
-        setNonMinimalSolver(new HomLibOrientationNonMinimalSolver<Solver>(solver));
+        setNonMinimalSolver(new HomLibOrientationNonMinimalSolver<Solver>(solver, nm, nm_solver_fn));
     }
 
     // superansac's AbstractSolver has no virtual destructor, so deleting the solvers through
