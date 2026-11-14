@@ -66,7 +66,7 @@ Then build with ``-DHOMLIB_USE_SUPERANSAC=ON``:
 Building with GC-RANSAC and MAGSAC++ (optional)
 -------------------------------------------------
 
-To enable the GC-RANSAC [Barath2018]_ or MAGSAC++ [Barath2020]_ backends you
+To enable the GC-RANSAC :cite:`Barath2018` or MAGSAC++ :cite:`Barath2020magsacpp` backends you
 need OpenCV 4.x:
 
 .. code-block:: bash

@@ -2,7 +2,7 @@ HEB benchmark
 =============
 
 `HEB <https://github.com/danini/homography-benchmark>`__, the Homography
-Estimation Benchmark of Barath, Mishkin et al. [Barath2023]_, has image pairs of 10 scenes of photo collections, with their
+Estimation Benchmark of Barath, Mishkin et al. :cite:`Barath2023heb`, has image pairs of 10 scenes of photo collections, with their
 SIFT matches, the matches that are inliers of the ground-truth homography, and
 the cameras. The scenes aren't planar: each homography maps one plane of the
 scene, so most matches are outliers.

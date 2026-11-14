@@ -22,7 +22,7 @@ where :math:`\tilde{\mathbf{x}}` and :math:`\tilde{\mathbf{y}}` are homogeneous
 coordinates.
 
 **Radial distortion** bends straight lines in the image.  HomLib models this
-with the one-parameter **division model** [Fitzgibbon2001]_:
+with the one-parameter **division model** :cite:`Fitzgibbon2001`:
 
 .. math::
 
@@ -146,67 +146,67 @@ Point-based solvers
    * - :class:`~homlib.CaiPAMI2025`
      - 4
      - None
-     - [Cai2025]_
+     - :cite:`Cai2025`
    * - :class:`~homlib.DLT`
      - 4+
      - None
-     - [HartleyZisserman2003]_
+     - :cite:`HartleyZisserman2003`
    * - :class:`~homlib.FitzgibbonCVPR2001OneSided`
      - 5+
      - One-sided (left)
-     - [Fitzgibbon2001]_
+     - :cite:`Fitzgibbon2001`
    * - :class:`~homlib.FitzgibbonCVPR2001OneSidedRight`
      - 5+
      - One-sided (right)
-     - [Fitzgibbon2001]_
+     - :cite:`Fitzgibbon2001`
    * - :class:`~homlib.FitzgibbonCVPR2001TwoSidedEqual`
      - 5+
      - Two-sided equal
-     - [Fitzgibbon2001]_
+     - :cite:`Fitzgibbon2001`
    * - :class:`~homlib.KukelovaCVPR2015TwoSidedEqual`
      - 5
      - Two-sided equal
-     - [Kukelova2015]_
+     - :cite:`Kukelova2015`
    * - :class:`~homlib.KukelovaCVPR2015TwoSidedEqual6Pt`
      - 6
      - Two-sided equal
-     - [Kukelova2015]_
+     - :cite:`Kukelova2015`
    * - :class:`~homlib.KukelovaCVPR2015TwoSided`
      - 5
      - Two-sided indep.
-     - [Kukelova2015]_
+     - :cite:`Kukelova2015`
    * - :class:`~homlib.KukelovaCVPR2015TwoSided6Pt`
      - 6
      - Two-sided indep.
-     - [Kukelova2015]_
+     - :cite:`Kukelova2015`
    * - :class:`~homlib.NakanoICPR2025OneSided`
      - 5+
      - One-sided (left)
-     - [Nakano2024]_
+     - :cite:`Nakano2024`
    * - :class:`~homlib.NakanoICPR2025OneSidedRight`
      - 5+
      - One-sided (right)
-     - [Nakano2024]_
+     - :cite:`Nakano2024`
    * - :class:`~homlib.Wadenback3DV2026OneSided`
      - 5
      - One-sided (left)
-     - [Wadenback2026]_
+     - :cite:`Wadenback2026`
    * - :class:`~homlib.Wadenback3DV2026OneSidedRight`
      - 5
      - One-sided (right)
-     - [Wadenback2026]_
+     - :cite:`Wadenback2026`
    * - :class:`~homlib.Wadenback3DV2026TwoSidedEqual`
      - 5
      - Two-sided equal
-     - [Wadenback2026]_
+     - :cite:`Wadenback2026`
    * - :class:`~homlib.Wadenback3DV2026TwoSided`
      - 5
      - Two-sided indep.
-     - [Wadenback2026]_
+     - :cite:`Wadenback2026`
    * - :class:`~homlib.GuoPRL2019`
      - 4
      - None
-     - [Guo2019]_
+     - :cite:`Guo2019`
 
 Affine-covariant solvers
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -222,15 +222,15 @@ Affine-covariant solvers
    * - :class:`~homlib.BarathVISAPP2016Affine`
      - 2+
      - None
-     - [Barath2016]_
+     - :cite:`Barath2016`
    * - :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSided`
      - 2+
      - One-sided (left)
-     - [ValtonenOrnhagAdalbjornsson2026]_
+     - :cite:`ValtonenOrnhagAdalbjornsson2026`
    * - :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSidedRight`
      - 2+
      - One-sided (right)
-     - [ValtonenOrnhagAdalbjornsson2026]_
+     - :cite:`ValtonenOrnhagAdalbjornsson2026`
 
 Orientation-covariant solvers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -246,11 +246,11 @@ Orientation-covariant solvers
    * - :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSided`
      - 3+
      - One-sided (left)
-     - [ValtonenOrnhagAdalbjornsson2026]_
+     - :cite:`ValtonenOrnhagAdalbjornsson2026`
    * - :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSidedRight`
      - 3+
      - One-sided (right)
-     - [ValtonenOrnhagAdalbjornsson2026]_
+     - :cite:`ValtonenOrnhagAdalbjornsson2026`
 
 
 Choosing a solver
@@ -283,7 +283,7 @@ Choosing a solver
    spurious solutions.
 
 Many of the solvers were generated using the automatic generator by
-[Larsson2017]_.
+:cite:`Larsson2017`.
 
 .. seealso::
 
@@ -352,14 +352,14 @@ barrel distortion (:math:`k < 0`) that the division model can represent there, s
 :math:`1 + k r_c^2 > 0`, i.e. :math:`k > -0.15`. Real lenses are far inside:
 
 - **Smartphones and action cameras**: on more than 300 such cameras, López-Antequera et al.
-  [LopezAntequera2019]_ (Fig. 3) measured the first coefficient of Brown's model in about
+  :cite:`LopezAntequera2019` (Fig. 3) measured the first coefficient of Brown's model in about
   ``[-0.4, 0]`` in *focal-normalized coordinates* (the centered coordinates divided by the focal
   length :math:`f`); to first order, the division model's parameter :math:`k_f` is the same. In the
   normalized coordinates, it is :math:`k = k_f (f_0 / f)^2`, where :math:`f_0`, about 0.19 times
   the image diagonal, equals the focal length of an 8 mm lens in 35 mm equivalent (43.3 mm
   diagonal): for a 14 mm action camera with :math:`k_f \approx -0.4`, :math:`k \approx -0.14`.
 - **Long lenses**, which have pincushion distortion: lens reviews measured 0.8% at 200 mm for a
-  70–200 mm lens and about 3% at the long end of a 20–200 mm superzoom [OpticalLimits]_, i.e.
+  70–200 mm lens and about 3% at the long end of a 20–200 mm superzoom [OpticalLimits], i.e.
   :math:`k \approx +0.001` to :math:`+0.004`.
 
 The default thus only removes roots that no real lens would give. See the example
