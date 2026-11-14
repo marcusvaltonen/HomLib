@@ -36,22 +36,19 @@ class SIFT(FeatureMatcher):
 
     def __init__(self, num_features=4000, ratio=0.8):
         import cv2
+        super().__init__()
         self._ratio = ratio
         try:
             self._sift = cv2.SIFT_create(num_features, enable_precise_upscale=True)
         except (TypeError, cv2.error):
             self._sift = cv2.SIFT_create(num_features)
         self._bf = cv2.BFMatcher()
-        self._cache = {}
 
-    def extract(self, path):
-        if path not in self._cache:
-            import cv2
-            self._cache.clear()
-            img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
-            kps, descs = self._sift.detectAndCompute(img, None)
-            self._cache[path] = dict(keypoints=kps, descriptors=descs)
-        return self._cache[path]
+    def _extract(self, path):
+        import cv2
+        img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+        kps, descs = self._sift.detectAndCompute(img, None)
+        return dict(keypoints=kps, descriptors=descs)
 
     def _match_features(self, features1, features2):
         return self._match_ratio_test(features1, features2)
@@ -84,19 +81,16 @@ class ORB(FeatureMatcher):
 
     def __init__(self, num_features=4000, ratio=0.8):
         import cv2
+        super().__init__()
         self._ratio = ratio
         self._orb = cv2.ORB_create(num_features)
         self._bf = cv2.BFMatcher(cv2.NORM_HAMMING)
-        self._cache = {}
 
-    def extract(self, path):
-        if path not in self._cache:
-            import cv2
-            self._cache.clear()
-            img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
-            kps, descs = self._orb.detectAndCompute(img, None)
-            self._cache[path] = dict(keypoints=kps, descriptors=descs)
-        return self._cache[path]
+    def _extract(self, path):
+        import cv2
+        img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+        kps, descs = self._orb.detectAndCompute(img, None)
+        return dict(keypoints=kps, descriptors=descs)
 
     def _match_features(self, features1, features2):
         return self._match_hamming(features1, features2)
@@ -123,7 +117,7 @@ class ORB(FeatureMatcher):
 
 
 # ---------------------------------------------------------------------------
-# LightGlue-based features (SuperPoint, DISK, ALIKED)
+# LightGlue-based features (SuperPoint, DISK, ALIKED, SIFT)
 # ---------------------------------------------------------------------------
 
 class _LightGlueFeature(FeatureMatcher):
@@ -133,13 +127,13 @@ class _LightGlueFeature(FeatureMatcher):
 
     def __init__(self, num_features=2048, resize=None, matcher="lightglue"):
         import torch
+        super().__init__()
         self._device = ("cuda" if torch.cuda.is_available()
                         else "mps" if torch.backends.mps.is_available() else "cpu")
         self._resize = resize
         self._matcher_name = matcher
         self._setup_extractor(num_features)
         self._setup_matcher()
-        self._cache = {}
 
     def _setup_extractor(self, num_features):
         from lightglue import ALIKED, DISK, SuperPoint
@@ -153,14 +147,10 @@ class _LightGlueFeature(FeatureMatcher):
         else:
             raise ValueError(f"Unknown matcher: {self._matcher_name}")
 
-    def extract(self, path):
-        if path not in self._cache:
-            from lightglue.utils import load_image
-            self._cache.clear()
-            options = dict(resize=self._resize, side="short") if self._resize else dict(resize=None)
-            self._cache[path] = self._extractor.extract(
-                load_image(str(path)).to(self._device), **options)
-        return self._cache[path]
+    def _extract(self, path):
+        from lightglue.utils import load_image
+        options = dict(resize=self._resize, side="short") if self._resize else dict(resize=None)
+        return self._extractor.extract(load_image(str(path)).to(self._device), **options)
 
     def _match_features(self, features1, features2):
         if self._matcher_name == "lightglue":
@@ -218,6 +208,29 @@ class ALIKED(_LightGlueFeature):
         super().__init__(num_features=num_features, resize=resize)
 
 
+class SIFTLightGlue(_LightGlueFeature):
+    """LightGlue's SIFT extractor + LightGlue matcher, with precise upscaling fix."""
+    _extractor_name = "sift"
+
+    def __init__(self, num_features=2048, resize=None):
+        super().__init__(num_features=num_features, resize=resize)
+
+    def _setup_extractor(self, num_features):
+        import cv2
+        from lightglue import SIFT as LightGlueSIFT
+        self._extractor = LightGlueSIFT(
+            max_num_keypoints=num_features, origin="center").eval().to(self._device)
+        if self._extractor.conf.backend == "opencv":
+            c = self._extractor.conf
+            try:
+                self._extractor.sift = cv2.SIFT_create(
+                    contrastThreshold=c.detection_threshold, nfeatures=c.max_num_keypoints,
+                    edgeThreshold=c.edge_threshold, nOctaveLayers=c.num_octaves,
+                    enable_precise_upscale=True)
+            except (TypeError, cv2.error):
+                pass
+
+
 # ---------------------------------------------------------------------------
 # LoMa
 # ---------------------------------------------------------------------------
@@ -229,10 +242,11 @@ class LoMa(FeatureMatcher):
     def __init__(self, num_keypoints=2048):
         import torch
         from loma import LoMa as LoMaModel, LoMaB
+        super().__init__()
         self._model = LoMaModel(LoMaB(num_keypoints=num_keypoints))
         self._torch = torch
 
-    def extract(self, path):
+    def _extract(self, path):
         raise NotImplementedError("LoMa is end-to-end: use match() directly")
 
     def _match_features(self, features1, features2):
@@ -281,30 +295,27 @@ class AffNet(FeatureMatcher):
         import kornia.feature as KF
         from kornia_moons.feature import OpenCVDetectorWithAffNetKornia
 
+        super().__init__()
         self._ratio = ratio
         self._device = "cuda" if torch.cuda.is_available() else "cpu"
         detector = OpenCVDetectorWithAffNetKornia(cv2.SIFT_create(num_features), max_kpts=num_features)
         descriptor = KF.LAFDescriptor(KF.HardNet(True)).eval()
         self._feature = KF.LocalFeature(detector, descriptor)
         self._bf = cv2.BFMatcher()
-        self._cache = {}
 
-    def extract(self, path):
-        if path not in self._cache:
-            import cv2
-            import kornia as K
-            import torch
-            self._cache.clear()
-            img = cv2.imread(str(path))
-            img_t = K.image_to_tensor(img, False).float() / 255.0
-            img_t = img_t.to(self._device)
-            with torch.no_grad():
-                lafs, _, descs = self._feature(img_t)
-            self._cache[path] = dict(
-                lafs=lafs.squeeze(0).cpu().numpy(),
-                descriptors=descs.squeeze(0).cpu().numpy(),
-            )
-        return self._cache[path]
+    def _extract(self, path):
+        import cv2
+        import kornia as K
+        import torch
+        img = cv2.imread(str(path))
+        img_t = K.image_to_tensor(img, False).float() / 255.0
+        img_t = img_t.to(self._device)
+        with torch.no_grad():
+            lafs, _, descs = self._feature(img_t)
+        return dict(
+            lafs=lafs.squeeze(0).cpu().numpy(),
+            descriptors=descs.squeeze(0).cpu().numpy(),
+        )
 
     def _match_features(self, features1, features2):
         return self._match_ratio_test(features1, features2)
@@ -342,11 +353,12 @@ class DenseAffine(FeatureMatcher):
     }
 
     def __init__(self, repo_path, weights_path=None, device=None):
+        super().__init__()
         self._repo_path = repo_path
         self._weights_path = weights_path
         self._device = device
 
-    def extract(self, path):
+    def _extract(self, path):
         raise NotImplementedError("DenseAffine is end-to-end: use match() directly")
 
     def _match_features(self, features1, features2):
@@ -369,11 +381,12 @@ class POP(FeatureMatcher):
     supported_features = {homlib.FeatureType.Points}
 
     def __init__(self, model_path=None, num_features=1000, device=None):
+        super().__init__()
         self._model_path = model_path
         self._num_features = num_features
         self._device = device
 
-    def extract(self, path):
+    def _extract(self, path):
         raise NotImplementedError(
             "POP requires the POP repo (https://github.com/elvintanhust/POP-Interest-Point). "
             "Integration pending."
@@ -586,6 +599,7 @@ FEATURE_TYPES = {
     "superpoint": SuperPoint,
     "disk": DISK,
     "aliked": ALIKED,
+    "sift_lightglue": SIFTLightGlue,
     "loma": LoMa,
     "affnet": AffNet,
     "denseaffine": DenseAffine,

@@ -7,13 +7,13 @@ on each image's center (HomLib's distortion center), and the homography is in th
 
 Pixel coordinates: OpenCV and LightGlue put (0, 0) at the center of the top-left pixel, so the
 image center is ((w - 1) / 2, (h - 1) / 2). LoMa puts (0, 0) at the top-left corner of the image
-(the center of the top-left pixel is (0.5, 0.5)): the script shifts its points by -0.5 px.
+(the center of the top-left pixel is (0.5, 0.5)): the feature class shifts its points by -0.5 px.
 
 The matches files also store the sizes of the two images of each pair. The second image's is
 new: ``hpatches_benchmark.py --protocol gluefactory`` needs it, and reads it from HPatches for the
 older files, which lack it.
 
-The features and the matcher:
+The features and the matcher (implemented in ``benchmark/features.py``):
 - ``--features sift`` (default): OpenCV SIFT, matched with Lowe's ratio test. Easy to reproduce,
   with no learned model. With OpenCV 4.8 or later, it uses SIFT's precise upscaling, which keypoint
   accuracy needs.
@@ -26,10 +26,10 @@ The features and the matcher:
   the original images, while glue-factory's evaluation, and probably Wadenbäck et al., measure them
   in the resized images: ``hpatches_benchmark.py --protocol gluefactory`` measures them as it does.
   LightGlue's SIFT is OpenCV SIFT without precise upscaling, which shifts its points by about
-  0.1 px: the script gives it the same SIFT with precise upscaling.
+  0.1 px: the SIFTLightGlue class gives it the same SIFT with precise upscaling.
 - ``--features loma``: LoMa (Nordström et al., ECCV 2026), which detects, describes and matches the
-  points itself. Its pixel origin is the top-left corner of the image: the script shifts its points
-  by -0.5 px, to OpenCV's convention.
+  points itself. Its pixel origin is the top-left corner of the image: the feature class shifts its
+  points by -0.5 px, to OpenCV's convention.
 
 Each match also gets a score, higher for a better match, as the ``scores`` of the robust estimators
 (not sorted): 1 - the distance ratio of the ratio test for SIFT, the match confidence of LightGlue
@@ -56,6 +56,7 @@ Usage
 """
 
 import argparse
+import sys
 from pathlib import Path
 
 import cv2
@@ -64,113 +65,26 @@ from tqdm import tqdm
 
 from hpatches_data import download_hpatches, load_hpatches_pairs, load_matches, save_matches
 
+# features.py is in the parent directory (benchmark/)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from features import ALIKED, DISK, SIFT, LoMa, SIFTLightGlue, SuperPoint  # noqa: E402
+
 SUBSET = ["v_graffiti/2", "v_boat/3", "v_wall/4", "v_bird/2",
           "i_dome/3", "i_castle/2", "i_parking/4", "i_greentea/5"]
 
-
-def sift_matcher(num_features, ratio):
-    """match(img1_path, img2_path) -> (points1, points2, scores): Nx2 points in pixels, and N scores."""
-    # enable_precise_upscale (OpenCV >= 4.8) removes a shift of the keypoints of the upscaled octave
-    try:
-        sift = cv2.SIFT_create(num_features, enable_precise_upscale=True)
-    except (TypeError, cv2.error):
-        print(f"Warning: OpenCV {cv2.__version__} has no SIFT precise upscaling (OpenCV >= 4.8): "
-              "the keypoints of the upscaled octave are shifted")
-        sift = cv2.SIFT_create(num_features)
-    bf = cv2.BFMatcher()
-    cache = {}
-
-    def detect(path):
-        if path not in cache:
-            cache.clear()   # image 1 of a sequence is matched with the 5 others in a row
-            cache[path] = sift.detectAndCompute(cv2.imread(path, cv2.IMREAD_GRAYSCALE), None)
-        return cache[path]
-
-    def match(path1, path2):
-        k1, d1 = detect(path1)
-        k2, d2 = sift.detectAndCompute(cv2.imread(path2, cv2.IMREAD_GRAYSCALE), None)
-        good = [(m, n) for m, n in bf.knnMatch(d1, d2, k=2) if m.distance < ratio * n.distance]
-        return (np.array([k1[m.queryIdx].pt for m, _ in good]).reshape(-1, 2),
-                np.array([k2[m.trainIdx].pt for m, _ in good]).reshape(-1, 2),
-                np.array([1 - m.distance / n.distance for m, n in good]))
-    return match
+LIGHTGLUE_FEATURES = {
+    "superpoint": SuperPoint,
+    "disk": DISK,
+    "aliked": ALIKED,
+    "sift": SIFTLightGlue,
+}
 
 
-def loma_matcher(num_keypoints):
-    import torch
-    from loma import LoMa, LoMaB
-    from loma.loma import filter_matches, to_pixel_coords
-    model = LoMa(LoMaB(num_keypoints=num_keypoints))
-
-    @torch.inference_mode()
-    def loma_match(path1, path2):
-        # LoMa.match, which doesn't return the scores of the matches
-        k1, d1, h1, w1 = model.detect_and_describe(path1, None)
-        k2, d2, h2, w2 = model.detect_and_describe(path2, None)
-        m0, _, scores0, _ = filter_matches(model(k1, k2, d1, d2)["scores"], model.cfg.filter_threshold)
-        valid = m0[0] > -1
-        return (to_pixel_coords(k1[0][torch.where(valid)[0]], h1, w1).cpu().numpy(),
-                to_pixel_coords(k2[0][m0[0][valid]], h2, w2).cpu().numpy(),
-                scores0[0][valid].cpu().numpy())
-
-    def match(path1, path2):
-        try:
-            kpts1, kpts2, scores = loma_match(path1, path2)
-        except Exception as e:   # report the pair, and save it with no match
-            print(f"LoMa failed on {path1} and {path2}: {e}")
-            kpts1 = kpts2 = np.zeros((0, 2))
-            scores = np.zeros(0)
-        # LoMa's (0, 0) is the top-left corner of the image: shift to OpenCV's convention
-        return (np.asarray(kpts1, dtype=float).reshape(-1, 2) - 0.5,
-                np.asarray(kpts2, dtype=float).reshape(-1, 2) - 0.5,
-                np.asarray(scores, dtype=float).reshape(-1))
-    return match
-
-
-def lightglue_matcher(features, num_features, resize):
-    import torch
-    from lightglue import ALIKED, DISK, SIFT, LightGlue, SuperPoint
-    from lightglue.utils import load_image, rbd
-    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-    extractor_class = {"superpoint": SuperPoint, "disk": DISK, "aliked": ALIKED, "sift": SIFT}[features]
-    # origin="center": (0, 0) at the center of the top-left pixel, as in OpenCV (LightGlue's default
-    # for now; it plans to switch to "corner")
-    extractor = extractor_class(max_num_keypoints=num_features, origin="center").eval().to(device)
-    if features == "sift" and extractor.conf.backend == "opencv":
-        # LightGlue's OpenCV SIFT lacks precise upscaling, which shifts the keypoints of the upscaled
-        # octave: use the same SIFT with it, as sift_matcher does (OpenCV >= 4.8)
-        c = extractor.conf
-        extractor.sift = cv2.SIFT_create(contrastThreshold=c.detection_threshold, nfeatures=c.max_num_keypoints,
-                                         edgeThreshold=c.edge_threshold, nOctaveLayers=c.num_octaves,
-                                         enable_precise_upscale=True)
-    matcher = LightGlue(features=features).eval().to(device)
-    # resize: the shorter side of the images, in pixels (None: the original images). The extractor
-    # gives the keypoints in the original images.
-    options = dict(resize=resize, side="short") if resize else dict(resize=None)
-    cache = {}
-
-    def extract(path):
-        if path not in cache:
-            cache.clear()   # image 1 of a sequence is matched with the 5 others in a row
-            cache[path] = extractor.extract(load_image(path).to(device), **options)
-        return cache[path]
-
-    @torch.no_grad()
-    def match(path1, path2):
-        f1, f2 = extract(path1), extract(path2)
-        out = rbd(matcher({"image0": f1, "image1": f2}))
-        m = out["matches"]
-        f1, f2 = rbd(f1), rbd(f2)
-        return (f1["keypoints"][m[:, 0]].cpu().numpy().astype(float),
-                f2["keypoints"][m[:, 1]].cpu().numpy().astype(float),
-                out["scores"].cpu().numpy().astype(float))
-    return match
-
-
-def compute_matches(seq_dir: Path, match):
+def compute_matches(seq_dir: Path, matcher):
     pairs = {}
     for seq_name, i, path1, path2, H in tqdm(list(load_hpatches_pairs(seq_dir)), desc="Matches"):
-        p1, p2, scores = match(path1, path2)
+        result = matcher(path1, path2)
+        p1, p2, scores = result.points1, result.points2, result.scores
         (h1, w1), (h2, w2) = (cv2.imread(p, cv2.IMREAD_GRAYSCALE).shape for p in (path1, path2))
         c1 = np.array([(w1 - 1) / 2, (h1 - 1) / 2])
         c2 = np.array([(w2 - 1) / 2, (h2 - 1) / 2])
@@ -212,14 +126,16 @@ def main():
         if args.ratio is not None and args.matcher != "ratio":
             parser.error("--ratio needs --matcher ratio")
         if args.features == "loma":
-            match = loma_matcher(args.num_features or 2048)
+            matcher = LoMa(num_keypoints=args.num_features or 2048)
         elif args.matcher == "lightglue":
-            match = lightglue_matcher(args.features, args.num_features or 2048, args.resize)
+            cls = LIGHTGLUE_FEATURES[args.features]
+            matcher = cls(num_features=args.num_features or 2048, resize=args.resize)
         elif args.features == "sift":
-            match = sift_matcher(args.num_features or 4000, 0.8 if args.ratio is None else args.ratio)
+            matcher = SIFT(num_features=args.num_features or 4000,
+                           ratio=0.8 if args.ratio is None else args.ratio)
         else:
             parser.error(f"--features {args.features} needs --matcher lightglue")
-        pairs = compute_matches(download_hpatches(Path(args.data_dir)), match)
+        pairs = compute_matches(download_hpatches(Path(args.data_dir)), matcher)
         name = args.features if args.features == "loma" or args.matcher == "ratio" else f"{args.features}_lightglue"
         output = Path(args.output or Path(args.data_dir) / f"hpatches_{name}.npz")
         save_matches(output, pairs)

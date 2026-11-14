@@ -80,11 +80,24 @@ class FeatureMatcher(ABC):
     (SIFT, SuperPoint, AffNet, ...), not by matcher."""
     supported_features: set
 
+    def __init__(self):
+        self._cache = {}
+
     @abstractmethod
-    def extract(self, path):
+    def _extract(self, path):
         """Extract features from a single image.  Returns a dict of keypoints, descriptors,
         and any extra data the matcher needs."""
         ...
+
+    def extract(self, path):
+        """Cached _extract(): holds up to 2 entries and evicts the most-recently inserted
+        one when full, so that the first image (the anchor in a 1-vs-many sequence) stays
+        cached while the second image rotates."""
+        if path not in self._cache:
+            if len(self._cache) >= 2:
+                self._cache.pop(next(reversed(self._cache)))
+            self._cache[path] = self._extract(path)
+        return self._cache[path]
 
     @abstractmethod
     def _match_features(self, features1, features2):
