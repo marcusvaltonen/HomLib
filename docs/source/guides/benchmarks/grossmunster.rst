@@ -1,7 +1,7 @@
 Grossmünster Church benchmark
 =============================
 
-Wadenbäck et al. [Wadenback2026]_ (Section 5, Table 3) evaluate the two-sided
+Wadenbäck et al. :cite:`Wadenback2026` (Section 5, Table 3) evaluate the two-sided
 solvers on six pairs of fisheye images of the Grossmünster Church in Zürich,
 from `RadialSfM <https://github.com/vlarsson/radialsfm>`__ (Larsson et al.,
 ECCV 2020). Unlike HPatches, both images of each pair have a strong

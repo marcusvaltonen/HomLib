@@ -25,7 +25,7 @@ pairs:
    the estimated model (distortion included) and with the ground truth, and
    averages the distances. The AUC@t is the area under its cumulative curve up
    to t pixels, in percent: 100 for no error, 0 for an error above t or a
-   failed estimate. Wadenbäck et al. [Wadenback2026]_ report it as "mAA (AUC)".
+   failed estimate. Wadenbäck et al. :cite:`Wadenback2026` report it as "mAA (AUC)".
 
 **Time**
    The median time of a run of the estimator.

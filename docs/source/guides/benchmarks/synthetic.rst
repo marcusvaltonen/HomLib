@@ -13,7 +13,7 @@ The *error* of a solution is the larger of the homography error (the Frobenius
 norm of the difference with the true homography, both scaled to a norm of 1)
 and of the sum of the errors of the distortion parameters; the *best solution*
 is the one with the smallest error. The benchmark reports, as the experiments
-of Wadenbäck et al. [Wadenback2026]_:
+of Wadenbäck et al. :cite:`Wadenback2026`:
 
 **Missed** (their Fig. 3)
    Without noise, the share of the problems where the best solution has an
