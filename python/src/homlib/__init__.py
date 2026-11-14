@@ -722,7 +722,8 @@ class GCRANSAC(RobustEstimator):
         Pre-configured settings object. If not given, a default is created.
     **kwargs
         Any attribute of :class:`GCRANSACSettings` can be passed as a keyword
-        argument to override defaults (e.g. ``threshold=3.0``).
+        argument to override defaults (e.g. ``threshold=3.0``, or ``seed=0`` for
+        reproducible results).
     """
 
     if _HAS_GCRANSAC:
@@ -815,7 +816,8 @@ class MAGSAC(RobustEstimator):
         Pre-configured settings object. If not given, a default is created.
     **kwargs
         Any attribute of :class:`MAGSACSettings` can be passed as a keyword
-        argument to override defaults (e.g. ``sigma_max=10.0``).
+        argument to override defaults (e.g. ``sigma_max=10.0``, or ``seed=0`` for
+        reproducible results).
     """
 
     if _HAS_MAGSAC:
