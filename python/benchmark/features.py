@@ -32,9 +32,9 @@ from common import (
 # ---------------------------------------------------------------------------
 
 class SIFT(FeatureMatcher):
-    """OpenCV SIFT, with ratio-test matching (default) or LightGlue."""
+    """OpenCV SIFT, with BFMatcher + Lowe's ratio test (default) or LightGlue."""
     supported_features = {homlib.FeatureType.Points, homlib.FeatureType.Orientation}
-    cli_matchers = {"ratio", "lightglue"}
+    cli_matchers = {"bfmatcher", "lightglue"}
 
     @classmethod
     def from_args(cls, args):
@@ -42,15 +42,15 @@ class SIFT(FeatureMatcher):
             return cls(num_features=args.num_features or 2048,
                        matcher="lightglue", resize=args.resize)
         return cls(num_features=args.num_features or 4000,
-                   ratio=0.8 if args.ratio is None else args.ratio)
+                   lowe_ratio=0.8 if args.lowe_ratio is None else args.lowe_ratio)
 
-    def __init__(self, num_features=4000, ratio=0.8, matcher="ratio", resize=None):
+    def __init__(self, num_features=4000, lowe_ratio=0.8, matcher="bfmatcher", resize=None):
         import cv2
         super().__init__()
         self._matcher_name = matcher
-        self._ratio = ratio
+        self._lowe_ratio = lowe_ratio
         self._resize = resize
-        if matcher == "ratio":
+        if matcher == "bfmatcher":
             try:
                 self._sift = cv2.SIFT_create(num_features, enable_precise_upscale=True)
             except (TypeError, cv2.error):
@@ -78,7 +78,7 @@ class SIFT(FeatureMatcher):
             raise ValueError(f"Unknown matcher: {matcher}")
 
     def _extract(self, path):
-        if self._matcher_name == "ratio":
+        if self._matcher_name == "bfmatcher":
             return self._extract_opencv(path)
         return self._extract_lightglue(path)
 
@@ -94,15 +94,15 @@ class SIFT(FeatureMatcher):
         return self._extractor.extract(load_image(str(path)).to(self._device), **options)
 
     def _match_features(self, features1, features2):
-        if self._matcher_name == "ratio":
-            return self._match_ratio_test(features1, features2)
+        if self._matcher_name == "bfmatcher":
+            return self._match_bfmatcher(features1, features2)
         return self._match_lightglue(features1, features2)
 
-    def _match_ratio_test(self, features1, features2):
+    def _match_bfmatcher(self, features1, features2):
         d1, d2 = features1["descriptors"], features2["descriptors"]
         k1, k2 = features1["keypoints"], features2["keypoints"]
         matches = self._bf.knnMatch(d1, d2, k=2)
-        good = [(m, n) for m, n in matches if m.distance < self._ratio * n.distance]
+        good = [(m, n) for m, n in matches if m.distance < self._lowe_ratio * n.distance]
         pts1 = np.array([k1[m.queryIdx].pt for m, _ in good]).reshape(-1, 2)
         pts2 = np.array([k2[m.trainIdx].pt for m, _ in good]).reshape(-1, 2)
         scores = np.array([1 - m.distance / n.distance for m, n in good])
@@ -179,9 +179,9 @@ class ORB(FeatureMatcher):
 # ---------------------------------------------------------------------------
 
 class _LightGlueFeature(FeatureMatcher):
-    """Base for feature types matched with LightGlue."""
+    """Base for feature types matched with LightGlue.  The LightGlue extractor and matcher
+    are selected by the lowercase class name (SuperPoint → "superpoint", etc.)."""
     supported_features = {homlib.FeatureType.Points}
-    _extractor_name: str
     cli_matchers = {"lightglue"}
 
     @classmethod
@@ -200,13 +200,13 @@ class _LightGlueFeature(FeatureMatcher):
 
     def _setup_extractor(self, num_features):
         from lightglue import ALIKED, DISK, SuperPoint
-        cls = {"superpoint": SuperPoint, "disk": DISK, "aliked": ALIKED}[self._extractor_name]
+        cls = {"superpoint": SuperPoint, "disk": DISK, "aliked": ALIKED}[self.name]
         self._extractor = cls(max_num_keypoints=num_features, origin="center").eval().to(self._device)
 
     def _setup_matcher(self):
         if self._matcher_name == "lightglue":
             from lightglue import LightGlue
-            self._matcher = LightGlue(features=self._extractor_name).eval().to(self._device)
+            self._matcher = LightGlue(features=self.name).eval().to(self._device)
         else:
             raise ValueError(f"Unknown matcher: {self._matcher_name}")
 
@@ -236,7 +236,6 @@ class _LightGlueFeature(FeatureMatcher):
 
 class SuperPoint(_LightGlueFeature):
     """SuperPoint features, matched with LightGlue (default) or SuperGlue."""
-    _extractor_name = "superpoint"
 
     def __init__(self, num_features=2048, resize=None, matcher="lightglue"):
         super().__init__(num_features=num_features, resize=resize, matcher=matcher)
@@ -257,7 +256,6 @@ class SuperPoint(_LightGlueFeature):
 
 class DISK(_LightGlueFeature):
     """DISK features matched with LightGlue."""
-    _extractor_name = "disk"
 
     def __init__(self, num_features=2048, resize=None):
         super().__init__(num_features=num_features, resize=resize)
@@ -265,7 +263,6 @@ class DISK(_LightGlueFeature):
 
 class ALIKED(_LightGlueFeature):
     """ALIKED features matched with LightGlue."""
-    _extractor_name = "aliked"
 
     def __init__(self, num_features=2048, resize=None):
         super().__init__(num_features=num_features, resize=resize)
@@ -656,14 +653,15 @@ FEATURE_TYPES = {
 # ---------------------------------------------------------------------------
 
 def add_feature_args(parser):
-    """Add --features, --matcher, --num_features, --ratio, --resize to an ArgumentParser.
+    """Add --features, --matcher, --num_features, --lowe_ratio, --resize to an ArgumentParser.
     Choices are derived from ``FeatureRegistry``, populated by ``__init_subclass__``."""
     parser.add_argument("--features", choices=FeatureRegistry.feature_names(), default="sift")
-    parser.add_argument("--matcher", choices=FeatureRegistry.matcher_names(), default="ratio",
-                        help="Lowe's ratio test (OpenCV SIFT only) or LightGlue")
+    parser.add_argument("--matcher", choices=FeatureRegistry.matcher_names(), default="bfmatcher",
+                        help="OpenCV BFMatcher with Lowe's ratio test, or LightGlue")
     parser.add_argument("--num_features", type=int, default=None,
-                        help="Keypoints per image (default: 4000 for OpenCV SIFT, 2048 for LightGlue and LoMa)")
-    parser.add_argument("--ratio", type=float, default=None, help="Ratio test threshold (default: 0.8)")
+                        help="Keypoints per image (default: 4000 for BFMatcher, 2048 for LightGlue and LoMa)")
+    parser.add_argument("--lowe_ratio", type=float, default=None,
+                        help="Lowe's ratio test threshold for BFMatcher (default: 0.8)")
     parser.add_argument("--resize", type=int, default=None,
                         help="With LightGlue: resize the shorter side of the images to this size")
 
@@ -674,8 +672,8 @@ def create_matcher(args):
     invalid combinations."""
     if args.resize and args.matcher != "lightglue":
         raise ValueError("--resize needs --matcher lightglue")
-    if args.ratio is not None and args.matcher != "ratio":
-        raise ValueError("--ratio needs --matcher ratio")
+    if args.lowe_ratio is not None and args.matcher != "bfmatcher":
+        raise ValueError("--lowe_ratio needs --matcher bfmatcher")
     cls = FeatureRegistry.get(args.features)
     if cls is None:
         raise ValueError(f"unknown --features {args.features}")

@@ -112,6 +112,11 @@ class FeatureMatcher(ABC):
     base classes (name starting with ``_``) are excluded."""
     supported_features: set
 
+    @property
+    def name(self):
+        """Lowercase class name — used as the feature identifier everywhere."""
+        return type(self).__name__.lower()
+
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         if not cls.__name__.startswith('_') and hasattr(cls, 'from_args'):

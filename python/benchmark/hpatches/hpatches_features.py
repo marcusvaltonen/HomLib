@@ -110,7 +110,7 @@ def main():
         except ValueError as e:
             parser.error(str(e))
         pairs = compute_matches(download_hpatches(Path(args.data_dir)), matcher)
-        name = args.features if args.features == "loma" or args.matcher == "ratio" else f"{args.features}_lightglue"
+        name = args.features if args.features == "loma" or args.matcher == "bfmatcher" else f"{args.features}_lightglue"
         output = Path(args.output or Path(args.data_dir) / f"hpatches_{name}.npz")
         save_matches(output, pairs)
         print(f"Wrote the matches of {len(pairs)} pairs to {output}")

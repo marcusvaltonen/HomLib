@@ -269,7 +269,8 @@ def main():
                              "in all the cameras (default: 0.003)")
     parser.add_argument("--num_features", type=int, default=8000,
                         help="SIFT keypoints per image (default: 8000, as the paper)")
-    parser.add_argument("--ratio", type=float, default=0.8, help="Ratio test threshold (default: 0.8)")
+    parser.add_argument("--lowe_ratio", type=float, default=0.8,
+                        help="Lowe's ratio test threshold for BFMatcher (default: 0.8)")
     parser.add_argument("--images", type=int, nargs=2, default=IMAGES, metavar=("FIRST", "LAST"),
                         help="The images of the reconstruction, DSC_<FIRST> to DSC_<LAST> (default: %(default)s)")
     parser.add_argument("--seed", type=int, default=1, help="Random seed of the reconstruction and of the plane")
@@ -308,7 +309,7 @@ def main():
           f"{np.sqrt(np.mean((X[inliers] @ n - d) ** 2)):.4f}; median depth {np.median(depths):.3f})")
 
     # 3 and 4. The ground truth and the matches, and their checks
-    matcher = SIFT(num_features=args.num_features, ratio=args.ratio)
+    matcher = SIFT(num_features=args.num_features, lowe_ratio=args.lowe_ratio)
     candidates = sorted(set(PAIRS) | set(OTHER_PAIRS) | {(i, i + 1) for i in numbers[:-1]})
     print(f"\n{'Pair':<10s} {'Plane tracks':>12s} {'GT median/p90':>14s} {'LS fit median/p90':>18s}   "
           f"{'SIFT matches':>12s} {'< 1 px':>7s} {'< 3 px':>7s}")
