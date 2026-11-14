@@ -138,4 +138,5 @@ the :ref:`references` page. For the library itself:
    :caption: Reference documentation:
 
    api/index.rst
+   feature_matchers.rst
    references.rst

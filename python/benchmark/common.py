@@ -1,6 +1,6 @@
 """What the benchmarks share: the robust estimators, the description of a run (its command and its
-environment), the check of the settings of two runs, and the mapping of points with an estimated
-model."""
+environment), the check of the settings of two runs, the mapping of points with an estimated
+model, the ABCs for feature matchers, and the match result types."""
 
 import datetime
 import os
@@ -8,11 +8,169 @@ import platform
 import shlex
 import subprocess
 import sys
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
 import homlib
+
+
+# ---------------------------------------------------------------------------
+# Match result types
+# ---------------------------------------------------------------------------
+
+@dataclass
+class PointMatchResult:
+    """Matched point correspondences between two images."""
+    points1: np.ndarray
+    points2: np.ndarray
+    scores: np.ndarray | None = None
+
+
+@dataclass(kw_only=True)
+class OrientationMatchResult(PointMatchResult):
+    """Point matches with per-keypoint orientation (radians)."""
+    angles1: np.ndarray
+    angles2: np.ndarray
+
+
+@dataclass(kw_only=True)
+class ScaleOrientationMatchResult(OrientationMatchResult):
+    """Point matches with per-keypoint orientation and scale."""
+    scales1: np.ndarray
+    scales2: np.ndarray
+
+
+@dataclass(kw_only=True)
+class AffineMatchResult(ScaleOrientationMatchResult):
+    """Point matches with per-keypoint affine frames (2x2)."""
+    affines1: np.ndarray
+    affines2: np.ndarray
+
+    def relative_affines(self):
+        """affines2 @ inv(affines1) per correspondence, as Nx2x2."""
+        return self.affines2 @ np.linalg.inv(self.affines1)
+
+    @classmethod
+    def from_lafs(cls, laf1, laf2, scores=None):
+        """Construct from LAFs (Nx2x3): centroid = col 2, affine = cols 0:2,
+        angle = atan2(a21, a11), scale = sqrt(|det(affine)|)."""
+        points1 = laf1[:, :, 2]
+        points2 = laf2[:, :, 2]
+        aff1 = laf1[:, :, :2]
+        aff2 = laf2[:, :, :2]
+        angles1 = np.arctan2(aff1[:, 1, 0], aff1[:, 0, 0])
+        angles2 = np.arctan2(aff2[:, 1, 0], aff2[:, 0, 0])
+        scales1 = np.sqrt(np.abs(np.linalg.det(aff1)))
+        scales2 = np.sqrt(np.abs(np.linalg.det(aff2)))
+        return cls(points1=points1, points2=points2, scores=scores,
+                   angles1=angles1, angles2=angles2,
+                   scales1=scales1, scales2=scales2,
+                   affines1=aff1, affines2=aff2)
+
+
+# ---------------------------------------------------------------------------
+# Feature registry
+# ---------------------------------------------------------------------------
+
+class FeatureRegistry:
+    """Registry of CLI-available feature matchers, populated automatically by
+    ``FeatureMatcher.__init_subclass__``.  Feature names are the lowercase class name."""
+    _features: dict = {}
+
+    @classmethod
+    def register(cls, feature_cls):
+        cls._features[feature_cls.__name__.lower()] = feature_cls
+
+    @classmethod
+    def get(cls, name):
+        return cls._features.get(name)
+
+    @classmethod
+    def feature_names(cls):
+        return sorted(cls._features)
+
+    @classmethod
+    def matcher_names(cls):
+        return sorted({m for fc in cls._features.values()
+                       for m in getattr(fc, 'cli_matchers', ())})
+
+
+# ---------------------------------------------------------------------------
+# Feature matcher ABC
+# ---------------------------------------------------------------------------
+
+class FeatureMatcher(ABC):
+    """A feature type with extraction and matching.  Subclasses are named by feature type
+    (SIFT, SuperPoint, AffNet, ...), not by matcher.
+
+    Subclasses that should be available from the CLI define a ``from_args(args)`` classmethod
+    and ``cli_matchers`` (the set of valid ``--matcher`` values).  ``__init_subclass__``
+    auto-registers them in ``FeatureRegistry`` under their lowercase class name.  Private
+    base classes (name starting with ``_``) are excluded."""
+    supported_features: set
+
+    @property
+    def name(self):
+        """Lowercase class name — used as the feature identifier everywhere."""
+        return type(self).__name__.lower()
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not cls.__name__.startswith('_') and hasattr(cls, 'from_args'):
+            FeatureRegistry.register(cls)
+
+    def __init__(self):
+        self._cache = {}
+
+    @abstractmethod
+    def _extract(self, path):
+        """Extract features from a single image.  Returns a dict of keypoints, descriptors,
+        and any extra data the matcher needs."""
+        ...
+
+    def extract(self, path):
+        """Cached _extract(): holds up to 2 entries and evicts the most-recently inserted
+        one when full, so that the first image (the anchor in a 1-vs-many sequence) stays
+        cached while the second image rotates."""
+        if path not in self._cache:
+            if len(self._cache) >= 2:
+                self._cache.pop(next(reversed(self._cache)))
+            self._cache[path] = self._extract(path)
+        return self._cache[path]
+
+    @abstractmethod
+    def _match_features(self, features1, features2):
+        """Match two sets of extracted features.  Returns a PointMatchResult or subclass.
+        Typically delegates to a private matcher method (_match_ratio_test, _match_lightglue,
+        etc.)."""
+        ...
+
+    def match(self, path1, path2):
+        """Extract from both images, then match.  End-to-end systems (LoMa, ALoMa) override
+        this entirely."""
+        f1 = self.extract(path1)
+        f2 = self.extract(path2)
+        return self._match_features(f1, f2)
+
+    def __call__(self, path1, path2):
+        return self.match(path1, path2)
+
+
+# ---------------------------------------------------------------------------
+# Feature upgrader ABC
+# ---------------------------------------------------------------------------
+
+class FeatureUpgrader(ABC):
+    """Enriches match results with additional geometric features."""
+    input_type: type
+    output_type: type
+
+    @abstractmethod
+    def upgrade(self, result, **kwargs):
+        ...
 
 
 # The robust estimators: their names in HomLib, and the names of their inlier threshold and of their

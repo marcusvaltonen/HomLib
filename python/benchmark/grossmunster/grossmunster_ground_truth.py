@@ -79,9 +79,9 @@ import pycolmap
 
 from grossmunster_data import OTHER_PAIRS, PAIRS, image_name, pair_key, save_matches
 
-# hpatches_features.py's SIFT matcher
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hpatches"))
-from hpatches_features import sift_matcher  # noqa: E402
+# features.py is in the parent directory (benchmark/)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from features import SIFT  # noqa: E402
 
 # The images of the reconstruction, DSC_2510 to DSC_2522
 IMAGES = (2510, 2522)
@@ -269,7 +269,8 @@ def main():
                              "in all the cameras (default: 0.003)")
     parser.add_argument("--num_features", type=int, default=8000,
                         help="SIFT keypoints per image (default: 8000, as the paper)")
-    parser.add_argument("--ratio", type=float, default=0.8, help="Ratio test threshold (default: 0.8)")
+    parser.add_argument("--lowe_ratio", type=float, default=0.8,
+                        help="Lowe's ratio test threshold for BFMatcher (default: 0.8)")
     parser.add_argument("--images", type=int, nargs=2, default=IMAGES, metavar=("FIRST", "LAST"),
                         help="The images of the reconstruction, DSC_<FIRST> to DSC_<LAST> (default: %(default)s)")
     parser.add_argument("--seed", type=int, default=1, help="Random seed of the reconstruction and of the plane")
@@ -308,7 +309,7 @@ def main():
           f"{np.sqrt(np.mean((X[inliers] @ n - d) ** 2)):.4f}; median depth {np.median(depths):.3f})")
 
     # 3 and 4. The ground truth and the matches, and their checks
-    match = sift_matcher(args.num_features, args.ratio)
+    matcher = SIFT(num_features=args.num_features, lowe_ratio=args.lowe_ratio)
     candidates = sorted(set(PAIRS) | set(OTHER_PAIRS) | {(i, i + 1) for i in numbers[:-1]})
     print(f"\n{'Pair':<10s} {'Plane tracks':>12s} {'GT median/p90':>14s} {'LS fit median/p90':>18s}   "
           f"{'SIFT matches':>12s} {'< 1 px':>7s} {'< 3 px':>7s}")
@@ -323,7 +324,8 @@ def main():
             r_fit = np.linalg.norm(camera.map(H_fit, t1) - t2, axis=1)
         else:   # too few tracks to check the ground truth (or a reconstruction in pieces)
             r_gt = r_fit = np.full(1, np.nan)
-        p1, p2, scores = match(str(image_dir / name1), str(image_dir / name2))
+        result = matcher(str(image_dir / name1), str(image_dir / name2))
+        p1, p2, scores = result.points1, result.points2, result.scores
         r = np.linalg.norm(camera.map(H, p1) - p2, axis=1)
         mark = " *" if (a, b) in PAIRS else ""
         print(f"{pair_key(a, b):<10s} {len(t1):12d} {np.median(r_gt):6.2f} {np.percentile(r_gt, 90):6.2f} "
