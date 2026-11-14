@@ -25,6 +25,7 @@ from common import (
     PointMatchResult,
     ScaleOrientationMatchResult,
 )
+from matchers import BFMatcher, LightGlueMatcher
 
 
 # ---------------------------------------------------------------------------
@@ -48,17 +49,15 @@ class SIFT(FeatureMatcher):
         import cv2
         super().__init__()
         self._matcher_name = matcher
-        self._lowe_ratio = lowe_ratio
         self._resize = resize
         if matcher == "bfmatcher":
             try:
                 self._sift = cv2.SIFT_create(num_features, enable_precise_upscale=True)
             except (TypeError, cv2.error):
                 self._sift = cv2.SIFT_create(num_features)
-            self._bf = cv2.BFMatcher()
+            self._matcher = BFMatcher(lowe_ratio=lowe_ratio)
         elif matcher == "lightglue":
             import torch
-            from lightglue import LightGlue
             from lightglue import SIFT as LightGlueSIFT
             self._device = ("cuda" if torch.cuda.is_available()
                             else "mps" if torch.backends.mps.is_available() else "cpu")
@@ -73,7 +72,7 @@ class SIFT(FeatureMatcher):
                         enable_precise_upscale=True)
                 except (TypeError, cv2.error):
                     pass
-            self._lg_matcher = LightGlue(features="sift").eval().to(self._device)
+            self._matcher = LightGlueMatcher("sift", self._device)
         else:
             raise ValueError(f"Unknown matcher: {matcher}")
 
@@ -93,39 +92,25 @@ class SIFT(FeatureMatcher):
         options = dict(resize=self._resize, side="short") if self._resize else dict(resize=None)
         return self._extractor.extract(load_image(str(path)).to(self._device), **options)
 
-    def _match_features(self, features1, features2):
+    def _match_features(self, f1, f2):
+        idx1, idx2, scores = self._matcher.match(f1, f2)
         if self._matcher_name == "bfmatcher":
-            return self._match_bfmatcher(features1, features2)
-        return self._match_lightglue(features1, features2)
-
-    def _match_bfmatcher(self, features1, features2):
-        d1, d2 = features1["descriptors"], features2["descriptors"]
-        k1, k2 = features1["keypoints"], features2["keypoints"]
-        matches = self._bf.knnMatch(d1, d2, k=2)
-        good = [(m, n) for m, n in matches if m.distance < self._lowe_ratio * n.distance]
-        pts1 = np.array([k1[m.queryIdx].pt for m, _ in good]).reshape(-1, 2)
-        pts2 = np.array([k2[m.trainIdx].pt for m, _ in good]).reshape(-1, 2)
-        scores = np.array([1 - m.distance / n.distance for m, n in good])
-        angles1 = np.deg2rad(np.array([k1[m.queryIdx].angle for m, _ in good]))
-        angles2 = np.deg2rad(np.array([k2[m.trainIdx].angle for m, _ in good]))
-        scales1 = np.array([k1[m.queryIdx].size for m, _ in good])
-        scales2 = np.array([k2[m.trainIdx].size for m, _ in good])
-        return ScaleOrientationMatchResult(
-            points1=pts1, points2=pts2, scores=scores,
-            angles1=angles1, angles2=angles2, scales1=scales1, scales2=scales2,
-        )
-
-    def _match_lightglue(self, features1, features2):
-        import torch
+            k1, k2 = f1["keypoints"], f2["keypoints"]
+            return ScaleOrientationMatchResult(
+                points1=np.array([k1[i].pt for i in idx1]).reshape(-1, 2),
+                points2=np.array([k2[i].pt for i in idx2]).reshape(-1, 2),
+                scores=scores,
+                angles1=np.deg2rad(np.array([k1[i].angle for i in idx1])),
+                angles2=np.deg2rad(np.array([k2[i].angle for i in idx2])),
+                scales1=np.array([k1[i].size for i in idx1]),
+                scales2=np.array([k2[i].size for i in idx2]),
+            )
         from lightglue.utils import rbd
-        with torch.no_grad():
-            out = rbd(self._lg_matcher({"image0": features1, "image1": features2}))
-        m = out["matches"]
-        f1, f2 = rbd(features1), rbd(features2)
+        f1, f2 = rbd(f1), rbd(f2)
         return PointMatchResult(
-            points1=f1["keypoints"][m[:, 0]].cpu().numpy().astype(float),
-            points2=f2["keypoints"][m[:, 1]].cpu().numpy().astype(float),
-            scores=out["scores"].cpu().numpy().astype(float),
+            points1=f1["keypoints"][idx1].cpu().numpy().astype(float),
+            points2=f2["keypoints"][idx2].cpu().numpy().astype(float),
+            scores=scores,
         )
 
 
@@ -134,15 +119,14 @@ class SIFT(FeatureMatcher):
 # ---------------------------------------------------------------------------
 
 class ORB(FeatureMatcher):
-    """OpenCV ORB with BFMatcher (Hamming) + ratio test.  Orientation only, no meaningful scale."""
+    """OpenCV ORB with BFMatcher (Hamming) + Lowe's ratio test.  Orientation only, no meaningful scale."""
     supported_features = {homlib.FeatureType.Points, homlib.FeatureType.Orientation}
 
-    def __init__(self, num_features=4000, ratio=0.8):
+    def __init__(self, num_features=4000, lowe_ratio=0.8):
         import cv2
         super().__init__()
-        self._ratio = ratio
         self._orb = cv2.ORB_create(num_features)
-        self._bf = cv2.BFMatcher(cv2.NORM_HAMMING)
+        self._matcher = BFMatcher(lowe_ratio=lowe_ratio, norm=cv2.NORM_HAMMING)
 
     def _extract(self, path):
         import cv2
@@ -150,27 +134,15 @@ class ORB(FeatureMatcher):
         kps, descs = self._orb.detectAndCompute(img, None)
         return dict(keypoints=kps, descriptors=descs)
 
-    def _match_features(self, features1, features2):
-        return self._match_hamming(features1, features2)
-
-    def _match_hamming(self, features1, features2):
-        d1, d2 = features1["descriptors"], features2["descriptors"]
-        k1, k2 = features1["keypoints"], features2["keypoints"]
-        if d1 is None or d2 is None or len(d1) < 2 or len(d2) < 2:
-            return OrientationMatchResult(
-                points1=np.zeros((0, 2)), points2=np.zeros((0, 2)), scores=np.zeros(0),
-                angles1=np.zeros(0), angles2=np.zeros(0),
-            )
-        matches = self._bf.knnMatch(d1, d2, k=2)
-        good = [(m, n) for m, n in matches if m.distance < self._ratio * n.distance]
-        pts1 = np.array([k1[m.queryIdx].pt for m, _ in good]).reshape(-1, 2)
-        pts2 = np.array([k2[m.trainIdx].pt for m, _ in good]).reshape(-1, 2)
-        scores = np.array([1 - m.distance / n.distance for m, n in good])
-        angles1 = np.deg2rad(np.array([k1[m.queryIdx].angle for m, _ in good]))
-        angles2 = np.deg2rad(np.array([k2[m.trainIdx].angle for m, _ in good]))
+    def _match_features(self, f1, f2):
+        idx1, idx2, scores = self._matcher.match(f1, f2)
+        k1, k2 = f1["keypoints"], f2["keypoints"]
         return OrientationMatchResult(
-            points1=pts1, points2=pts2, scores=scores,
-            angles1=angles1, angles2=angles2,
+            points1=np.array([k1[i].pt for i in idx1]).reshape(-1, 2),
+            points2=np.array([k2[i].pt for i in idx2]).reshape(-1, 2),
+            scores=scores,
+            angles1=np.deg2rad(np.array([k1[i].angle for i in idx1])),
+            angles2=np.deg2rad(np.array([k2[i].angle for i in idx2])),
         )
 
 
@@ -205,8 +177,7 @@ class _LightGlueFeature(FeatureMatcher):
 
     def _setup_matcher(self):
         if self._matcher_name == "lightglue":
-            from lightglue import LightGlue
-            self._matcher = LightGlue(features=self.name).eval().to(self._device)
+            self._matcher = LightGlueMatcher(self.name, self._device)
         else:
             raise ValueError(f"Unknown matcher: {self._matcher_name}")
 
@@ -215,22 +186,14 @@ class _LightGlueFeature(FeatureMatcher):
         options = dict(resize=self._resize, side="short") if self._resize else dict(resize=None)
         return self._extractor.extract(load_image(str(path)).to(self._device), **options)
 
-    def _match_features(self, features1, features2):
-        if self._matcher_name == "lightglue":
-            return self._match_lightglue(features1, features2)
-        raise ValueError(f"Unknown matcher: {self._matcher_name}")
-
-    def _match_lightglue(self, features1, features2):
-        import torch
+    def _match_features(self, f1, f2):
         from lightglue.utils import rbd
-        with torch.no_grad():
-            out = rbd(self._matcher({"image0": features1, "image1": features2}))
-        m = out["matches"]
-        f1, f2 = rbd(features1), rbd(features2)
+        idx1, idx2, scores = self._matcher.match(f1, f2)
+        f1, f2 = rbd(f1), rbd(f2)
         return PointMatchResult(
-            points1=f1["keypoints"][m[:, 0]].cpu().numpy().astype(float),
-            points2=f2["keypoints"][m[:, 1]].cpu().numpy().astype(float),
-            scores=out["scores"].cpu().numpy().astype(float),
+            points1=f1["keypoints"][idx1].cpu().numpy().astype(float),
+            points2=f2["keypoints"][idx2].cpu().numpy().astype(float),
+            scores=scores,
         )
 
 
@@ -326,24 +289,23 @@ class LoMa(FeatureMatcher):
 
 class AffNet(FeatureMatcher):
     """AffNet + HardNet (via kornia): SIFT detector with AffNet affine estimation and
-    HardNet descriptors, matched with BFMatcher + ratio test."""
+    HardNet descriptors, matched with BFMatcher + Lowe's ratio test."""
     supported_features = {
         homlib.FeatureType.Points, homlib.FeatureType.Orientation, homlib.FeatureType.Affine,
     }
 
-    def __init__(self, num_features=4000, ratio=0.8):
-        import cv2
+    def __init__(self, num_features=4000, lowe_ratio=0.8):
         import torch
         import kornia.feature as KF
         from kornia_moons.feature import OpenCVDetectorWithAffNetKornia
+        import cv2
 
         super().__init__()
-        self._ratio = ratio
         self._device = "cuda" if torch.cuda.is_available() else "cpu"
         detector = OpenCVDetectorWithAffNetKornia(cv2.SIFT_create(num_features), max_kpts=num_features)
         descriptor = KF.LAFDescriptor(KF.HardNet(True)).eval()
         self._feature = KF.LocalFeature(detector, descriptor)
-        self._bf = cv2.BFMatcher()
+        self._matcher = BFMatcher(lowe_ratio=lowe_ratio)
 
     def _extract(self, path):
         import cv2
@@ -359,28 +321,9 @@ class AffNet(FeatureMatcher):
             descriptors=descs.squeeze(0).cpu().numpy(),
         )
 
-    def _match_features(self, features1, features2):
-        return self._match_ratio_test(features1, features2)
-
-    def _match_ratio_test(self, features1, features2):
-        d1, d2 = features1["descriptors"], features2["descriptors"]
-        laf1, laf2 = features1["lafs"], features2["lafs"]
-        matches = self._bf.knnMatch(d1, d2, k=2)
-        good = [(m, n) for m, n in matches if m.distance < self._ratio * n.distance]
-        if not good:
-            return AffineMatchResult(
-                points1=np.zeros((0, 2)), points2=np.zeros((0, 2)), scores=np.zeros(0),
-                angles1=np.zeros(0), angles2=np.zeros(0),
-                scales1=np.zeros(0), scales2=np.zeros(0),
-                affines1=np.zeros((0, 2, 2)), affines2=np.zeros((0, 2, 2)),
-            )
-        idx1 = np.array([m.queryIdx for m, _ in good])
-        idx2 = np.array([m.trainIdx for m, _ in good])
-        scores = np.array([1 - m.distance / n.distance for m, n in good])
-        matched_laf1 = laf1[idx1]  # Nx2x3
-        matched_laf2 = laf2[idx2]  # Nx2x3
-        result = AffineMatchResult.from_lafs(matched_laf1, matched_laf2, scores=scores)
-        return result
+    def _match_features(self, f1, f2):
+        idx1, idx2, scores = self._matcher.match(f1, f2)
+        return AffineMatchResult.from_lafs(f1["lafs"][idx1], f2["lafs"][idx2], scores=scores)
 
 
 # ---------------------------------------------------------------------------
