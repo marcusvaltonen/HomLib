@@ -26,7 +26,7 @@ The features and the matcher (implemented in ``benchmark/features.py``):
   the original images, while glue-factory's evaluation, and probably Wadenbäck et al., measure them
   in the resized images: ``hpatches_benchmark.py --protocol gluefactory`` measures them as it does.
   LightGlue's SIFT is OpenCV SIFT without precise upscaling, which shifts its points by about
-  0.1 px: the SIFTLightGlue class gives it the same SIFT with precise upscaling.
+  0.1 px: ``SIFT(matcher="lightglue")`` applies the precise upscaling fix.
 - ``--features loma``: LoMa (Nordström et al., ECCV 2026), which detects, describes and matches the
   points itself. Its pixel origin is the top-left corner of the image: the feature class shifts its
   points by -0.5 px, to OpenCV's convention.

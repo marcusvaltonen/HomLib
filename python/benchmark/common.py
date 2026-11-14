@@ -72,6 +72,33 @@ class AffineMatchResult(ScaleOrientationMatchResult):
 
 
 # ---------------------------------------------------------------------------
+# Feature registry
+# ---------------------------------------------------------------------------
+
+class FeatureRegistry:
+    """Registry of CLI-available feature matchers, populated automatically by
+    ``FeatureMatcher.__init_subclass__``.  Feature names are the lowercase class name."""
+    _features: dict = {}
+
+    @classmethod
+    def register(cls, feature_cls):
+        cls._features[feature_cls.__name__.lower()] = feature_cls
+
+    @classmethod
+    def get(cls, name):
+        return cls._features.get(name)
+
+    @classmethod
+    def feature_names(cls):
+        return sorted(cls._features)
+
+    @classmethod
+    def matcher_names(cls):
+        return sorted({m for fc in cls._features.values()
+                       for m in getattr(fc, 'cli_matchers', ())})
+
+
+# ---------------------------------------------------------------------------
 # Feature matcher ABC
 # ---------------------------------------------------------------------------
 
@@ -79,19 +106,16 @@ class FeatureMatcher(ABC):
     """A feature type with extraction and matching.  Subclasses are named by feature type
     (SIFT, SuperPoint, AffNet, ...), not by matcher.
 
-    Subclasses that should be available from the CLI declare ``cli_name`` (the ``--features``
-    value), ``cli_matcher`` (the ``--matcher`` value, or None for end-to-end matchers that
-    ignore it), and a ``from_args(args)`` classmethod that builds an instance from parsed
-    CLI arguments.  ``__init_subclass__`` auto-registers them in ``_cli_registry``."""
+    Subclasses that should be available from the CLI define a ``from_args(args)`` classmethod
+    and ``cli_matchers`` (the set of valid ``--matcher`` values).  ``__init_subclass__``
+    auto-registers them in ``FeatureRegistry`` under their lowercase class name.  Private
+    base classes (name starting with ``_``) are excluded."""
     supported_features: set
-    _cli_registry: dict = {}
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        cli_name = getattr(cls, "cli_name", None)
-        if cli_name is not None:
-            cli_matcher = getattr(cls, "cli_matcher", None)
-            FeatureMatcher._cli_registry[(cli_name, cli_matcher)] = cls
+        if not cls.__name__.startswith('_') and hasattr(cls, 'from_args'):
+            FeatureRegistry.register(cls)
 
     def __init__(self):
         self._cache = {}

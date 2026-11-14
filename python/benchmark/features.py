@@ -19,6 +19,7 @@ import homlib
 from common import (
     AffineMatchResult,
     FeatureMatcher,
+    FeatureRegistry,
     FeatureUpgrader,
     OrientationMatchResult,
     PointMatchResult,
@@ -31,34 +32,71 @@ from common import (
 # ---------------------------------------------------------------------------
 
 class SIFT(FeatureMatcher):
-    """OpenCV SIFT with BFMatcher + Lowe's ratio test."""
+    """OpenCV SIFT, with ratio-test matching (default) or LightGlue."""
     supported_features = {homlib.FeatureType.Points, homlib.FeatureType.Orientation}
-    cli_name = "sift"
-    cli_matcher = "ratio"
+    cli_matchers = {"ratio", "lightglue"}
 
     @classmethod
     def from_args(cls, args):
+        if args.matcher == "lightglue":
+            return cls(num_features=args.num_features or 2048,
+                       matcher="lightglue", resize=args.resize)
         return cls(num_features=args.num_features or 4000,
                    ratio=0.8 if args.ratio is None else args.ratio)
 
-    def __init__(self, num_features=4000, ratio=0.8):
+    def __init__(self, num_features=4000, ratio=0.8, matcher="ratio", resize=None):
         import cv2
         super().__init__()
+        self._matcher_name = matcher
         self._ratio = ratio
-        try:
-            self._sift = cv2.SIFT_create(num_features, enable_precise_upscale=True)
-        except (TypeError, cv2.error):
-            self._sift = cv2.SIFT_create(num_features)
-        self._bf = cv2.BFMatcher()
+        self._resize = resize
+        if matcher == "ratio":
+            try:
+                self._sift = cv2.SIFT_create(num_features, enable_precise_upscale=True)
+            except (TypeError, cv2.error):
+                self._sift = cv2.SIFT_create(num_features)
+            self._bf = cv2.BFMatcher()
+        elif matcher == "lightglue":
+            import torch
+            from lightglue import LightGlue
+            from lightglue import SIFT as LightGlueSIFT
+            self._device = ("cuda" if torch.cuda.is_available()
+                            else "mps" if torch.backends.mps.is_available() else "cpu")
+            self._extractor = LightGlueSIFT(
+                max_num_keypoints=num_features, origin="center").eval().to(self._device)
+            if self._extractor.conf.backend == "opencv":
+                c = self._extractor.conf
+                try:
+                    self._extractor.sift = cv2.SIFT_create(
+                        contrastThreshold=c.detection_threshold, nfeatures=c.max_num_keypoints,
+                        edgeThreshold=c.edge_threshold, nOctaveLayers=c.num_octaves,
+                        enable_precise_upscale=True)
+                except (TypeError, cv2.error):
+                    pass
+            self._lg_matcher = LightGlue(features="sift").eval().to(self._device)
+        else:
+            raise ValueError(f"Unknown matcher: {matcher}")
 
     def _extract(self, path):
+        if self._matcher_name == "ratio":
+            return self._extract_opencv(path)
+        return self._extract_lightglue(path)
+
+    def _extract_opencv(self, path):
         import cv2
         img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
         kps, descs = self._sift.detectAndCompute(img, None)
         return dict(keypoints=kps, descriptors=descs)
 
+    def _extract_lightglue(self, path):
+        from lightglue.utils import load_image
+        options = dict(resize=self._resize, side="short") if self._resize else dict(resize=None)
+        return self._extractor.extract(load_image(str(path)).to(self._device), **options)
+
     def _match_features(self, features1, features2):
-        return self._match_ratio_test(features1, features2)
+        if self._matcher_name == "ratio":
+            return self._match_ratio_test(features1, features2)
+        return self._match_lightglue(features1, features2)
 
     def _match_ratio_test(self, features1, features2):
         d1, d2 = features1["descriptors"], features2["descriptors"]
@@ -75,6 +113,19 @@ class SIFT(FeatureMatcher):
         return ScaleOrientationMatchResult(
             points1=pts1, points2=pts2, scores=scores,
             angles1=angles1, angles2=angles2, scales1=scales1, scales2=scales2,
+        )
+
+    def _match_lightglue(self, features1, features2):
+        import torch
+        from lightglue.utils import rbd
+        with torch.no_grad():
+            out = rbd(self._lg_matcher({"image0": features1, "image1": features2}))
+        m = out["matches"]
+        f1, f2 = rbd(features1), rbd(features2)
+        return PointMatchResult(
+            points1=f1["keypoints"][m[:, 0]].cpu().numpy().astype(float),
+            points2=f2["keypoints"][m[:, 1]].cpu().numpy().astype(float),
+            scores=out["scores"].cpu().numpy().astype(float),
         )
 
 
@@ -131,7 +182,7 @@ class _LightGlueFeature(FeatureMatcher):
     """Base for feature types matched with LightGlue."""
     supported_features = {homlib.FeatureType.Points}
     _extractor_name: str
-    cli_matcher = "lightglue"
+    cli_matchers = {"lightglue"}
 
     @classmethod
     def from_args(cls, args):
@@ -186,7 +237,6 @@ class _LightGlueFeature(FeatureMatcher):
 class SuperPoint(_LightGlueFeature):
     """SuperPoint features, matched with LightGlue (default) or SuperGlue."""
     _extractor_name = "superpoint"
-    cli_name = "superpoint"
 
     def __init__(self, num_features=2048, resize=None, matcher="lightglue"):
         super().__init__(num_features=num_features, resize=resize, matcher=matcher)
@@ -208,7 +258,6 @@ class SuperPoint(_LightGlueFeature):
 class DISK(_LightGlueFeature):
     """DISK features matched with LightGlue."""
     _extractor_name = "disk"
-    cli_name = "disk"
 
     def __init__(self, num_features=2048, resize=None):
         super().__init__(num_features=num_features, resize=resize)
@@ -217,34 +266,9 @@ class DISK(_LightGlueFeature):
 class ALIKED(_LightGlueFeature):
     """ALIKED features matched with LightGlue."""
     _extractor_name = "aliked"
-    cli_name = "aliked"
 
     def __init__(self, num_features=2048, resize=None):
         super().__init__(num_features=num_features, resize=resize)
-
-
-class SIFTLightGlue(_LightGlueFeature):
-    """LightGlue's SIFT extractor + LightGlue matcher, with precise upscaling fix."""
-    _extractor_name = "sift"
-    cli_name = "sift"
-
-    def __init__(self, num_features=2048, resize=None):
-        super().__init__(num_features=num_features, resize=resize)
-
-    def _setup_extractor(self, num_features):
-        import cv2
-        from lightglue import SIFT as LightGlueSIFT
-        self._extractor = LightGlueSIFT(
-            max_num_keypoints=num_features, origin="center").eval().to(self._device)
-        if self._extractor.conf.backend == "opencv":
-            c = self._extractor.conf
-            try:
-                self._extractor.sift = cv2.SIFT_create(
-                    contrastThreshold=c.detection_threshold, nfeatures=c.max_num_keypoints,
-                    edgeThreshold=c.edge_threshold, nOctaveLayers=c.num_octaves,
-                    enable_precise_upscale=True)
-            except (TypeError, cv2.error):
-                pass
 
 
 # ---------------------------------------------------------------------------
@@ -254,8 +278,7 @@ class SIFTLightGlue(_LightGlueFeature):
 class LoMa(FeatureMatcher):
     """LoMa (Nordström et al., ECCV 2026): end-to-end detect + describe + match."""
     supported_features = {homlib.FeatureType.Points}
-    cli_name = "loma"
-    cli_matcher = None
+    cli_matchers = set()
 
     @classmethod
     def from_args(cls, args):
@@ -621,7 +644,6 @@ FEATURE_TYPES = {
     "superpoint": SuperPoint,
     "disk": DISK,
     "aliked": ALIKED,
-    "sift_lightglue": SIFTLightGlue,
     "loma": LoMa,
     "affnet": AffNet,
     "denseaffine": DenseAffine,
@@ -635,13 +657,9 @@ FEATURE_TYPES = {
 
 def add_feature_args(parser):
     """Add --features, --matcher, --num_features, --ratio, --resize to an ArgumentParser.
-    Choices are derived from the ``cli_name`` / ``cli_matcher`` declared on FeatureMatcher
-    subclasses (populated by ``__init_subclass__``)."""
-    registry = FeatureMatcher._cli_registry
-    feature_names = sorted({name for name, _ in registry})
-    matcher_names = sorted({m for _, m in registry if m is not None})
-    parser.add_argument("--features", choices=feature_names, default="sift")
-    parser.add_argument("--matcher", choices=matcher_names, default="ratio",
+    Choices are derived from ``FeatureRegistry``, populated by ``__init_subclass__``."""
+    parser.add_argument("--features", choices=FeatureRegistry.feature_names(), default="sift")
+    parser.add_argument("--matcher", choices=FeatureRegistry.matcher_names(), default="ratio",
                         help="Lowe's ratio test (OpenCV SIFT only) or LightGlue")
     parser.add_argument("--num_features", type=int, default=None,
                         help="Keypoints per image (default: 4000 for OpenCV SIFT, 2048 for LightGlue and LoMa)")
@@ -651,17 +669,17 @@ def add_feature_args(parser):
 
 
 def create_matcher(args):
-    """Create a FeatureMatcher from CLI args (a namespace with features, matcher, num_features,
-    ratio and resize attributes).  Looks up the class from ``FeatureMatcher._cli_registry``
-    and calls its ``from_args`` classmethod.  Raises ValueError on invalid combinations."""
+    """Create a FeatureMatcher from parsed CLI args.  Looks up the class from
+    ``FeatureRegistry`` and calls its ``from_args`` classmethod.  Raises ValueError on
+    invalid combinations."""
     if args.resize and args.matcher != "lightglue":
         raise ValueError("--resize needs --matcher lightglue")
     if args.ratio is not None and args.matcher != "ratio":
         raise ValueError("--ratio needs --matcher ratio")
-    registry = FeatureMatcher._cli_registry
-    cls = registry.get((args.features, args.matcher))
+    cls = FeatureRegistry.get(args.features)
     if cls is None:
-        cls = registry.get((args.features, None))
-    if cls is None:
-        raise ValueError(f"unknown --features {args.features} / --matcher {args.matcher} combination")
+        raise ValueError(f"unknown --features {args.features}")
+    matchers = getattr(cls, 'cli_matchers', set())
+    if matchers and args.matcher not in matchers:
+        raise ValueError(f"--features {args.features} doesn't support --matcher {args.matcher}")
     return cls.from_args(args)
