@@ -12,23 +12,13 @@ This example demonstrates:
 
 The following homlib solvers are used in this example:
 
-- **Point-based (one-sided)**: Wadenbäck et al. [1]_ embedded in a LOMSAC
-  framework [2]_.
-- **Orientation-covariant (one-sided)**: Valtonen Örnhag and Adalbjörnsson [3]_
-  embedded in a LOMSAC framework [2]_.
-- **Affine-covariant (one-sided)**: Valtonen Örnhag and Adalbjörnsson [3]_
-  embedded in a LOMSAC framework [2]_.
+- **Point-based (one-sided)**: Wadenbäck et al. :cite:`Wadenback2026`.
+- **Orientation-covariant (one-sided)**: Valtonen Örnhag and Adalbjörnsson
+  :cite:`ValtonenOrnhagAdalbjornsson2026`.
+- **Affine-covariant (one-sided)**: Valtonen Örnhag and Adalbjörnsson
+  :cite:`ValtonenOrnhagAdalbjornsson2026`.
 
-References
-----------
-.. [1] M. Wadenbäck, M. Valtonen Örnhag, and J. Edstedt, "Radially Distorted
-   Homographies, Revisited," in Proc. International Conference on 3D Vision (3DV),
-   2026.
-.. [2] K. Lebeda, J. Matas, and O. Chum, "Fixing the Locally Optimized RANSAC,"
-   in Proc. British Machine Vision Conference (BMVC), 2012.
-.. [3] M. Valtonen Örnhag and S. Adalbjörnsson, "Radial Distortion Homography
-   Estimation from Affine-Covariant or Orientation-Covariant Features,"
-   in Proc. International Conference on Pattern Recognition (ICPR), 2026.
+All solvers are embedded in a LOMSAC :cite:`Lebeda2012` framework.
 
 """
 

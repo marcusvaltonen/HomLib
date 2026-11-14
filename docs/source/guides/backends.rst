@@ -39,25 +39,25 @@ Backend comparison
      - Squared
      - MSAC
      - LO-RANSAC + GN refinement
-     - [Lebeda2012]_
+     - :cite:`Lebeda2012`
    * - :class:`~homlib.GCRANSAC`
      - Optional
      - Raw pixel
      - MSAC
      - Graph-cut + IRLS
-     - [Barath2018]_
+     - :cite:`Barath2018`
    * - :class:`~homlib.MAGSAC`
      - Optional
      - σ\ :sub:`max`
      - Sigma consensus
      - IRLS (weighted)
-     - [Barath2020]_
+     - :cite:`Barath2020magsacpp`
    * - :class:`~homlib.SupeRANSAC`
      - Optional
      - Raw pixel
      - Configurable
      - Configurable
-     - [Barath2025]_
+     - :cite:`Barath2025superansac`
 
 
 LOMSAC
@@ -112,7 +112,7 @@ model, it refines via iterative least-squares on the inlier set (LO-RANSAC).
 GC-RANSAC
 ---------
 
-**Graph-Cut RANSAC** [Barath2018]_ — uses graph-cut spatial coherence
+**Graph-Cut RANSAC** :cite:`Barath2018` — uses graph-cut spatial coherence
 to ensure inliers form spatially consistent regions. This helps reject
 outliers that are close in residual but spatially inconsistent.
 
@@ -162,6 +162,9 @@ Requires building with ``-DHOMLIB_USE_GCRANSAC=ON``. Check availability:
    * - ``do_final_least_squares``
      - ``True``
      - Final refinement on inliers
+   * - ``seed``
+     - ``None``
+     - Seed of the samplers, from 0 to 2³² − 1 (``None``: a different run each time). It also reseeds ``std::rand``, for the whole process
 
 **When to use:** When spatially coherent inlier selection matters — e.g.
 natural images with clustered outlier distributions.
@@ -170,7 +173,7 @@ natural images with clustered outlier distributions.
 MAGSAC++
 --------
 
-**MAGSAC++** [Barath2019]_ [Barath2020]_ — threshold-free scoring via sigma consensus.
+**MAGSAC++** :cite:`Barath2019magsac` :cite:`Barath2020magsacpp` — threshold-free scoring via sigma consensus.
 Instead of a hard inlier/outlier boundary, MAGSAC++ marginalises over
 a range of possible noise levels, making it less sensitive to the choice
 of threshold.
@@ -210,6 +213,9 @@ Requires building with ``-DHOMLIB_USE_MAGSAC=ON``. Check availability:
    * - ``partition_number``
      - 5
      - Partitions in the sigma consensus integral
+   * - ``seed``
+     - ``None``
+     - Seed of the samplers, from 0 to 2³² − 1 (``None``: a different run each time). It also reseeds ``std::rand``, for the whole process
 
 **When to use:** When you want to avoid tuning a precise inlier threshold.
 The sigma consensus scoring is more forgiving of threshold mis-specification.
@@ -218,7 +224,7 @@ The sigma consensus scoring is more forgiving of threshold mis-specification.
 SupeRANSAC
 ----------
 
-**SupeRANSAC** [Barath2025]_ — a highly modular backend where the sampler,
+**SupeRANSAC** :cite:`Barath2025superansac` — a highly modular backend where the sampler,
 scorer, and local optimiser are independently configurable.
 
 .. code-block:: python

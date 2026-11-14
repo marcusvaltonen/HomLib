@@ -1,8 +1,7 @@
 HPatches benchmark
 ==================
 
-`HPatches <https://github.com/hpatches/hpatches-dataset>`__ (Balntas et al.,
-CVPR 2017) has 116 sequences of 6 images of planar scenes: in the 59
+`HPatches <https://github.com/hpatches/hpatches-dataset>`__ :cite:`Balntas2017` has 116 sequences of 6 images of planar scenes: in the 59
 *viewpoint* sequences the camera moves, in the 57 *illumination* sequences the
 lighting changes. Each sequence gives the ground-truth homography from its
 first image to the 5 others: 580 pairs. The images have no lens distortion, so
@@ -25,7 +24,7 @@ pairs:
    the estimated model (distortion included) and with the ground truth, and
    averages the distances. The AUC@t is the area under its cumulative curve up
    to t pixels, in percent: 100 for no error, 0 for an error above t or a
-   failed estimate. Wadenbäck et al. [Wadenback2026]_ report it as "mAA (AUC)".
+   failed estimate. Wadenbäck et al. :cite:`Wadenback2026` report it as "mAA (AUC)".
 
 **Time**
    The median time of a run of the estimator.

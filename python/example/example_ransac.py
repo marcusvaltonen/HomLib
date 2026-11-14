@@ -6,16 +6,8 @@ In this example, we show how to robustly estimate a homography
 in the presence of outliers using synthetic data and different
 distortion profiles.
 
-The one-sided solver by Wadenbäck et al. [1]_ is used, embedded in
-a LOMSAC framework [2]_.
-
-References
-----------
-.. [1] M. Wadenbäck, M. Valtonen Örnhag, and J. Edstedt, "Radially Distorted
-   Homographies, Revisited," in Proc. International Conference on 3D Vision (3DV),
-   2026.
-.. [2] K. Lebeda, J. Matas, and O. Chum, "Fixing the Locally Optimized RANSAC,"
-   in Proc. British Machine Vision Conference (BMVC), 2012.
+The one-sided solver by Wadenbäck et al. :cite:`Wadenback2026` is used,
+embedded in a LOMSAC framework :cite:`Lebeda2012`.
 """
 
 import numpy as np

@@ -546,6 +546,41 @@ TEST_CASE("GC-RANSAC - orientation features") {
     REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
 }
 
+TEST_CASE("GC-RANSAC - the same seed gives the same results") {
+    auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
+    HomLib::GCRANSACSettings settings;
+    settings.threshold = 0.005;
+    settings.max_iterations = 200;   // fewer than needed: the result depends on the samples
+    settings.seed = 7;
+    auto [pose1, stats1] = HomLib::run_gcransac_point(solver, data.x, data.y, {}, {}, settings);
+    auto [pose2, stats2] = HomLib::run_gcransac_point(solver, data.x, data.y, {}, {}, settings);
+    REQUIRE(pose1.homography == pose2.homography);
+    REQUIRE(pose1.distortion_parameter == pose2.distortion_parameter);
+    REQUIRE(stats1.inliers == stats2.inliers);
+    REQUIRE(stats1.num_iterations == stats2.num_iterations);
+}
+
+TEST_CASE("GC-RANSAC - different seeds give different results") {
+    auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
+    HomLib::GCRANSACSettings settings;
+    settings.threshold = 0.005;
+    settings.max_iterations = 200;   // fewer than needed: the result depends on the samples
+    settings.seed = 7;
+    auto stats7 = HomLib::run_gcransac_point(solver, data.x, data.y, {}, {}, settings).second;
+    // Some of three other seeds (not necessarily all) must give another run (the inliers can be
+    // the same: the matches have no noise)
+    bool differs = false;
+    for (unsigned int seed : {1000u, 2000u, 3000u}) {
+        settings.seed = seed;
+        auto stats = HomLib::run_gcransac_point(solver, data.x, data.y, {}, {}, settings).second;
+        differs = differs || stats.inliers != stats7.inliers || stats.score != stats7.score ||
+                  stats.num_iterations != stats7.num_iterations;
+    }
+    REQUIRE(differs);
+}
+
 TEST_CASE("GC-RANSAC - fewer points than a minimal sample") {
     // GC-RANSAC's PROSAC and adaptive reordering samplers drew points that don't exist
     // (an AddressSanitizer error, or a heap corruption): HomLib doesn't run it
@@ -651,6 +686,39 @@ TEST_CASE("MAGSAC++ - the constants and gamma tables of 2 degrees of freedom") {
     REQUIRE(std::abs(g::lower[10000] - 0.3789446916409847) < 1e-13);
     REQUIRE(std::abs(g::complete[46052] - 0.004265305753871823) < 1e-13);
     REQUIRE(std::abs(g::lower[46052] - 0.8626351826388945) < 1e-13);
+}
+
+TEST_CASE("MAGSAC++ - the same seed gives the same results") {
+    auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
+    HomLib::MAGSACSettings settings;
+    settings.max_iterations = 200;   // fewer than needed: the result depends on the samples
+    settings.seed = 7;
+    auto [pose1, stats1] = HomLib::run_magsac_point(solver, data.x, data.y, {}, {}, settings);
+    auto [pose2, stats2] = HomLib::run_magsac_point(solver, data.x, data.y, {}, {}, settings);
+    REQUIRE(pose1.homography == pose2.homography);
+    REQUIRE(pose1.distortion_parameter == pose2.distortion_parameter);
+    REQUIRE(stats1.inliers == stats2.inliers);
+    REQUIRE(stats1.num_iterations == stats2.num_iterations);
+}
+
+TEST_CASE("MAGSAC++ - different seeds give different results") {
+    auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
+    HomLib::MAGSACSettings settings;
+    settings.max_iterations = 200;   // fewer than needed: the result depends on the samples
+    settings.seed = 7;
+    auto stats7 = HomLib::run_magsac_point(solver, data.x, data.y, {}, {}, settings).second;
+    // Some of three other seeds (not necessarily all) must give another run (the inliers can be
+    // the same: the matches have no noise)
+    bool differs = false;
+    for (unsigned int seed : {1000u, 2000u, 3000u}) {
+        settings.seed = seed;
+        auto stats = HomLib::run_magsac_point(solver, data.x, data.y, {}, {}, settings).second;
+        differs = differs || stats.inliers != stats7.inliers || stats.score != stats7.score ||
+                  stats.num_iterations != stats7.num_iterations;
+    }
+    REQUIRE(differs);
 }
 
 #endif // HOMLIB_HAS_MAGSAC
