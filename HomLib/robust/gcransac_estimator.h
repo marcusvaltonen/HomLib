@@ -189,13 +189,17 @@ public:
         return residual(point_, model_);
     }
 
-    static constexpr double getSigmaQuantile() { return 3.64; }
-    static constexpr size_t getDegreesOfFreedom() { return 4; }
-    static constexpr double getC() { return 0.25; }
+    // The residual is the 2-D transfer error in image 2, so n = 2 degrees of freedom: k is the
+    // 0.99 quantile of the chi distribution with n degrees of freedom, sqrt(-2 ln 0.01); C and Cp
+    // are 1 / (2^(n/2) Gamma(n/2)); the gammas of k are Gamma((n-1)/2, k^2/2) and
+    // gamma((n+1)/2, k^2/2), the functions of the tables in magsac_gamma_values.h.
+    static constexpr double getSigmaQuantile() { return 3.034854258770293; }
+    static constexpr size_t getDegreesOfFreedom() { return 2; }
+    static constexpr double getC() { return 0.5; }
     static constexpr double getGammaFunction() { return 1.0; }
-    static constexpr double getUpperIncompleteGammaOfK() { return 0.0036572608340910764; }
-    static constexpr double getLowerIncompleteGammaOfK() { return 1.3012265540498875; }
-    static constexpr double getChiSquareParamCp() { return 1.0 / (4.0 * getGammaFunction()); }
+    static constexpr double getUpperIncompleteGammaOfK() { return 0.0042654446820694575; }
+    static constexpr double getLowerIncompleteGammaOfK() { return 0.8626345428488298; }
+    static constexpr double getChiSquareParamCp() { return 0.5; }
     static constexpr bool doesNormalizationForNonMinimalFitting() { return true; }
 };
 
