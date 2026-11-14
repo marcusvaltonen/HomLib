@@ -1,8 +1,7 @@
 HPatches benchmark
 ==================
 
-`HPatches <https://github.com/hpatches/hpatches-dataset>`__ (Balntas et al.,
-CVPR 2017) has 116 sequences of 6 images of planar scenes: in the 59
+`HPatches <https://github.com/hpatches/hpatches-dataset>`__ :cite:`Balntas2017` has 116 sequences of 6 images of planar scenes: in the 59
 *viewpoint* sequences the camera moves, in the 57 *illumination* sequences the
 lighting changes. Each sequence gives the ground-truth homography from its
 first image to the 5 others: 580 pairs. The images have no lens distortion, so
