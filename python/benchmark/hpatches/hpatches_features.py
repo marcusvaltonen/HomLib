@@ -67,17 +67,10 @@ from hpatches_data import download_hpatches, load_hpatches_pairs, load_matches, 
 
 # features.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from features import ALIKED, DISK, SIFT, LoMa, SIFTLightGlue, SuperPoint  # noqa: E402
+from features import add_feature_args, create_matcher  # noqa: E402
 
 SUBSET = ["v_graffiti/2", "v_boat/3", "v_wall/4", "v_bird/2",
           "i_dome/3", "i_castle/2", "i_parking/4", "i_greentea/5"]
-
-LIGHTGLUE_FEATURES = {
-    "superpoint": SuperPoint,
-    "disk": DISK,
-    "aliked": ALIKED,
-    "sift": SIFTLightGlue,
-}
 
 
 def compute_matches(seq_dir: Path, matcher):
@@ -99,14 +92,7 @@ def compute_matches(seq_dir: Path, matcher):
 def main():
     parser = argparse.ArgumentParser(description="Matches of the HPatches pairs")
     parser.add_argument("--data_dir", type=str, default="data", help="Directory for HPatches data")
-    parser.add_argument("--features", choices=["sift", "superpoint", "disk", "aliked", "loma"], default="sift")
-    parser.add_argument("--matcher", choices=["ratio", "lightglue"], default="ratio",
-                        help="Lowe's ratio test (OpenCV SIFT only) or LightGlue")
-    parser.add_argument("--num_features", type=int, default=None,
-                        help="Keypoints per image (default: 4000 for OpenCV SIFT, 2048 for LightGlue and LoMa)")
-    parser.add_argument("--ratio", type=float, default=None, help="Ratio test threshold (default: 0.8)")
-    parser.add_argument("--resize", type=int, default=None,
-                        help="With LightGlue: resize the shorter side of the images to this size")
+    add_feature_args(parser)
     parser.add_argument("--output", type=str, default=None,
                         help="The matches file to write (default: <data_dir>/hpatches_<features>[_lightglue].npz)")
     parser.add_argument("--matches", type=str, default=None, help="An existing matches file (with --export_subset)")
@@ -119,22 +105,10 @@ def main():
             parser.error("--matches needs --export_subset")
         pairs = load_matches(Path(args.matches))
     else:
-        if args.matcher == "lightglue" and args.features == "loma":
-            parser.error("LoMa matches its own points: --features loma doesn't take --matcher lightglue")
-        if args.resize and args.matcher != "lightglue":
-            parser.error("--resize needs --matcher lightglue")
-        if args.ratio is not None and args.matcher != "ratio":
-            parser.error("--ratio needs --matcher ratio")
-        if args.features == "loma":
-            matcher = LoMa(num_keypoints=args.num_features or 2048)
-        elif args.matcher == "lightglue":
-            cls = LIGHTGLUE_FEATURES[args.features]
-            matcher = cls(num_features=args.num_features or 2048, resize=args.resize)
-        elif args.features == "sift":
-            matcher = SIFT(num_features=args.num_features or 4000,
-                           ratio=0.8 if args.ratio is None else args.ratio)
-        else:
-            parser.error(f"--features {args.features} needs --matcher lightglue")
+        try:
+            matcher = create_matcher(args)
+        except ValueError as e:
+            parser.error(str(e))
         pairs = compute_matches(download_hpatches(Path(args.data_dir)), matcher)
         name = args.features if args.features == "loma" or args.matcher == "ratio" else f"{args.features}_lightglue"
         output = Path(args.output or Path(args.data_dir) / f"hpatches_{name}.npz")

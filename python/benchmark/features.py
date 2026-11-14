@@ -605,3 +605,46 @@ FEATURE_TYPES = {
     "denseaffine": DenseAffine,
     "pop": POP,
 }
+
+_LIGHTGLUE_FEATURES = {
+    "superpoint": SuperPoint,
+    "disk": DISK,
+    "aliked": ALIKED,
+    "sift": SIFTLightGlue,
+}
+
+
+# ---------------------------------------------------------------------------
+# CLI helpers
+# ---------------------------------------------------------------------------
+
+def add_feature_args(parser):
+    """Add --features, --matcher, --num_features, --ratio, --resize to an ArgumentParser."""
+    parser.add_argument("--features", choices=["sift", "superpoint", "disk", "aliked", "loma"], default="sift")
+    parser.add_argument("--matcher", choices=["ratio", "lightglue"], default="ratio",
+                        help="Lowe's ratio test (OpenCV SIFT only) or LightGlue")
+    parser.add_argument("--num_features", type=int, default=None,
+                        help="Keypoints per image (default: 4000 for OpenCV SIFT, 2048 for LightGlue and LoMa)")
+    parser.add_argument("--ratio", type=float, default=None, help="Ratio test threshold (default: 0.8)")
+    parser.add_argument("--resize", type=int, default=None,
+                        help="With LightGlue: resize the shorter side of the images to this size")
+
+
+def create_matcher(args):
+    """Create a FeatureMatcher from CLI args (a namespace with features, matcher, num_features,
+    ratio and resize attributes).  Raises ValueError on invalid combinations."""
+    if args.matcher == "lightglue" and args.features == "loma":
+        raise ValueError("LoMa matches its own points: --features loma doesn't take --matcher lightglue")
+    if args.resize and args.matcher != "lightglue":
+        raise ValueError("--resize needs --matcher lightglue")
+    if args.ratio is not None and args.matcher != "ratio":
+        raise ValueError("--ratio needs --matcher ratio")
+    if args.features == "loma":
+        return LoMa(num_keypoints=args.num_features or 2048)
+    if args.matcher == "lightglue":
+        cls = _LIGHTGLUE_FEATURES[args.features]
+        return cls(num_features=args.num_features or 2048, resize=args.resize)
+    if args.features == "sift":
+        return SIFT(num_features=args.num_features or 4000,
+                    ratio=0.8 if args.ratio is None else args.ratio)
+    raise ValueError(f"--features {args.features} needs --matcher lightglue")
