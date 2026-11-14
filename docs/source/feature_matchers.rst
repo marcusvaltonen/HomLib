@@ -211,7 +211,7 @@ Requires ``kornia`` and ``kornia_moons``.
 DenseAffine
 ^^^^^^^^^^^
 
-Dense affine matching pipeline :cite:`Stilcrad2024` (DKMv3 + EstiNet + HardNet).
+Dense affine matching pipeline :cite:`Sun2025` (DKMv3 + EstiNet + HardNet).
 
 - **Supported feature types:** Points, Orientation, Affine
 - **Status:** Stub — requires the DenseAffine repository.

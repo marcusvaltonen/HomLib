@@ -331,7 +331,7 @@ class AffNet(FeatureMatcher):
 # ---------------------------------------------------------------------------
 
 class DenseAffine(FeatureMatcher):
-    """DenseAffine (stilcrad/DenseAffine): end-to-end dense affine pipeline.
+    """DenseAffine (Sun et al., CVPR 2025): end-to-end dense affine pipeline.
     DKMv3 -> EstiNet scale+angle -> HardNet -> affine correspondences."""
     supported_features = {
         homlib.FeatureType.Points, homlib.FeatureType.Orientation, homlib.FeatureType.Affine,
