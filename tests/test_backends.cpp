@@ -55,6 +55,7 @@
 
 #ifdef HOMLIB_HAS_MAGSAC
 #include "magsac_runner.h"
+#include "magsac_gamma_values.h"
 #endif
 
 #ifdef HOMLIB_HAS_SUPERANSAC
@@ -651,6 +652,40 @@ TEST_CASE("MAGSAC++ - orientation features") {
     size_t expected_inliers = data.n_total - data.n_outliers;
     REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
     REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
+}
+
+TEST_CASE("MAGSAC++ - the constants and gamma tables of 2 degrees of freedom") {
+    using Solver = HomLib::Wadenback3DV2026::SolverSingleSided;
+    constexpr size_t SS = Solver::minimal_sample_size_value;
+    using Est = HomLib::HomLibMAGSACEstimator<Solver, HomLib::GCPointMinimalSolver<Solver, SS>,
+                                              HomLib::GCPointNonMinimalSolver<Solver, SS>>;
+    // With 2 degrees of freedom, the chi-square distribution is exponential: P(r^2 < k^2) =
+    // 1 - exp(-k^2 / 2), and the gamma functions have closed forms
+    const double sqrt_pi = std::sqrt(M_PI);
+    auto upper = [&](double t) { return sqrt_pi * std::erfc(std::sqrt(t)); };   // Gamma(1/2, t)
+    auto lower = [&](double t) {                                                // gamma(3/2, t)
+        return sqrt_pi / 2 * std::erf(std::sqrt(t)) - std::sqrt(t) * std::exp(-t);
+    };
+    const double k = Est::getSigmaQuantile(), t = k * k / 2;
+    REQUIRE(Est::getDegreesOfFreedom() == 2);
+    REQUIRE(std::abs(1 - std::exp(-t) - 0.99) < 1e-15);
+    REQUIRE(Est::getC() == 0.5);   // 1 / (2^(n/2) Gamma(n/2))
+    REQUIRE(std::abs(Est::getUpperIncompleteGammaOfK() - upper(t)) < 1e-15);
+    REQUIRE(std::abs(Est::getLowerIncompleteGammaOfK() - lower(t)) < 1e-15);
+    // The tables that magsac.h reads (magsac_gamma_values.h)
+    namespace g = HomLib::magsac_gamma;
+    REQUIRE(g::complete.size() == g::number + 1);
+    REQUIRE(g::lower.size() == g::number + 1);
+    for (size_t i : {size_t(0), size_t(1), size_t(4605), size_t(46052), size_t(100000)}) {
+        REQUIRE(std::abs(g::complete[i] - upper(i / g::precision)) < 1e-15);
+        REQUIRE(std::abs(g::lower[i] - lower(i / g::precision)) < 1e-15);
+    }
+    // From SciPy (gamma(a) * gammaincc(a, t), gamma(a) * gammainc(a, t)): at t = 1, and near the
+    // threshold, t = k^2 / 2 = 4.6052 (index 46052)
+    REQUIRE(std::abs(g::complete[10000] - 0.27880558528065474) < 1e-13);
+    REQUIRE(std::abs(g::lower[10000] - 0.3789446916409847) < 1e-13);
+    REQUIRE(std::abs(g::complete[46052] - 0.004265305753871823) < 1e-13);
+    REQUIRE(std::abs(g::lower[46052] - 0.8626351826388945) < 1e-13);
 }
 
 TEST_CASE("MAGSAC++ - the same seed gives the same results") {
