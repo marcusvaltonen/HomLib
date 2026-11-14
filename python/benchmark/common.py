@@ -77,8 +77,21 @@ class AffineMatchResult(ScaleOrientationMatchResult):
 
 class FeatureMatcher(ABC):
     """A feature type with extraction and matching.  Subclasses are named by feature type
-    (SIFT, SuperPoint, AffNet, ...), not by matcher."""
+    (SIFT, SuperPoint, AffNet, ...), not by matcher.
+
+    Subclasses that should be available from the CLI declare ``cli_name`` (the ``--features``
+    value), ``cli_matcher`` (the ``--matcher`` value, or None for end-to-end matchers that
+    ignore it), and a ``from_args(args)`` classmethod that builds an instance from parsed
+    CLI arguments.  ``__init_subclass__`` auto-registers them in ``_cli_registry``."""
     supported_features: set
+    _cli_registry: dict = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cli_name = getattr(cls, "cli_name", None)
+        if cli_name is not None:
+            cli_matcher = getattr(cls, "cli_matcher", None)
+            FeatureMatcher._cli_registry[(cli_name, cli_matcher)] = cls
 
     def __init__(self):
         self._cache = {}
