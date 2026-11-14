@@ -12,14 +12,13 @@ This example demonstrates:
 
 The following homlib solvers are used in this example:
 
-- **Point-based (one-sided)**: Wadenbäck et al. :cite:`Wadenback2026` embedded
-  in a LOMSAC framework :cite:`Lebeda2012`.
+- **Point-based (one-sided)**: Wadenbäck et al. :cite:`Wadenback2026`.
 - **Orientation-covariant (one-sided)**: Valtonen Örnhag and Adalbjörnsson
-  :cite:`ValtonenOrnhagAdalbjornsson2026` embedded in a LOMSAC framework
-  :cite:`Lebeda2012`.
+  :cite:`ValtonenOrnhagAdalbjornsson2026`.
 - **Affine-covariant (one-sided)**: Valtonen Örnhag and Adalbjörnsson
-  :cite:`ValtonenOrnhagAdalbjornsson2026` embedded in a LOMSAC framework
-  :cite:`Lebeda2012`.
+  :cite:`ValtonenOrnhagAdalbjornsson2026`.
+
+All solvers are embedded in a LOMSAC :cite:`Lebeda2012` framework.
 
 """
 
