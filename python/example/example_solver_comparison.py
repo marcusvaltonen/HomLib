@@ -6,17 +6,8 @@ Compare multiple one-sided solvers on synthetic data.
 We run 1000 random problem instances and show histograms of
 :math:`\log_{10}` homography error and cumulative runtime distributions.
 
-The solvers compared are by Wadenbäck et al. [1]_, Nakano [2]_,
-and Fitzgibbon [3]_.
-
-References
-----------
-.. [1] M. Wadenbäck, M. Valtonen Örnhag, and J. Edstedt, "Radially Distorted
-   Homographies, Revisited," in Proc. 3DV, 2026.
-.. [2] G. Nakano, "Inverse DLT Method for One-Sided Radial Distortion
-   Homography," in Proc. ICPR, 2024.
-.. [3] A. Fitzgibbon, "Simultaneous linear estimation of multiple view geometry
-   and lens distortion," in Proc. CVPR, 2001.
+The solvers compared are by Wadenbäck et al. :cite:`Wadenback2026`,
+Nakano :cite:`Nakano2024`, and Fitzgibbon :cite:`Fitzgibbon2001`.
 """
 
 import time

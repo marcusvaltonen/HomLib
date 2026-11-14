@@ -7,14 +7,8 @@ the two-sided (independent) distortion model. We simulate a camera with
 focal length *f* = 1000 px and express noise in pixel standard deviation,
 normalizing the points before passing them to the solvers.
 
-The solvers compared are by Wadenbäck et al. [1]_ and Kukelova et al. [2]_.
-
-References
-----------
-.. [1] M. Wadenbäck, M. Valtonen Örnhag, and J. Edstedt, "Radially Distorted
-   Homographies, Revisited," in Proc. 3DV, 2026.
-.. [2] Z. Kukelova, J. Heller, M. Bujnak, and T. Pajdla, "Radial Distortion
-   Homography," in Proc. CVPR, 2015.
+The solvers compared are by Wadenbäck et al. :cite:`Wadenback2026` and
+Kukelova et al. :cite:`Kukelova2015`.
 """
 
 import numpy as np

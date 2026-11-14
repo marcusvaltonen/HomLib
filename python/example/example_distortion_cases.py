@@ -12,12 +12,7 @@ Distortion conventions:
 - **Two-sided equal**: same distortion on both images
 - **Two-sided**: independent distortion on each image
 
-All solvers used here are from Wadenbäck et al. [1]_.
-
-References
-----------
-.. [1] M. Wadenbäck, M. Valtonen Örnhag, and J. Edstedt, "Radially Distorted
-   Homographies, Revisited," in Proc. 3DV, 2026.
+All solvers used here are from Wadenbäck et al. :cite:`Wadenback2026`.
 """
 
 import numpy as np

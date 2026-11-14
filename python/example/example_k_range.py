@@ -19,20 +19,12 @@ the solver on the points as given, without a range unless one is set.
 The default is safe for every lens that the division model can represent: in these coordinates,
 for matches spread over the image, :math:`k` is about the relative distortion at the image corners
 divided by 7, so ``[-1, 0.1]`` only rejects more than about 70% of pincushion distortion there.
-Smartphones and action cameras, whose distortion López-Antequera et al. [1]_ measured on more than
+Smartphones and action cameras, whose distortion López-Antequera et al. :cite:`LopezAntequera2019` measured on more than
 300 cameras, and long lenses, with a few percent of pincushion distortion, are far inside (see the
 solver guide, "Range check on the distortion").
 
 The check only selects the hypotheses: the final refinement isn't constrained.
 
-References
-----------
-.. [1] M. López-Antequera, R. Marí, P. Gargallo, Y. Kuang, J. Gonzalez-Jimenez, and
-   G. Haro, "Deep Single Image Camera Calibration with Radial Distortion," in Proc. IEEE/CVF
-   Conference on Computer Vision and Pattern Recognition (CVPR), 2019, pp. 11809-11817.
-   https://research.mapillary.com/publication/cvpr19d
-.. [2] Z. Kukelova, J. Heller, M. Bujnak, and T. Pajdla, "Radial Distortion Homography," in
-   Proc. IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2015.
 """
 
 import time
@@ -47,7 +39,7 @@ rng = np.random.default_rng()   # random problems: the numbers change from run t
 # Fewer solutions per minimal sample
 # ----------------------------------
 #
-# Kukelova et al.'s 5-point solver [2]_, called directly on noise-free problems with both
+# Kukelova et al.'s 5-point solver :cite:`Kukelova2015`, called directly on noise-free problems with both
 # images distorted, without and with the range ``[-1, 0.1]``.
 
 solver = homlib.KukelovaCVPR2015TwoSided()

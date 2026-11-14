@@ -24,7 +24,7 @@ determine :math:`H` uniquely.
 Homographies are one of the fundamental building blocks of multi-view geometry
 and appear in panoramic stitching, augmented reality, camera calibration, and
 visual odometry.  For a thorough treatment see Hartley and Zisserman
-[HartleyZisserman2003]_.
+:cite:`HartleyZisserman2003`.
 
 
 Radial distortion
@@ -74,6 +74,3 @@ homography estimate and stitch the two views into a panorama:
    frame using a homography estimated by :class:`~homlib.CaiPAMI2025` +
    :class:`~homlib.SupeRANSAC`.
 
-
-.. [HartleyZisserman2003] R. Hartley and A. Zisserman, *Multiple View Geometry
-   in Computer Vision*, 2nd ed., Cambridge University Press, 2003.
