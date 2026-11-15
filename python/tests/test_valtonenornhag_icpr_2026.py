@@ -55,12 +55,13 @@ class OrientationOverdeterminedTestCase(unittest.TestCase):
             sols[0].distortion_parameter, inst.posedata.distortion_parameter, places=2)
 
     def test_minimal_regression(self):
-        config = homlib.ProblemConfig(homlib.DistortionCase.ONE_SIDED_RIGHT, 0.0, 4)
+        # Three correspondences, the minimal sample: up to three solutions, one of them the true one
+        config = homlib.ProblemConfig(homlib.DistortionCase.ONE_SIDED_RIGHT, 0.0, 3)
+        config.seed = 42
         inst = homlib.generate_problem_instance(config)
         x, y = _points(inst)
         ori = _ori(inst)
         solver = homlib.ValtonenOrnhagICPR2026OrientationOneSidedRight()
         sols = solver.estimate(x, y, ori=ori)
         self.assertGreaterEqual(len(sols), 1)
-        self.assertAlmostEqual(
-            sols[0].distortion_parameter, inst.posedata.distortion_parameter, places=3)
+        self.assertLess(min(abs(s.distortion_parameter - inst.posedata.distortion_parameter) for s in sols), 1e-6)
