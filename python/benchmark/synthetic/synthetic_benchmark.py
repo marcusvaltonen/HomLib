@@ -41,7 +41,9 @@ import argparse
 import json
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 from tqdm import tqdm
@@ -51,7 +53,7 @@ import homlib
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import (  # noqa: E402
-    BACKENDS, Benchmark, inlier_indices, make_estimator)
+    BACKENDS, Benchmark, BenchmarkResults, inlier_indices, make_estimator)
 
 FOCAL = 1000.0   # pixels: the noise is given in pixels for this focal length
 
@@ -93,117 +95,6 @@ def best_error(instance, solutions):
     return min([e for e in errors if np.isfinite(e)], default=np.inf)
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Synthetic benchmark of HomLib's point solvers")
-    parser.add_argument("--problems", type=int, default=None,
-                        help="Problems per solver, case and noise (default: 2000; with --outliers, 200)")
-    parser.add_argument("--noise", type=float, nargs="+", default=None,
-                        help="Noise levels in pixels, for a focal length of 1000 px (default: 0 0.5 1 2)")
-    parser.add_argument("--solvers", nargs="+", choices=sorted(SOLVERS), default=sorted(SOLVERS))
-    parser.add_argument("--outliers", type=float, nargs="+", default=None,
-                        help="Shares of outliers: run LOMSAC on problems with outliers instead")
-    parser.add_argument("--seed", type=int, default=0,
-                        help="Seed of the problems (default: 0): same seed, same results on the same platform")
-    parser.add_argument("--iterations", type=int, default=None,
-                        help="With --outliers: run the estimator for exactly this many iterations")
-    parser.add_argument("--backend", choices=sorted(BACKENDS), default=None,
-                        help="With --outliers: the robust estimator (default: lomsac). The others need HomLib "
-                             "built with them")
-    parser.add_argument("--output", type=str, default=None,
-                        help="Save the command, the environment, the settings and the results to this JSON file")
-    parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
-                        help="Print the differences B - A between two saved runs, and exit")
-    args = parser.parse_args()
-    if args.compare:
-        _benchmark.compare(*args.compare)
-        return
-
-    if args.outliers is None and (args.iterations is not None or args.backend is not None):
-        parser.error("--iterations and --backend need --outliers")
-    backend = args.backend or "lomsac"
-    if args.outliers is not None:
-        if args.noise is not None:
-            parser.error("--outliers runs with 0.5 px of noise: it doesn't take --noise")
-        if not all(0 <= share < 1 for share in args.outliers):
-            parser.error("the shares of outliers must be in [0, 1)")
-        results = run_outliers(args.solvers, args.outliers, args.problems or 200, args.iterations, args.seed,
-                               backend)
-        if args.output:
-            settings = dict(problems=args.problems or 200, noise=None, iterations=args.iterations, seed=args.seed,
-                            outliers=args.outliers, backend=backend)
-            _benchmark.save_results(args.output, settings, results, key="outliers")
-        print_outliers(results)
-        return
-
-    # results[solver][case][noise] = per problem: (best error, number of solutions, time)
-    results = {}
-    problems = args.problems or 2000
-    noises = args.noise or [0.0, 0.5, 1.0, 2.0]
-    for name in tqdm(args.solvers, desc="Solvers"):
-        solver = homlib.Solver(homlib.SolverId.__members__[name])
-        sample_size, cases = SOLVERS[name]
-        results[name] = {}
-        for case in cases:
-            results[name][case.name] = {}
-            for noise in noises:
-                runs = []
-                for i in range(problems):
-                    instance = make_problem(case, noise, sample_size,
-                                            problem_seed(args.seed, int(case.value), round(noise * 1000), i))
-                    x, y = np.array(instance.x1).T, np.array(instance.x2).T
-                    t0 = time.perf_counter()
-                    solutions = solver.estimate(np.ascontiguousarray(x), np.ascontiguousarray(y))
-                    elapsed = time.perf_counter() - t0
-                    runs.append((best_error(instance, solutions), len(solutions), elapsed))
-                results[name][case.name][str(noise)] = runs
-    if args.output:
-        settings = dict(problems=problems, noise=noises, iterations=None, outliers=None, seed=args.seed)
-        _benchmark.save_results(args.output, settings, results)
-    print_results(results)
-
-
-class SyntheticBenchmark(Benchmark):
-    description = "Synthetic benchmark of HomLib's point solvers"
-
-    def load_results(self, path):
-        """Results being ``{"outliers": results}`` with ``--outliers``.  The files saved before
-        the settings have none: their settings are ``None``; and run is ``None`` in the files
-        saved before it."""
-        with open(path) as f:
-            data = json.load(f)
-        run = data.pop("run", None)
-        settings = data.pop("settings", None)
-        return run, settings, data.get("results", data)
-
-    def compare(self, path_a, path_b):
-        """The differences between two runs, b - a: the rates of no solution and (without noise)
-        of missed true solutions, in percentage points with their standard errors, and the ratios
-        of the median errors (with noise) and times."""
-        (settings_a, a), (settings_b, b) = self.compare_preamble(path_a, path_b)
-        if ("outliers" in a) != ("outliers" in b):
-            raise SystemExit("can't compare a run with --outliers and a run without it")
-        if "outliers" in a:
-            _compare_outliers(a["outliers"], b["outliers"])
-            return
-        print(f"{'Solver':<34s} {'Case':<16s} {'Noise':>5s} {'No solution':>13s} {'Missed':>13s} "
-              f"{'Error':>6s} {'Time':>6s}")
-        for name in sorted(set(a) & set(b)):
-            for case, per_noise in a[name].items():
-                for noise, runs in per_noise.items():
-                    if noise not in b[name].get(case, {}):
-                        continue
-                    ra, rb = summary(runs), summary(b[name][case][noise])
-                    none = difference(ra["none"], rb["none"], ra["n"], rb["n"])
-                    missed = difference(ra["missed"], rb["missed"], ra["n"], rb["n"]) if float(noise) == 0 else ""
-                    finite = float(noise) > 0 and np.isfinite(ra["median_error"]) and np.isfinite(rb["median_error"])
-                    error = f"{rb['median_error'] / ra['median_error']:5.2f}x" if finite else "  n/a"
-                    print(f"{name:<34s} {case:<16s} {float(noise):5.1f} {none:>13s} {missed:>13s} {error:>6s} "
-                          f"{rb['time'] / ra['time']:5.2f}x")
-
-
-_benchmark = SyntheticBenchmark()
-
-
 def problem_seed(*key):
     """The seed of a problem, from (--seed, case, noise level or share of outliers, index): the value of
     the noise or share, not its position in the list, so that a level gets the same problems in every run"""
@@ -238,19 +129,9 @@ def run_outliers(solvers, shares, problems, iterations, seed, backend, n_points=
                 _, stats = estimator.estimate(np.ascontiguousarray(x), np.ascontiguousarray(y))
                 elapsed = time.perf_counter() - t0
                 found = np.sum(np.array(inlier_indices(stats), dtype=int) >= n_out)
-                runs.append((found / (n_points - n_out), elapsed))
+                runs.append(OutlierRun(found / (n_points - n_out), elapsed))
             results[name][str(share)] = runs
     return results
-
-
-def print_outliers(results):
-    print(f"\n{'Solver':<34s} {'Case':<16s} {'Outliers':>8s} {'Inliers found':>13s} {'Time (ms)':>9s}")
-    for name, per_share in sorted(results.items()):
-        case = SOLVERS[name][1][-1].name
-        for share, runs in per_share.items():
-            found, t = (np.array(v) for v in zip(*runs))
-            print(f"{name:<34s} {case:<16s} {float(share) * 100:7.0f}% {np.mean(found) * 100:12.2f}% "
-                  f"{np.median(t) * 1e3:9.2f}")
 
 
 def summary(runs):
@@ -261,39 +142,177 @@ def summary(runs):
                 time=np.median(t) * 1e6)
 
 
-def print_results(results):
-    print(f"\n{'Solver':<34s} {'Case':<16s} {'Noise':>5s} {'No solution':>11s} {'Missed':>7s} "
-          f"{'Median error':>12s} {'Time (us)':>9s}")
-    for name, per_case in sorted(results.items()):
-        for case, per_noise in per_case.items():
-            for noise, runs in per_noise.items():
-                r = summary(runs)
-                missed = f"{r['missed'] * 100:6.2f}%" if float(noise) == 0 else ""
-                print(f"{name:<34s} {case:<16s} {float(noise):5.1f} {r['none'] * 100:10.2f}% {missed:>7s} "
-                      f"{r['median_error']:12.3g} {r['time']:9.1f}")
-
-
 def difference(pa, pb, na, nb):
     """b - a for two rates, in percentage points, with its standard error."""
     se = np.sqrt(pa * (1 - pa) / na + pb * (1 - pb) / nb)
     return f"{(pb - pa) * 100:+6.2f} ±{se * 100:4.2f}"
 
 
-def _compare_outliers(a, b):
-    """b - a: the share of the true inliers found, in percentage points with its standard error, and
-    the ratio of the median times"""
-    print(f"{'Solver':<34s} {'Case':<16s} {'Outliers':>8s} {'Inliers found':>20s} {'Time':>7s}")
-    for name in sorted(set(a) & set(b)):
-        case = SOLVERS[name][1][-1].name
-        for share in a[name]:
-            if share not in b[name]:
-                continue
-            fa, ta = (np.array(v) for v in zip(*a[name][share]))
-            fb, tb = (np.array(v) for v in zip(*b[name][share]))
-            se = np.sqrt(fa.var(ddof=1) / len(fa) + fb.var(ddof=1) / len(fb)) * 100
-            found = f"{(fb.mean() - fa.mean()) * 100:+7.2f} ±{se:5.2f} pts"
-            print(f"{name:<34s} {case:<16s} {float(share) * 100:7.0f}% {found:>20s} "
-                  f"{np.median(tb) / np.median(ta):6.3g}x")
+class SyntheticRun(NamedTuple):
+    best_error: float
+    n_solutions: int
+    time: float
+
+
+class OutlierRun(NamedTuple):
+    inliers_found: float
+    time: float
+
+
+@dataclass
+class SyntheticResults(BenchmarkResults):
+    """Per-solver, per-case, per-noise results; or per-solver, per-share outlier results."""
+    per_solver: dict[str, dict] = field(default_factory=dict)
+
+    @property
+    def data(self) -> dict:
+        return self.per_solver
+
+
+class SyntheticBenchmark(Benchmark):
+    description = "Synthetic benchmark of HomLib's point solvers"
+
+    def load_results(self, path):
+        """Results being ``{"outliers": results}`` with ``--outliers``.  The files saved before
+        the settings have none: their settings are ``None``; and run is ``None`` in the files
+        saved before it."""
+        with open(path) as f:
+            raw = json.load(f)
+        data = raw.get("results", {k: v for k, v in raw.items() if k not in ("run", "settings")})
+        return SyntheticResults(per_solver=data, settings=raw.get("settings"), run=raw.get("run"))
+
+    def compare(self, path_a, path_b):
+        """The differences between two runs, b - a: the rates of no solution and (without noise)
+        of missed true solutions, in percentage points with their standard errors, and the ratios
+        of the median errors (with noise) and times."""
+        a, b = self.compare_preamble(path_a, path_b)
+        if ("outliers" in a.data) != ("outliers" in b.data):
+            raise SystemExit("can't compare a run with --outliers and a run without it")
+        if "outliers" in a.data:
+            self._compare_outliers(a.data["outliers"], b.data["outliers"])
+            return
+        ra, rb = a.data, b.data
+        print(f"{'Solver':<34s} {'Case':<16s} {'Noise':>5s} {'No solution':>13s} {'Missed':>13s} "
+              f"{'Error':>6s} {'Time':>6s}")
+        for name in sorted(set(ra) & set(rb)):
+            for case, per_noise in ra[name].items():
+                for noise, runs in per_noise.items():
+                    if noise not in rb[name].get(case, {}):
+                        continue
+                    sa, sb = summary(runs), summary(rb[name][case][noise])
+                    none = difference(sa["none"], sb["none"], sa["n"], sb["n"])
+                    missed = difference(sa["missed"], sb["missed"], sa["n"], sb["n"]) if float(noise) == 0 else ""
+                    finite = float(noise) > 0 and np.isfinite(sa["median_error"]) and np.isfinite(sb["median_error"])
+                    error = f"{sb['median_error'] / sa['median_error']:5.2f}x" if finite else "  n/a"
+                    print(f"{name:<34s} {case:<16s} {float(noise):5.1f} {none:>13s} {missed:>13s} {error:>6s} "
+                          f"{sb['time'] / sa['time']:5.2f}x")
+
+    def _compare_outliers(self, a, b):
+        """b - a: the share of the true inliers found, in percentage points with its standard error,
+        and the ratio of the median times."""
+        print(f"{'Solver':<34s} {'Case':<16s} {'Outliers':>8s} {'Inliers found':>20s} {'Time':>7s}")
+        for name in sorted(set(a) & set(b)):
+            case = SOLVERS[name][1][-1].name
+            for share in a[name]:
+                if share not in b[name]:
+                    continue
+                fa, ta = (np.array(v) for v in zip(*a[name][share]))
+                fb, tb = (np.array(v) for v in zip(*b[name][share]))
+                se = np.sqrt(fa.var(ddof=1) / len(fa) + fb.var(ddof=1) / len(fb)) * 100
+                found = f"{(fb.mean() - fa.mean()) * 100:+7.2f} ±{se:5.2f} pts"
+                print(f"{name:<34s} {case:<16s} {float(share) * 100:7.0f}% {found:>20s} "
+                      f"{np.median(tb) / np.median(ta):6.3g}x")
+
+    def print_results(self, results):
+        print(f"\n{'Solver':<34s} {'Case':<16s} {'Noise':>5s} {'No solution':>11s} {'Missed':>7s} "
+              f"{'Median error':>12s} {'Time (us)':>9s}")
+        for name, per_case in sorted(results.data.items()):
+            for case, per_noise in per_case.items():
+                for noise, runs in per_noise.items():
+                    r = summary(runs)
+                    missed = f"{r['missed'] * 100:6.2f}%" if float(noise) == 0 else ""
+                    print(f"{name:<34s} {case:<16s} {float(noise):5.1f} {r['none'] * 100:10.2f}% {missed:>7s} "
+                          f"{r['median_error']:12.3g} {r['time']:9.1f}")
+
+    def print_outliers(self, results):
+        print(f"\n{'Solver':<34s} {'Case':<16s} {'Outliers':>8s} {'Inliers found':>13s} {'Time (ms)':>9s}")
+        for name, per_share in sorted(results.data.items()):
+            case = SOLVERS[name][1][-1].name
+            for share, runs in per_share.items():
+                found, t = (np.array(v) for v in zip(*runs))
+                print(f"{name:<34s} {case:<16s} {float(share) * 100:7.0f}% {np.mean(found) * 100:12.2f}% "
+                      f"{np.median(t) * 1e3:9.2f}")
+
+
+benchmark = SyntheticBenchmark()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=benchmark.description)
+    parser.add_argument("--problems", type=int, default=None,
+                        help="Problems per solver, case and noise (default: 2000; with --outliers, 200)")
+    parser.add_argument("--noise", type=float, nargs="+", default=None,
+                        help="Noise levels in pixels, for a focal length of 1000 px (default: 0 0.5 1 2)")
+    parser.add_argument("--solvers", nargs="+", choices=sorted(SOLVERS), default=sorted(SOLVERS))
+    parser.add_argument("--outliers", type=float, nargs="+", default=None,
+                        help="Shares of outliers: run LOMSAC on problems with outliers instead")
+    parser.add_argument("--seed", type=int, default=0,
+                        help="Seed of the problems (default: 0): same seed, same results on the same platform")
+    parser.add_argument("--iterations", type=int, default=None,
+                        help="With --outliers: run the estimator for exactly this many iterations")
+    parser.add_argument("--backend", choices=sorted(BACKENDS), default=None,
+                        help="With --outliers: the robust estimator (default: lomsac). The others need HomLib "
+                             "built with them")
+    parser.add_argument("--output", type=str, default=None,
+                        help="Save the command, the environment, the settings and the results to this JSON file")
+    parser.add_argument("--compare", nargs=2, metavar=("A", "B"), default=None,
+                        help="Print the differences B - A between two saved runs, and exit")
+    args = parser.parse_args()
+    if args.compare:
+        benchmark.compare(*args.compare)
+        return
+
+    if args.outliers is None and (args.iterations is not None or args.backend is not None):
+        parser.error("--iterations and --backend need --outliers")
+    backend = args.backend or "lomsac"
+    if args.outliers is not None:
+        if args.noise is not None:
+            parser.error("--outliers runs with 0.5 px of noise: it doesn't take --noise")
+        if not all(0 <= share < 1 for share in args.outliers):
+            parser.error("the shares of outliers must be in [0, 1)")
+        raw = run_outliers(args.solvers, args.outliers, args.problems or 200, args.iterations, args.seed, backend)
+        results = SyntheticResults(per_solver=raw)
+        if args.output:
+            results.settings = dict(problems=args.problems or 200, noise=None, iterations=args.iterations,
+                                    seed=args.seed, outliers=args.outliers, backend=backend)
+            benchmark.save_results(args.output, results, key="outliers")
+        benchmark.print_outliers(results)
+        return
+
+    results = SyntheticResults()
+    problems = args.problems or 2000
+    noises = args.noise or [0.0, 0.5, 1.0, 2.0]
+    for name in tqdm(args.solvers, desc="Solvers"):
+        solver = homlib.Solver(homlib.SolverId.__members__[name])
+        sample_size, cases = SOLVERS[name]
+        results.per_solver[name] = {}
+        for case in cases:
+            results.per_solver[name][case.name] = {}
+            for noise in noises:
+                runs = []
+                for i in range(problems):
+                    instance = make_problem(case, noise, sample_size,
+                                            problem_seed(args.seed, int(case.value), round(noise * 1000), i))
+                    x, y = np.array(instance.x1).T, np.array(instance.x2).T
+                    t0 = time.perf_counter()
+                    solutions = solver.estimate(np.ascontiguousarray(x), np.ascontiguousarray(y))
+                    elapsed = time.perf_counter() - t0
+                    runs.append(SyntheticRun(best_error(instance, solutions), len(solutions), elapsed))
+                results.per_solver[name][case.name][str(noise)] = runs
+    if args.output:
+        results.settings = dict(problems=problems, noise=noises, iterations=None, outliers=None, seed=args.seed)
+        benchmark.save_results(args.output, results)
+    benchmark.print_results(results)
 
 
 if __name__ == "__main__":

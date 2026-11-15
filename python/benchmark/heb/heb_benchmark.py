@@ -77,7 +77,9 @@ import json
 import os
 import sys
 import time
+from dataclasses import dataclass, field
 from multiprocessing import Pool
+from typing import NamedTuple
 from pathlib import Path
 
 import cv2
@@ -90,7 +92,7 @@ import homlib
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import (  # noqa: E402
-    BACKENDS, Benchmark, inlier_indices, make_estimator, map_points)
+    BACKENDS, Benchmark, BenchmarkResults, inlier_indices, make_estimator, map_points)
 
 # The scenes of each split and the scale of their reconstruction (to metres), as the benchmark's
 # dataset_configuration.yaml
@@ -167,7 +169,7 @@ def run_pair(job):
         runs = []
         for seed in range(1, seeds + 1):
             if x.shape[1] < 4:   # no estimation, so no time (NaN, left out of the mean time)
-                runs.append((FAILED, FAILED, FAILED, 0, None))
+                runs.append(HEBRun(FAILED, FAILED, FAILED, 0, None))
                 continue
             estimator = make_estimator(backend, solver, float(threshold), int(iterations), seed)
             t0 = time.perf_counter()
@@ -181,7 +183,7 @@ def run_pair(job):
                     mapped, ok = map_points(model, (corr[gt, 0:2] - c1).T)
                     if ok.all():
                         transfer = np.mean(np.linalg.norm(mapped - (corr[gt, 2:4] - c2).T, axis=0))
-            runs.append((float(err_R), float(err_t), float(transfer), n_in, elapsed))
+            runs.append(HEBRun(float(err_R), float(err_t), float(transfer), n_in, elapsed))
         out[key] = runs
     return scene, pair, out
 
@@ -210,6 +212,85 @@ def summarize(per_scene):
         mains[scene] = 100 * acc[0].mean()
         times.append(np.nanmean(t))
     return 100 * np.mean(means, 0), mains, np.nanmean(times)
+
+
+class HEBRun(NamedTuple):
+    err_R: float
+    err_t: float
+    transfer: float
+    n_inliers: int
+    time: float | None
+
+
+@dataclass
+class HEBResults(BenchmarkResults):
+    """Per-config, per-scene, per-pair results (config key: ``name|threshold|snn|iterations``)."""
+    per_config: dict[str, dict[str, dict[str, list[HEBRun]]]] = field(default_factory=dict)
+
+    @property
+    def data(self) -> dict:
+        return self.per_config
+
+
+class HEBBenchmark(Benchmark):
+    description = "HEB benchmark of HomLib's point solvers"
+
+    def load_results(self, path):
+        with open(path) as f:
+            raw = json.load(f)
+        return HEBResults(per_config=raw.get("results", raw),
+                          settings=raw.get("settings"), run=raw.get("run"))
+
+    def compare(self, path_a, path_b):
+        """For the configurations of both runs (same solver, settings and iterations): the
+        differences B - A of the main and transfer mAAs, per scene then averaged over the scenes
+        as the mAAs, with their standard errors (from the per-homography differences), and the
+        ratio of the mean times."""
+        a, b = self.compare_preamble(path_a, path_b)
+        ra, rb = a.data, b.data
+        other = sorted({k.split("|")[0] for k in ra} & {k.split("|")[0] for k in rb}
+                       - {k.split("|")[0] for k in set(ra) & set(rb)})
+        if other:
+            print("Warning: no configuration (threshold, SNN, iterations) in common in the two runs, "
+                  "not compared: " + ", ".join(other))
+        print(f"{'Solver':<36s} {'Iter.':>6s} {'mAA (10°, 5 m)':>18s} {'Transfer':>18s} {'Time':>6s}")
+        for key in sorted(set(ra) & set(rb), key=lambda k: (k.split("|")[0], int(k.split("|")[3]))):
+            means, variances, ta, tb = [], [], [], []
+            scenes = sorted(set(ra[key]) & set(rb[key]))
+            for scene in scenes:
+                d, sa, sb = [], [], []
+                for pair in sorted(set(ra[key][scene]) & set(rb[key][scene])):
+                    (acc_a, t_a), (acc_b, t_b) = scores(ra[key][scene][pair]), scores(rb[key][scene][pair])
+                    d.append(acc_b.mean(1) - acc_a.mean(1))
+                    sa += list(t_a)
+                    sb += list(t_b)
+                if not d:
+                    continue
+                ta.append(np.nanmean(sa))
+                tb.append(np.nanmean(sb))
+                d = 100 * np.array(d)
+                means.append(d.mean(0))
+                variances.append(d.var(0, ddof=1) / len(d) if len(d) > 1 else np.zeros(4))
+            mean, se = np.mean(means, 0), np.sqrt(np.sum(variances, 0)) / len(means)
+            name, n = key.split("|")[0], key.split("|")[3]
+            print(f"{name:<36s} {n:>6s} {mean[0]:+8.2f} ±{se[0]:5.2f} pts {mean[3]:+8.2f} ±{se[3]:5.2f} pts "
+                  f"{np.nanmean(tb) / np.nanmean(ta):5.2f}x")
+
+    def print_results(self, results, per_scene=False):
+        for n in sorted({int(k.split("|")[3]) for k in results.data}):
+            print(f"\n{n} iterations: mAA (%) averaged over the scenes, mean time of a run")
+            print(f"{'Solver':<36s} {'Thr.':>5s} {'SNN':>5s} {'(10°, 5 m)':>10s} {'Rot.':>6s} {'Transl.':>7s} "
+                  f"{'Transfer':>8s} {'Time (ms)':>9s}")
+            for key in sorted(k for k in results.data if int(k.split("|")[3]) == n):
+                name, th, snn, _ = key.split("|")
+                m, mains, t = summarize(results.data[key])
+                print(f"{name:<36s} {float(th):5.1f} {float(snn):5.2f} {m[0]:10.2f} {m[1]:6.2f} {m[2]:7.2f} "
+                      f"{m[3]:7.2f} {t * 1e3:9.2f}")
+                if per_scene:
+                    print("    " + ", ".join(f"{s} {v:.1f}" for s, v in sorted(mains.items())))
+
+
+benchmark = HEBBenchmark()
 
 
 def make_jobs(args, split, configs):
@@ -248,7 +329,8 @@ def tune(args):
         settings[name] = dict(threshold=float(best[1]), snn=float(best[2]), train_mAA=float(best[0]))
         print(f"{name:<36s} threshold {best[1]:>4} px, SNN {best[2]:.2f}: mAA (10 deg, 5 m) {best[0]:.2f}"
               + (f" ({ties} other settings as good)" if ties else ""))
-    _benchmark.save_results(args.output, vars_settings(args, "train"), settings, key="solvers", indent=1)
+    benchmark.save_results(args.output, HEBResults(per_config=settings, settings=vars_settings(args, "train")),
+                           key="solvers", indent=1)
 
 
 def vars_settings(args, split):
@@ -268,70 +350,15 @@ def test(args):
         s = tuned.get(name, DEFAULT_SETTINGS)
         snn = args.snn if args.snn is not None else s['snn']
         configs += [f"{name}|{s['threshold']}|{snn}|{n}" for n in args.iterations]
-    results = run(make_jobs(args, "test", configs), configs, args.jobs)
+    results = HEBResults(per_config=run(make_jobs(args, "test", configs), configs, args.jobs))
     if args.output:
-        settings = dict(vars_settings(args, "test"), settings_file=args.settings)
-        _benchmark.save_results(args.output, settings, results)
-    print_results(results, args.per_scene)
-
-
-def print_results(results, per_scene=False):
-    for n in sorted({int(k.split("|")[3]) for k in results}):
-        print(f"\n{n} iterations: mAA (%) averaged over the scenes, mean time of a run")
-        print(f"{'Solver':<36s} {'Thr.':>5s} {'SNN':>5s} {'(10°, 5 m)':>10s} {'Rot.':>6s} {'Transl.':>7s} "
-              f"{'Transfer':>8s} {'Time (ms)':>9s}")
-        for key in sorted(k for k in results if int(k.split("|")[3]) == n):
-            name, th, snn, _ = key.split("|")
-            m, mains, t = summarize(results[key])
-            print(f"{name:<36s} {float(th):5.1f} {float(snn):5.2f} {m[0]:10.2f} {m[1]:6.2f} {m[2]:7.2f} {m[3]:7.2f} "
-                  f"{t * 1e3:9.2f}")
-            if per_scene:
-                print("    " + ", ".join(f"{s} {v:.1f}" for s, v in sorted(mains.items())))
-
-
-class HEBBenchmark(Benchmark):
-    description = "HEB benchmark of HomLib's point solvers"
-
-    def compare(self, path_a, path_b):
-        """For the configurations of both runs (same solver, settings and iterations): the
-        differences B - A of the main and transfer mAAs, per scene then averaged over the scenes
-        as the mAAs, with their standard errors (from the per-homography differences), and the
-        ratio of the mean times."""
-        (_, ra), (_, rb) = self.compare_preamble(path_a, path_b)
-        other = sorted({k.split("|")[0] for k in ra} & {k.split("|")[0] for k in rb}
-                       - {k.split("|")[0] for k in set(ra) & set(rb)})
-        if other:
-            print("Warning: no configuration (threshold, SNN, iterations) in common in the two runs, "
-                  "not compared: " + ", ".join(other))
-        print(f"{'Solver':<36s} {'Iter.':>6s} {'mAA (10°, 5 m)':>18s} {'Transfer':>18s} {'Time':>6s}")
-        for key in sorted(set(ra) & set(rb), key=lambda k: (k.split("|")[0], int(k.split("|")[3]))):
-            means, variances, ta, tb = [], [], [], []
-            scenes = sorted(set(ra[key]) & set(rb[key]))
-            for scene in scenes:
-                d, sa, sb = [], [], []
-                for pair in sorted(set(ra[key][scene]) & set(rb[key][scene])):
-                    (acc_a, t_a), (acc_b, t_b) = scores(ra[key][scene][pair]), scores(rb[key][scene][pair])
-                    d.append(acc_b.mean(1) - acc_a.mean(1))
-                    sa += list(t_a)
-                    sb += list(t_b)
-                if not d:
-                    continue
-                ta.append(np.nanmean(sa))
-                tb.append(np.nanmean(sb))
-                d = 100 * np.array(d)
-                means.append(d.mean(0))
-                variances.append(d.var(0, ddof=1) / len(d) if len(d) > 1 else np.zeros(4))
-            mean, se = np.mean(means, 0), np.sqrt(np.sum(variances, 0)) / len(means)
-            name, n = key.split("|")[0], key.split("|")[3]
-            print(f"{name:<36s} {n:>6s} {mean[0]:+8.2f} ±{se[0]:5.2f} pts {mean[3]:+8.2f} ±{se[3]:5.2f} pts "
-                  f"{np.nanmean(tb) / np.nanmean(ta):5.2f}x")
-
-
-_benchmark = HEBBenchmark()
+        results.settings = dict(vars_settings(args, "test"), settings_file=args.settings)
+        benchmark.save_results(args.output, results)
+    benchmark.print_results(results, args.per_scene)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="HEB benchmark of HomLib's point solvers")
+    parser = argparse.ArgumentParser(description=benchmark.description)
     sub = parser.add_subparsers(dest="command", required=True)
     point_solvers = [s.name for s in homlib.solver_ids(homlib.FeatureType.Points)]
     for name in ("tune", "test"):
@@ -363,7 +390,7 @@ def main():
     cmp_p.add_argument("files", nargs=2, metavar=("A", "B"), help="Print the differences B - A between two test runs")
     args = parser.parse_args()
     if args.command == "compare":
-        _benchmark.compare(*args.files)
+        benchmark.compare(*args.files)
         return
     split = "train" if args.command == "tune" else "test"
     if args.scene and args.scene not in SCENES[split]:

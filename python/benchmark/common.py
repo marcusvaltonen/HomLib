@@ -178,6 +178,20 @@ class FeatureUpgrader(ABC):
 # Benchmark base class
 # ---------------------------------------------------------------------------
 
+@dataclass
+class BenchmarkResults:
+    """Base for typed benchmark results.
+
+    Subclasses add a named field for their results and override the *data*
+    property to return it (used by *save_results* for serialisation)."""
+    settings: dict[str, object] | None = None
+    run: dict[str, object] | None = None
+
+    @property
+    def data(self) -> dict:
+        raise NotImplementedError
+
+
 class Benchmark(ABC):
     """Base for benchmark scripts: save/load results, compare runs.
 
@@ -188,8 +202,7 @@ class Benchmark(ABC):
     about differing settings).
 
     Subclasses must set ``description`` (used by argparse) and implement
-    ``compare``; they may override ``load_results`` for format fixups (e.g.
-    strict-JSON ``None`` back to ``NaN``)."""
+    ``compare``, ``print_results`` and ``load_results``."""
 
     @property
     @abstractmethod
@@ -200,29 +213,28 @@ class Benchmark(ABC):
     def compare(self, path_a, path_b):
         """Compare two saved runs and print the differences."""
 
-    def save_results(self, path, settings, results, *, key="results", **json_kwargs):
-        """Save ``run_info()``, *settings* and *results* to a JSON file."""
+    @abstractmethod
+    def print_results(self, results):
+        """Print the results table."""
+
+    def save_results(self, path, results, *, key="results", **json_kwargs):
+        """Save *results* to a JSON file, adding ``run_info()``."""
         with open(path, "w") as f:
-            json.dump({"run": run_info(), "settings": settings, key: results}, f, **json_kwargs)
+            json.dump({"run": run_info(), "settings": results.settings, key: results.data}, f, **json_kwargs)
 
+    @abstractmethod
     def load_results(self, path):
-        """Load a saved results file.  Returns ``(run, settings, results)``.
-
-        Override for format fixups (e.g. ``None`` → ``NaN`` for files written
-        with ``allow_nan=False``)."""
-        with open(path) as f:
-            data = json.load(f)
-        return data.get("run"), data.get("settings"), data.get("results", data)
+        """Load a saved results file into the benchmark's ``BenchmarkResults`` subclass."""
+        ...
 
     def compare_preamble(self, path_a, path_b):
         """Load two saved files, print run info and settings differences.
 
-        Returns ``((settings_a, results_a), (settings_b, results_b))``."""
-        run_a, settings_a, a = self.load_results(path_a)
-        run_b, settings_b, b = self.load_results(path_b)
-        print_runs(run_a, run_b)
-        warn_settings(settings_a, settings_b)
-        return (settings_a, a), (settings_b, b)
+        Returns ``(BenchmarkResults, BenchmarkResults)``."""
+        a, b = self.load_results(path_a), self.load_results(path_b)
+        print_runs(a.run, b.run)
+        warn_settings(a.settings, b.settings)
+        return a, b
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +244,21 @@ class Benchmark(ABC):
 def standard_error(d):
     """The standard error of the mean of *d*: ``nan`` with fewer than 2 values."""
     return d.std(ddof=1) / np.sqrt(len(d)) if len(d) > 1 else np.nan
+
+
+def corner_error(pose, width, height, H_gt):
+    """The mean distance between the image corners mapped by *pose* and by the ground-truth
+    homography *H_gt*, in pixels; infinite if *pose* doesn't map every corner.
+
+    The corners are at ``(±width/2, ±height/2)`` (centered coordinates)."""
+    w, h = width / 2, height / 2
+    corners = np.array([[-w, w, w, -w], [-h, -h, h, h]])
+    g = H_gt @ np.vstack([corners, np.ones(4)])
+    mapped, ok = map_points(pose, corners)
+    if not ok.all():
+        return np.inf
+    err = np.mean(np.linalg.norm(mapped - g[:2] / g[2], axis=0))
+    return err if np.isfinite(err) else np.inf
 
 
 # The robust estimators: their names in HomLib, and the names of their inlier threshold and of their

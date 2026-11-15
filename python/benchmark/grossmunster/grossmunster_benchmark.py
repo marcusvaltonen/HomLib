@@ -41,9 +41,12 @@ Usage
 """
 
 import argparse
+import json
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 
@@ -53,7 +56,7 @@ from grossmunster_data import LOMSAC_SETTINGS, MIN_ITERATIONS, PAIRS, THRESHOLD,
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import (  # noqa: E402
-    BACKENDS, Benchmark, inlier_indices, make_estimator, standard_error)
+    BACKENDS, Benchmark, BenchmarkResults, inlier_indices, make_estimator, standard_error)
 
 # Table 3 of the paper: the solvers, and their mean error and mean time (ms)
 TABLE3 = [("KukelovaCVPR2015TwoSided", "Kukelova et al. (5pt)", 0.039, 2657),
@@ -81,8 +84,69 @@ def homography_errors(H, H_est, K, center):
             np.linalg.norm(normalized(Ki @ H @ K) - normalized(Ki @ H_est @ K)))
 
 
+class GrossmunsterRun(NamedTuple):
+    error_px: float
+    error_cal: float
+    n_inliers: int
+    time: float
+
+
+@dataclass
+class GrossmunsterResults(BenchmarkResults):
+    """Per-solver, per-pair results: each a list of per-seed GrossmunsterRun."""
+    per_solver: dict[str, dict[str, list[GrossmunsterRun]]] = field(default_factory=dict)
+
+    @property
+    def data(self) -> dict:
+        return self.per_solver
+
+
+class GrossmunsterBenchmark(Benchmark):
+    description = "Grossmünster Church benchmark of HomLib's two-sided solvers"
+
+    def load_results(self, path):
+        with open(path) as f:
+            raw = json.load(f)
+        return GrossmunsterResults(per_solver=raw.get("results", raw),
+                                   settings=raw.get("settings"), run=raw.get("run"))
+
+    def compare(self, path_a, path_b):
+        """The differences between two runs, b - a, for the pairs and solvers of both: the errors,
+        averaged over the seeds of each pair, with their standard errors over the pairs; and the
+        ratio of the mean times."""
+        a, b = self.compare_preamble(path_a, path_b)
+        print(f"{'Solver':<36s} {'Error':>17s} {'Error (cal.)':>19s} {'Time':>7s}")
+        for name in sorted(set(a.per_solver) & set(b.per_solver)):
+            keys = [k for k in a.per_solver[name] if k in b.per_solver[name]]
+            mean = lambda res, i: np.array([np.mean([run[i] for run in res.data[name][k]]) for k in keys])  # noqa: E731
+            d, d_cal = mean(b, 0) - mean(a, 0), mean(b, 1) - mean(a, 1)
+            ratio = mean(b, 3).mean() / mean(a, 3).mean()
+            print(f"{name:<36s} {d.mean():+8.4f} ±{standard_error(d):6.4f} {d_cal.mean():+10.4f} "
+                  f"±{standard_error(d_cal):6.4f} {ratio:6.2f}x")
+
+    def print_results(self, results, keys, pairs, per_pair):
+        paper = {s: (label, err, t) for s, label, err, t in TABLE3}
+        print(f"\n{len(keys)} pairs: " + ", ".join(f"{k} ({pairs[k]['x'].shape[1]} matches)" for k in keys))
+        print(f"{'Solver':<36s} {'Error':>7s} {'Error (cal.)':>12s} {'Inliers':>8s} {'Time (ms)':>10s}   "
+              f"{'Paper: error':>12s} {'time (ms)':>9s}")
+        for name, per in results.per_solver.items():
+            e, e_cal, n, t = (np.array([run[i] for k in keys for run in per[k]]) for i in range(4))
+            _, p_err, p_t = paper[name]
+            print(f"{name:<36s} {e.mean():7.3f} {e_cal.mean():12.3f} {n.mean():8.1f} {t.mean() * 1e3:10.1f}   "
+                  f"{p_err:12.3f} {p_t:9d}")
+        if per_pair:
+            print("\nError per pair (median over the seeds), in pixel / calibrated coordinates")
+            print(f"{'Solver':<36s} " + " ".join(f"{k:>13s}" for k in keys))
+            for name, per in results.per_solver.items():
+                print(f"{name:<36s} " + " ".join(f"{np.median([r[0] for r in per[k]]):6.3f}/"
+                                                 f"{np.median([r[1] for r in per[k]]):6.3f}" for k in keys))
+
+
+benchmark = GrossmunsterBenchmark()
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Grossmünster Church benchmark of HomLib's two-sided solvers")
+    parser = argparse.ArgumentParser(description=benchmark.description)
     parser.add_argument("matches", nargs="?", help="The matches file (grossmunster_ground_truth.py)")
     parser.add_argument("--threshold", type=float, default=THRESHOLD,
                         help="Inlier threshold in pixels (default: %(default)s)")
@@ -102,7 +166,7 @@ def main():
                         help="Print the differences B - A between two saved runs, and exit")
     args = parser.parse_args()
     if args.compare:
-        _benchmark.compare(*args.compare)
+        benchmark.compare(*args.compare)
         return
     if not args.matches:
         parser.error("the matches file is required")
@@ -117,8 +181,7 @@ def main():
     extra = LOMSAC_SETTINGS if args.backend == "lomsac" else {}
     # The principal point, in COLMAP's convention (the origin at the top-left corner of the image)
     center = scene["principal_point"] + 0.5
-    # results[solver][pair] = per seed: (error in pixels, error in calibrated coordinates, inliers, time)
-    results = {name: {} for name in names}
+    results = GrossmunsterResults(per_solver={name: {} for name in names})
     for name in names:
         for key in keys:
             pair = pairs[key]
@@ -130,53 +193,14 @@ def main():
                 t0 = time.perf_counter()
                 pose, stats = estimator.estimate(x, y)
                 elapsed = time.perf_counter() - t0
-                runs.append((*homography_errors(pair["H"], np.array(pose.homography), scene["K"], center),
-                             len(inlier_indices(stats)), elapsed))
-            results[name][key] = runs
+                errs = homography_errors(pair["H"], np.array(pose.homography), scene["K"], center)
+                runs.append(GrossmunsterRun(*errs, n_inliers=len(inlier_indices(stats)), time=elapsed))
+            results.per_solver[name][key] = runs
     if args.output:
-        settings = dict(matches=Path(args.matches).name, threshold=args.threshold, backend=args.backend,
-                        min_iterations=args.min_iterations, seeds=args.seeds, pairs=keys, **extra)
-        _benchmark.save_results(args.output, settings, results)
-    print_results(results, keys, pairs, args.per_pair)
-
-
-def print_results(results, keys, pairs, per_pair):
-    paper = {s: (label, err, t) for s, label, err, t in TABLE3}
-    print(f"\n{len(keys)} pairs: " + ", ".join(f"{k} ({pairs[k]['x'].shape[1]} matches)" for k in keys))
-    print(f"{'Solver':<36s} {'Error':>7s} {'Error (cal.)':>12s} {'Inliers':>8s} {'Time (ms)':>10s}   "
-          f"{'Paper: error':>12s} {'time (ms)':>9s}")
-    for name, per in results.items():
-        e, e_cal, n, t = (np.array([run[i] for k in keys for run in per[k]]) for i in range(4))
-        _, p_err, p_t = paper[name]
-        print(f"{name:<36s} {e.mean():7.3f} {e_cal.mean():12.3f} {n.mean():8.1f} {t.mean() * 1e3:10.1f}   "
-              f"{p_err:12.3f} {p_t:9d}")
-    if per_pair:
-        print("\nError per pair (median over the seeds), in pixel / calibrated coordinates")
-        print(f"{'Solver':<36s} " + " ".join(f"{k:>13s}" for k in keys))
-        for name, per in results.items():
-            print(f"{name:<36s} " + " ".join(f"{np.median([r[0] for r in per[k]]):6.3f}/"
-                                             f"{np.median([r[1] for r in per[k]]):6.3f}" for k in keys))
-
-
-class GrossmunsterBenchmark(Benchmark):
-    description = "Grossmünster Church benchmark of HomLib's two-sided solvers"
-
-    def compare(self, path_a, path_b):
-        """The differences between two runs, b - a, for the pairs and solvers of both: the errors,
-        averaged over the seeds of each pair, with their standard errors over the pairs; and the
-        ratio of the mean times."""
-        (_, a), (_, b) = self.compare_preamble(path_a, path_b)
-        print(f"{'Solver':<36s} {'Error':>17s} {'Error (cal.)':>19s} {'Time':>7s}")
-        for name in sorted(set(a) & set(b)):
-            keys = [k for k in a[name] if k in b[name]]
-            mean = lambda res, i: np.array([np.mean([run[i] for run in res[name][k]]) for k in keys])  # noqa: E731
-            d, d_cal = mean(b, 0) - mean(a, 0), mean(b, 1) - mean(a, 1)
-            ratio = mean(b, 3).mean() / mean(a, 3).mean()
-            print(f"{name:<36s} {d.mean():+8.4f} ±{standard_error(d):6.4f} {d_cal.mean():+10.4f} "
-                  f"±{standard_error(d_cal):6.4f} {ratio:6.2f}x")
-
-
-_benchmark = GrossmunsterBenchmark()
+        results.settings = dict(matches=Path(args.matches).name, threshold=args.threshold, backend=args.backend,
+                                min_iterations=args.min_iterations, seeds=args.seeds, pairs=keys, **extra)
+        benchmark.save_results(args.output, results)
+    benchmark.print_results(results, keys, pairs, args.per_pair)
 
 
 if __name__ == "__main__":

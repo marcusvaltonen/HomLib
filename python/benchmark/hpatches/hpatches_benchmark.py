@@ -61,7 +61,9 @@ import argparse
 import json
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 from tqdm import tqdm
@@ -72,7 +74,7 @@ from hpatches_data import HPATCHES_DIRNAME, add_image_sizes, load_matches
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import (  # noqa: E402
-    BACKENDS, Benchmark, inlier_indices, make_estimator, map_points, standard_error)
+    BACKENDS, Benchmark, BenchmarkResults, corner_error, inlier_indices, make_estimator, standard_error)
 
 # glue-factory's HPatches evaluation: the shorter side of the resized images, and the sequences of
 # large images that it leaves out (HPatches.ignored_scenes in gluefactory/datasets/hpatches.py)
@@ -136,23 +138,100 @@ def gluefactory_pairs(pairs, data_dir):
     return {k: resize_pair(p) for k, p in pairs.items()}
 
 
-def corner_error(pose, pair):
-    """The mean distance between the image corners mapped by the estimated model and by the
-    ground truth, in pixels; infinite if the model doesn't map every corner."""
-    # The points are centered on the image center, ((w - 1) / 2, (h - 1) / 2) with OpenCV's pixel
-    # centers at integer coordinates: the outer corners of the image are at (±w / 2, ±h / 2).
-    w, h = pair["width"] / 2, pair["height"] / 2
-    corners = np.array([[-w, w, w, -w], [-h, -h, h, h]])
-    g = pair["H"] @ np.vstack([corners, np.ones(4)])
-    mapped, ok = map_points(pose, corners)
-    if not ok.all():
-        return np.inf
-    err = np.mean(np.linalg.norm(mapped - g[:2] / g[2], axis=0))
-    return err if np.isfinite(err) else np.inf
+class HPatchesRun(NamedTuple):
+    recall: float
+    corner_error: float
+    time: float
+
+
+@dataclass
+class HPatchesResults(BenchmarkResults):
+    """Per-solver, per-pair results: each a list of per-seed HPatchesRun."""
+    per_solver: dict[str, dict[str, list[HPatchesRun]]] = field(default_factory=dict)
+
+    @property
+    def data(self) -> dict:
+        return self.per_solver
+
+
+class HPatchesBenchmark(Benchmark):
+    description = "HPatches benchmark of HomLib's point solvers"
+
+    def load_results(self, path):
+        """The files saved before the settings were the results alone: their settings are None.
+        The files saved before --protocol used the original protocol.  A null share of the true
+        inliers found is NaN, and a null corner error is infinite (older files have NaN and
+        Infinity instead)."""
+        with open(path) as f:
+            data = json.load(f)
+        run = data.get("run") if "settings" in data else None
+        settings, results = ((None, data) if "settings" not in data
+                             else ({"protocol": "original", **data["settings"]}, data["results"]))
+        for per_pair in results.values():
+            for runs in per_pair.values():
+                for r in runs:
+                    r[0] = np.nan if r[0] is None else r[0]
+                    r[1] = np.inf if r[1] is None else r[1]
+        return HPatchesResults(per_solver=results, settings=settings, run=run)
+
+    def compare(self, path_a, path_b):
+        """The differences between two runs, b - a, for the pairs and solvers of both: share of
+        the true inliers found and AUC@5, averaged over the seeds of each pair, with their
+        standard errors over the pairs; and the ratio of the median times."""
+        a, b = self.compare_preamble(path_a, path_b)
+        overall = all(s is not None and s["protocol"] == "gluefactory" for s in (a.settings, b.settings))
+        ra, rb = a.data, b.data
+        print(f"{'Solver':<46s} {'Sequences':<13s} {'Inliers found':>18s} {'AUC@5':>18s} {'Time':>7s}")
+        for name in sorted(set(ra) & set(rb)):
+            for k in ("illumination", "viewpoint") + (("all",) if overall else ()):
+                keys = [key for key in ra[name] if key in rb[name] and k in ("all", self.kind(key))]
+                if not keys:
+                    continue
+                d_recall = (self._per_pair(rb, name, keys, 0) - self._per_pair(ra, name, keys, 0)) * 100
+                d_recall = d_recall[np.isfinite(d_recall)]
+                d_auc = (self._per_pair(rb, name, keys, 1) - self._per_pair(ra, name, keys, 1)) * 100
+                ratio = np.median(self._per_pair(rb, name, keys, 2)) / np.median(self._per_pair(ra, name, keys, 2))
+                mean_recall = d_recall.mean() if len(d_recall) else np.nan
+                print(f"{name:<46s} {k:<13s} {mean_recall:+8.2f} ±{standard_error(d_recall):5.2f} pts"
+                      f" {d_auc.mean():+8.2f} ±{standard_error(d_auc):5.2f} pts {ratio:6.2f}x")
+
+    def print_results(self, results, overall=False):
+        """The table of the results, for the illumination and the viewpoint pairs, and with overall,
+        for all the pairs (as glue-factory's evaluation)."""
+        keys = next(iter(results.data.values()), {})
+        print(f"\n{sum(self.kind(k) == 'viewpoint' for k in keys)} viewpoint and "
+              f"{sum(self.kind(k) == 'illumination' for k in keys)} illumination pairs")
+        print(f"{'Solver':<46s} {'Sequences':<13s} {'Inliers found':>13s}  AUC@1  AUC@3  AUC@5 AUC@10  "
+              f"{'Time (ms)':>9s}")
+        for name, per_pair in sorted(results.data.items()):
+            for k in ("illumination", "viewpoint") + (("all",) if overall else ()):
+                runs = [r for key, rs in per_pair.items() if k in ("all", self.kind(key)) for r in rs]
+                if not runs:
+                    continue
+                recall, err, t = (np.array(v, dtype=float) for v in zip(*runs))
+                recall = recall[np.isfinite(recall)]
+                aucs = [np.mean(np.maximum(0, 1 - err / th)) * 100 for th in (1, 3, 5, 10)]
+                recall = f"{np.mean(recall) * 100:12.2f}%" if len(recall) else f"{'n/a':>13s}"
+                print(f"{name:<46s} {k:<13s} {recall}"
+                      + "".join(f" {a:6.2f}" for a in aucs) + f"  {np.median(t) * 1e3:9.2f}")
+
+    @staticmethod
+    def kind(key):
+        return "viewpoint" if key.startswith("v_") else "illumination"
+
+    @staticmethod
+    def _per_pair(results, name, keys, i):
+        """For each pair, the mean over the seeds of: the share of the true inliers found (i = 0),
+        the AUC@5 of the corner error (i = 1), or the time (i = 2)."""
+        value = [lambda run: run[0], lambda run: max(0.0, 1 - run[1] / 5), lambda run: run[2]][i]
+        return np.array([np.mean([value(run) for run in results[name][key]]) for key in keys])
+
+
+benchmark = HPatchesBenchmark()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="HPatches benchmark of HomLib's point solvers")
+    parser = argparse.ArgumentParser(description=benchmark.description)
     parser.add_argument("matches", nargs="?", help="The matches file (hpatches_features.py)")
     parser.add_argument("--threshold", type=float, default=3.0,
                         help="Inlier threshold in pixels (of the resized images with --protocol gluefactory)")
@@ -181,7 +260,7 @@ def main():
                         help="Print the differences B - A between two saved runs, and exit")
     args = parser.parse_args()
     if args.compare:
-        _benchmark.compare(*args.compare)
+        benchmark.compare(*args.compare)
         return
 
     if not args.matches:
@@ -197,8 +276,7 @@ def main():
 
     solvers = homlib.solver_ids(names=args.solvers) if args.solvers else point_solvers
     nm_solver_obj = homlib.Solver(args.non_minimal_solver) if args.non_minimal_solver else None
-    # results[solver][pair] = per seed: (share of the true inliers found, corner error, time)
-    results = {s.name: {} for s in solvers}
+    per_solver = {s.name: {} for s in solvers}
     for key, pair in tqdm(pairs.items(), desc="Pairs"):
         gt = set(true_inliers(pair, args.threshold).tolist())
         if not gt and args.protocol == "original":
@@ -214,11 +292,13 @@ def main():
                 pose, stats = estimator.estimate(x, y)
                 elapsed = time.perf_counter() - t0
                 found = set(inlier_indices(stats))
-                # glue-factory counts a failed estimate (no inlier) as an infinite error
                 failed = not found and args.protocol == "gluefactory"
-                runs.append((len(gt & found) / len(gt) if gt else np.nan,
-                             np.inf if failed else corner_error(pose, pair), elapsed))
-            results[s.name][key] = runs
+                runs.append(HPatchesRun(
+                    len(gt & found) / len(gt) if gt else np.nan,
+                    np.inf if failed else corner_error(pose, pair["width"], pair["height"], pair["H"]),
+                    elapsed))
+            per_solver[s.name][key] = runs
+    results = HPatchesResults(per_solver=per_solver)
     if args.output:
         settings = dict(matches=Path(args.matches).name, threshold=args.threshold, backend=args.backend,
                         seeds=args.seeds, iterations=args.iterations, protocol=args.protocol,
@@ -227,87 +307,9 @@ def main():
         # Strict JSON: null for the share of the true inliers found of a pair with none (NaN), and
         # for the corner error of a failure (infinite); load_results maps them back
         strict = {name: {key: [[v if np.isfinite(v) else None for v in run] for run in runs]
-                         for key, runs in per_pair.items()} for name, per_pair in results.items()}
-        _benchmark.save_results(args.output, settings, strict, allow_nan=False)
-    print_results(results, overall=args.protocol == "gluefactory")
-
-
-class HPatchesBenchmark(Benchmark):
-    description = "HPatches benchmark of HomLib's point solvers"
-
-    def load_results(self, path):
-        """The files saved before the settings were the results alone: their settings are None.
-        The files saved before --protocol used the original protocol.  A null share of the true
-        inliers found is NaN, and a null corner error is infinite (older files have NaN and
-        Infinity instead)."""
-        with open(path) as f:
-            data = json.load(f)
-        run = data.get("run") if "settings" in data else None
-        settings, results = ((None, data) if "settings" not in data
-                             else ({"protocol": "original", **data["settings"]}, data["results"]))
-        for per_pair in results.values():
-            for runs in per_pair.values():
-                for r in runs:
-                    r[0] = np.nan if r[0] is None else r[0]
-                    r[1] = np.inf if r[1] is None else r[1]
-        return run, settings, results
-
-    def compare(self, path_a, path_b):
-        """The differences between two runs, b - a, for the pairs and solvers of both: share of
-        the true inliers found and AUC@5, averaged over the seeds of each pair, with their
-        standard errors over the pairs; and the ratio of the median times."""
-        (settings_a, a), (settings_b, b) = self.compare_preamble(path_a, path_b)
-        overall = all(s is not None and s["protocol"] == "gluefactory" for s in (settings_a, settings_b))
-        print(f"{'Solver':<46s} {'Sequences':<13s} {'Inliers found':>18s} {'AUC@5':>18s} {'Time':>7s}")
-        for name in sorted(set(a) & set(b)):
-            for k in ("illumination", "viewpoint") + (("all",) if overall else ()):
-                keys = [key for key in a[name] if key in b[name] and k in ("all", kind(key))]
-                if not keys:
-                    continue
-                d_recall = (per_pair(b, name, keys, 0) - per_pair(a, name, keys, 0)) * 100
-                d_recall = d_recall[np.isfinite(d_recall)]
-                d_auc = (per_pair(b, name, keys, 1) - per_pair(a, name, keys, 1)) * 100
-                ratio = np.median(per_pair(b, name, keys, 2)) / np.median(per_pair(a, name, keys, 2))
-                mean_recall = d_recall.mean() if len(d_recall) else np.nan
-                print(f"{name:<46s} {k:<13s} {mean_recall:+8.2f} ±{standard_error(d_recall):5.2f} pts"
-                      f" {d_auc.mean():+8.2f} ±{standard_error(d_auc):5.2f} pts {ratio:6.2f}x")
-
-
-_benchmark = HPatchesBenchmark()
-
-
-def kind(key):
-    return "viewpoint" if key.startswith("v_") else "illumination"
-
-
-def print_results(results, overall=False):
-    """The table of the results, for the illumination and the viewpoint pairs, and with overall, for
-    all the pairs (as glue-factory's evaluation)."""
-    keys = next(iter(results.values()), {})
-    print(f"\n{sum(kind(k) == 'viewpoint' for k in keys)} viewpoint and "
-          f"{sum(kind(k) == 'illumination' for k in keys)} illumination pairs")
-    print(f"{'Solver':<46s} {'Sequences':<13s} {'Inliers found':>13s}  AUC@1  AUC@3  AUC@5 AUC@10  "
-          f"{'Time (ms)':>9s}")
-    for name, per_pair in sorted(results.items()):
-        for k in ("illumination", "viewpoint") + (("all",) if overall else ()):
-            runs = [r for key, rs in per_pair.items() if k in ("all", kind(key)) for r in rs]
-            if not runs:
-                continue
-            recall, err, t = (np.array(v, dtype=float) for v in zip(*runs))
-            # The pairs with no true inlier (--protocol gluefactory) have no share of them found
-            recall = recall[np.isfinite(recall)]
-            # AUC of the cumulative error curve up to each threshold
-            aucs = [np.mean(np.maximum(0, 1 - err / th)) * 100 for th in (1, 3, 5, 10)]
-            recall = f"{np.mean(recall) * 100:12.2f}%" if len(recall) else f"{'n/a':>13s}"
-            print(f"{name:<46s} {k:<13s} {recall}"
-                  + "".join(f" {a:6.2f}" for a in aucs) + f"  {np.median(t) * 1e3:9.2f}")
-
-
-def per_pair(results, name, keys, i):
-    """For each pair, the mean over the seeds of: the share of the true inliers found (i = 0), the
-    AUC@5 of the corner error (i = 1), or the time (i = 2)"""
-    value = [lambda run: run[0], lambda run: max(0.0, 1 - run[1] / 5), lambda run: run[2]][i]
-    return np.array([np.mean([value(run) for run in results[name][key]]) for key in keys])
+                         for key, runs in per_pair.items()} for name, per_pair in results.data.items()}
+        benchmark.save_results(args.output, HPatchesResults(per_solver=strict, settings=settings), allow_nan=False)
+    benchmark.print_results(results, overall=args.protocol == "gluefactory")
 
 
 if __name__ == "__main__":
