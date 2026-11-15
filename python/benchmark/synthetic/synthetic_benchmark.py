@@ -51,7 +51,7 @@ import homlib
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import (  # noqa: E402
-    BACKENDS, inlier_indices, make_estimator, print_runs, run_info, warn_settings)
+    BACKENDS, Benchmark, inlier_indices, make_estimator)
 
 FOCAL = 1000.0   # pixels: the noise is given in pixels for this focal length
 
@@ -115,7 +115,7 @@ def main():
                         help="Print the differences B - A between two saved runs, and exit")
     args = parser.parse_args()
     if args.compare:
-        compare(*args.compare)
+        _benchmark.compare(*args.compare)
         return
 
     if args.outliers is None and (args.iterations is not None or args.backend is not None):
@@ -131,8 +131,7 @@ def main():
         if args.output:
             settings = dict(problems=args.problems or 200, noise=None, iterations=args.iterations, seed=args.seed,
                             outliers=args.outliers, backend=backend)
-            with open(args.output, "w") as f:
-                json.dump(dict(run=run_info(), settings=settings, outliers=results), f)
+            _benchmark.save_results(args.output, settings, results, key="outliers")
         print_outliers(results)
         return
 
@@ -159,20 +158,50 @@ def main():
                 results[name][case.name][str(noise)] = runs
     if args.output:
         settings = dict(problems=problems, noise=noises, iterations=None, outliers=None, seed=args.seed)
-        with open(args.output, "w") as f:
-            json.dump(dict(run=run_info(), settings=settings, results=results), f)
+        _benchmark.save_results(args.output, settings, results)
     print_results(results)
 
 
-def load_results(path):
-    """(run, settings, results) of a file saved with --output, results being {"outliers": results}
-    with --outliers. The files saved before the settings have none: their settings are None; and
-    run (the command and the environment) is None in the files saved before it."""
-    with open(path) as f:
-        data = json.load(f)
-    run = data.pop("run", None)
-    settings = data.pop("settings", None)
-    return run, settings, data.get("results", data)
+class SyntheticBenchmark(Benchmark):
+    description = "Synthetic benchmark of HomLib's point solvers"
+
+    def load_results(self, path):
+        """Results being ``{"outliers": results}`` with ``--outliers``.  The files saved before
+        the settings have none: their settings are ``None``; and run is ``None`` in the files
+        saved before it."""
+        with open(path) as f:
+            data = json.load(f)
+        run = data.pop("run", None)
+        settings = data.pop("settings", None)
+        return run, settings, data.get("results", data)
+
+    def compare(self, path_a, path_b):
+        """The differences between two runs, b - a: the rates of no solution and (without noise)
+        of missed true solutions, in percentage points with their standard errors, and the ratios
+        of the median errors (with noise) and times."""
+        (settings_a, a), (settings_b, b) = self.compare_preamble(path_a, path_b)
+        if ("outliers" in a) != ("outliers" in b):
+            raise SystemExit("can't compare a run with --outliers and a run without it")
+        if "outliers" in a:
+            _compare_outliers(a["outliers"], b["outliers"])
+            return
+        print(f"{'Solver':<34s} {'Case':<16s} {'Noise':>5s} {'No solution':>13s} {'Missed':>13s} "
+              f"{'Error':>6s} {'Time':>6s}")
+        for name in sorted(set(a) & set(b)):
+            for case, per_noise in a[name].items():
+                for noise, runs in per_noise.items():
+                    if noise not in b[name].get(case, {}):
+                        continue
+                    ra, rb = summary(runs), summary(b[name][case][noise])
+                    none = difference(ra["none"], rb["none"], ra["n"], rb["n"])
+                    missed = difference(ra["missed"], rb["missed"], ra["n"], rb["n"]) if float(noise) == 0 else ""
+                    finite = float(noise) > 0 and np.isfinite(ra["median_error"]) and np.isfinite(rb["median_error"])
+                    error = f"{rb['median_error'] / ra['median_error']:5.2f}x" if finite else "  n/a"
+                    print(f"{name:<34s} {case:<16s} {float(noise):5.1f} {none:>13s} {missed:>13s} {error:>6s} "
+                          f"{rb['time'] / ra['time']:5.2f}x")
+
+
+_benchmark = SyntheticBenchmark()
 
 
 def problem_seed(*key):
@@ -250,37 +279,7 @@ def difference(pa, pb, na, nb):
     return f"{(pb - pa) * 100:+6.2f} ±{se * 100:4.2f}"
 
 
-def compare(path_a, path_b):
-    """The differences between two runs, b - a: the rates of no solution and (without noise) of
-    missed true solutions, in percentage points with their standard errors, and the ratios of the
-    median errors (with noise) and times, which have no standard error."""
-    run_a, settings_a, a = load_results(path_a)
-    run_b, settings_b, b = load_results(path_b)
-    print_runs(run_a, run_b)
-    if ("outliers" in a) != ("outliers" in b):
-        raise SystemExit("can't compare a run with --outliers and a run without it")
-    warn_settings(settings_a, settings_b)
-    if "outliers" in a:
-        compare_outliers(a["outliers"], b["outliers"])
-        return
-    print(f"{'Solver':<34s} {'Case':<16s} {'Noise':>5s} {'No solution':>13s} {'Missed':>13s} "
-          f"{'Error':>6s} {'Time':>6s}")
-    for name in sorted(set(a) & set(b)):
-        for case, per_noise in a[name].items():
-            for noise, runs in per_noise.items():
-                if noise not in b[name].get(case, {}):
-                    continue
-                ra, rb = summary(runs), summary(b[name][case][noise])
-                none = difference(ra["none"], rb["none"], ra["n"], rb["n"])
-                missed = difference(ra["missed"], rb["missed"], ra["n"], rb["n"]) if float(noise) == 0 else ""
-                # Without noise, the median errors are close to the machine precision: no ratio
-                finite = float(noise) > 0 and np.isfinite(ra["median_error"]) and np.isfinite(rb["median_error"])
-                error = f"{rb['median_error'] / ra['median_error']:5.2f}x" if finite else "  n/a"
-                print(f"{name:<34s} {case:<16s} {float(noise):5.1f} {none:>13s} {missed:>13s} {error:>6s} "
-                      f"{rb['time'] / ra['time']:5.2f}x")
-
-
-def compare_outliers(a, b):
+def _compare_outliers(a, b):
     """b - a: the share of the true inliers found, in percentage points with its standard error, and
     the ratio of the median times"""
     print(f"{'Solver':<34s} {'Case':<16s} {'Outliers':>8s} {'Inliers found':>20s} {'Time':>7s}")

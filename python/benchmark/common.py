@@ -1,8 +1,9 @@
 """What the benchmarks share: the robust estimators, the description of a run (its command and its
 environment), the check of the settings of two runs, the mapping of points with an estimated
-model, the ABCs for feature matchers, and the match result types."""
+model, the Benchmark base class, the ABCs for feature matchers, and the match result types."""
 
 import datetime
+import json
 import os
 import platform
 import shlex
@@ -171,6 +172,66 @@ class FeatureUpgrader(ABC):
     @abstractmethod
     def upgrade(self, result, **kwargs):
         ...
+
+
+# ---------------------------------------------------------------------------
+# Benchmark base class
+# ---------------------------------------------------------------------------
+
+class Benchmark(ABC):
+    """Base for benchmark scripts: save/load results, compare runs.
+
+    Each benchmark subclass owns its argument parsing and run loop.  The base
+    class provides the infrastructure that every benchmark repeats: serialising
+    results to JSON with run metadata, loading them back, and the preamble of
+    every ``--compare`` command (load both files, print the commands and warn
+    about differing settings).
+
+    Subclasses must set ``description`` (used by argparse) and implement
+    ``compare``; they may override ``load_results`` for format fixups (e.g.
+    strict-JSON ``None`` back to ``NaN``)."""
+
+    @property
+    @abstractmethod
+    def description(self):
+        """One-line description for ``argparse.ArgumentParser``."""
+
+    @abstractmethod
+    def compare(self, path_a, path_b):
+        """Compare two saved runs and print the differences."""
+
+    def save_results(self, path, settings, results, *, key="results", **json_kwargs):
+        """Save ``run_info()``, *settings* and *results* to a JSON file."""
+        with open(path, "w") as f:
+            json.dump({"run": run_info(), "settings": settings, key: results}, f, **json_kwargs)
+
+    def load_results(self, path):
+        """Load a saved results file.  Returns ``(run, settings, results)``.
+
+        Override for format fixups (e.g. ``None`` → ``NaN`` for files written
+        with ``allow_nan=False``)."""
+        with open(path) as f:
+            data = json.load(f)
+        return data.get("run"), data.get("settings"), data.get("results", data)
+
+    def compare_preamble(self, path_a, path_b):
+        """Load two saved files, print run info and settings differences.
+
+        Returns ``((settings_a, results_a), (settings_b, results_b))``."""
+        run_a, settings_a, a = self.load_results(path_a)
+        run_b, settings_b, b = self.load_results(path_b)
+        print_runs(run_a, run_b)
+        warn_settings(settings_a, settings_b)
+        return (settings_a, a), (settings_b, b)
+
+
+# ---------------------------------------------------------------------------
+# Statistics
+# ---------------------------------------------------------------------------
+
+def standard_error(d):
+    """The standard error of the mean of *d*: ``nan`` with fewer than 2 values."""
+    return d.std(ddof=1) / np.sqrt(len(d)) if len(d) > 1 else np.nan
 
 
 # The robust estimators: their names in HomLib, and the names of their inlier threshold and of their

@@ -72,7 +72,7 @@ from hpatches_data import HPATCHES_DIRNAME, add_image_sizes, load_matches
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import (  # noqa: E402
-    BACKENDS, inlier_indices, make_estimator, map_points, print_runs, run_info, warn_settings)
+    BACKENDS, Benchmark, inlier_indices, make_estimator, map_points, standard_error)
 
 # glue-factory's HPatches evaluation: the shorter side of the resized images, and the sequences of
 # large images that it leaves out (HPatches.ignored_scenes in gluefactory/datasets/hpatches.py)
@@ -181,7 +181,7 @@ def main():
                         help="Print the differences B - A between two saved runs, and exit")
     args = parser.parse_args()
     if args.compare:
-        compare(*args.compare)
+        _benchmark.compare(*args.compare)
         return
 
     if not args.matches:
@@ -224,32 +224,56 @@ def main():
                         seeds=args.seeds, iterations=args.iterations, protocol=args.protocol,
                         non_minimal_strategy=args.non_minimal_strategy,
                         non_minimal_solver=args.non_minimal_solver)
-        with open(args.output, "w") as f:
-            # Strict JSON: null for the share of the true inliers found of a pair with none (NaN), and
-            # for the corner error of a failure (infinite); load_results maps them back
-            strict = {name: {key: [[v if np.isfinite(v) else None for v in run] for run in runs]
-                             for key, runs in per_pair.items()} for name, per_pair in results.items()}
-            json.dump(dict(run=run_info(), settings=settings, results=strict), f, allow_nan=False)
+        # Strict JSON: null for the share of the true inliers found of a pair with none (NaN), and
+        # for the corner error of a failure (infinite); load_results maps them back
+        strict = {name: {key: [[v if np.isfinite(v) else None for v in run] for run in runs]
+                         for key, runs in per_pair.items()} for name, per_pair in results.items()}
+        _benchmark.save_results(args.output, settings, strict, allow_nan=False)
     print_results(results, overall=args.protocol == "gluefactory")
 
 
-def load_results(path):
-    """(run, settings, results) of a file saved with --output (run: its command and environment,
-    None in older files). The files saved before the settings were
-    the results alone: their settings are None. The files saved before --protocol used the original
-    protocol. A null share of the true inliers found is NaN, and a null corner error is infinite
-    (older files have NaN and Infinity instead)."""
-    with open(path) as f:
-        data = json.load(f)
-    description = data.get("run") if "settings" in data else None
-    settings, results = ((None, data) if "settings" not in data
-                         else ({"protocol": "original", **data["settings"]}, data["results"]))
-    for per_pair in results.values():
-        for runs in per_pair.values():
-            for run in runs:
-                run[0] = np.nan if run[0] is None else run[0]
-                run[1] = np.inf if run[1] is None else run[1]
-    return description, settings, results
+class HPatchesBenchmark(Benchmark):
+    description = "HPatches benchmark of HomLib's point solvers"
+
+    def load_results(self, path):
+        """The files saved before the settings were the results alone: their settings are None.
+        The files saved before --protocol used the original protocol.  A null share of the true
+        inliers found is NaN, and a null corner error is infinite (older files have NaN and
+        Infinity instead)."""
+        with open(path) as f:
+            data = json.load(f)
+        run = data.get("run") if "settings" in data else None
+        settings, results = ((None, data) if "settings" not in data
+                             else ({"protocol": "original", **data["settings"]}, data["results"]))
+        for per_pair in results.values():
+            for runs in per_pair.values():
+                for r in runs:
+                    r[0] = np.nan if r[0] is None else r[0]
+                    r[1] = np.inf if r[1] is None else r[1]
+        return run, settings, results
+
+    def compare(self, path_a, path_b):
+        """The differences between two runs, b - a, for the pairs and solvers of both: share of
+        the true inliers found and AUC@5, averaged over the seeds of each pair, with their
+        standard errors over the pairs; and the ratio of the median times."""
+        (settings_a, a), (settings_b, b) = self.compare_preamble(path_a, path_b)
+        overall = all(s is not None and s["protocol"] == "gluefactory" for s in (settings_a, settings_b))
+        print(f"{'Solver':<46s} {'Sequences':<13s} {'Inliers found':>18s} {'AUC@5':>18s} {'Time':>7s}")
+        for name in sorted(set(a) & set(b)):
+            for k in ("illumination", "viewpoint") + (("all",) if overall else ()):
+                keys = [key for key in a[name] if key in b[name] and k in ("all", kind(key))]
+                if not keys:
+                    continue
+                d_recall = (per_pair(b, name, keys, 0) - per_pair(a, name, keys, 0)) * 100
+                d_recall = d_recall[np.isfinite(d_recall)]
+                d_auc = (per_pair(b, name, keys, 1) - per_pair(a, name, keys, 1)) * 100
+                ratio = np.median(per_pair(b, name, keys, 2)) / np.median(per_pair(a, name, keys, 2))
+                mean_recall = d_recall.mean() if len(d_recall) else np.nan
+                print(f"{name:<46s} {k:<13s} {mean_recall:+8.2f} ±{standard_error(d_recall):5.2f} pts"
+                      f" {d_auc.mean():+8.2f} ±{standard_error(d_auc):5.2f} pts {ratio:6.2f}x")
+
+
+_benchmark = HPatchesBenchmark()
 
 
 def kind(key):
@@ -279,42 +303,11 @@ def print_results(results, overall=False):
                   + "".join(f" {a:6.2f}" for a in aucs) + f"  {np.median(t) * 1e3:9.2f}")
 
 
-def compare(path_a, path_b):
-    """The differences between two runs, b - a, for the pairs and solvers of both: share of the
-    true inliers found and AUC@5, averaged over the seeds of each pair, with their standard errors
-    over the pairs (the share of the true inliers found, over the pairs with true inliers in both);
-    and the ratio of the median times, which has no standard error."""
-    run_a, settings_a, a = load_results(path_a)
-    run_b, settings_b, b = load_results(path_b)
-    print_runs(run_a, run_b)
-    warn_settings(settings_a, settings_b)
-    # With two runs of glue-factory's protocol, also all the pairs together, as its AUCs
-    overall = all(s is not None and s["protocol"] == "gluefactory" for s in (settings_a, settings_b))
-    print(f"{'Solver':<46s} {'Sequences':<13s} {'Inliers found':>18s} {'AUC@5':>18s} {'Time':>7s}")
-    for name in sorted(set(a) & set(b)):
-        for k in ("illumination", "viewpoint") + (("all",) if overall else ()):
-            keys = [key for key in a[name] if key in b[name] and k in ("all", kind(key))]
-            if not keys:
-                continue
-            d_recall = (per_pair(b, name, keys, 0) - per_pair(a, name, keys, 0)) * 100
-            d_recall = d_recall[np.isfinite(d_recall)]   # without the pairs with no true inlier
-            d_auc = (per_pair(b, name, keys, 1) - per_pair(a, name, keys, 1)) * 100
-            ratio = np.median(per_pair(b, name, keys, 2)) / np.median(per_pair(a, name, keys, 2))
-            mean_recall = d_recall.mean() if len(d_recall) else np.nan
-            print(f"{name:<46s} {k:<13s} {mean_recall:+8.2f} ±{standard_error(d_recall):5.2f} pts"
-                  f" {d_auc.mean():+8.2f} ±{standard_error(d_auc):5.2f} pts {ratio:6.2f}x")
-
-
 def per_pair(results, name, keys, i):
     """For each pair, the mean over the seeds of: the share of the true inliers found (i = 0), the
     AUC@5 of the corner error (i = 1), or the time (i = 2)"""
     value = [lambda run: run[0], lambda run: max(0.0, 1 - run[1] / 5), lambda run: run[2]][i]
     return np.array([np.mean([value(run) for run in results[name][key]]) for key in keys])
-
-
-def standard_error(d):
-    """The standard error of the mean of d: nan with fewer than 2 values"""
-    return d.std(ddof=1) / np.sqrt(len(d)) if len(d) > 1 else np.nan
 
 
 if __name__ == "__main__":

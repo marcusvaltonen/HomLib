@@ -41,7 +41,6 @@ Usage
 """
 
 import argparse
-import json
 import sys
 import time
 from pathlib import Path
@@ -54,7 +53,7 @@ from grossmunster_data import LOMSAC_SETTINGS, MIN_ITERATIONS, PAIRS, THRESHOLD,
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import (  # noqa: E402
-    BACKENDS, inlier_indices, make_estimator, print_runs, run_info, warn_settings)
+    BACKENDS, Benchmark, inlier_indices, make_estimator, standard_error)
 
 # Table 3 of the paper: the solvers, and their mean error and mean time (ms)
 TABLE3 = [("KukelovaCVPR2015TwoSided", "Kukelova et al. (5pt)", 0.039, 2657),
@@ -103,7 +102,7 @@ def main():
                         help="Print the differences B - A between two saved runs, and exit")
     args = parser.parse_args()
     if args.compare:
-        compare(*args.compare)
+        _benchmark.compare(*args.compare)
         return
     if not args.matches:
         parser.error("the matches file is required")
@@ -137,8 +136,7 @@ def main():
     if args.output:
         settings = dict(matches=Path(args.matches).name, threshold=args.threshold, backend=args.backend,
                         min_iterations=args.min_iterations, seeds=args.seeds, pairs=keys, **extra)
-        with open(args.output, "w") as f:
-            json.dump(dict(run=run_info(), settings=settings, results=results), f)
+        _benchmark.save_results(args.output, settings, results)
     print_results(results, keys, pairs, args.per_pair)
 
 
@@ -160,30 +158,25 @@ def print_results(results, keys, pairs, per_pair):
                                              f"{np.median([r[1] for r in per[k]]):6.3f}" for k in keys))
 
 
-def compare(path_a, path_b):
-    """The differences between two runs, b - a, for the pairs and solvers of both: the errors,
-    averaged over the seeds of each pair, with their standard errors over the pairs; and the ratio
-    of the mean times."""
-    runs = []
-    for path in (path_a, path_b):
-        with open(path) as f:
-            runs.append(json.load(f))
-    (a, b) = (r["results"] for r in runs)
-    print_runs(runs[0].get("run"), runs[1].get("run"))
-    warn_settings(runs[0].get("settings"), runs[1].get("settings"))
-    print(f"{'Solver':<36s} {'Error':>17s} {'Error (cal.)':>19s} {'Time':>7s}")
-    for name in sorted(set(a) & set(b)):
-        keys = [k for k in a[name] if k in b[name]]
-        mean = lambda res, i: np.array([np.mean([run[i] for run in res[name][k]]) for k in keys])  # noqa: E731
-        d, d_cal = mean(b, 0) - mean(a, 0), mean(b, 1) - mean(a, 1)
-        ratio = mean(b, 3).mean() / mean(a, 3).mean()
-        print(f"{name:<36s} {d.mean():+8.4f} ±{standard_error(d):6.4f} {d_cal.mean():+10.4f} "
-              f"±{standard_error(d_cal):6.4f} {ratio:6.2f}x")
+class GrossmunsterBenchmark(Benchmark):
+    description = "Grossmünster Church benchmark of HomLib's two-sided solvers"
+
+    def compare(self, path_a, path_b):
+        """The differences between two runs, b - a, for the pairs and solvers of both: the errors,
+        averaged over the seeds of each pair, with their standard errors over the pairs; and the
+        ratio of the mean times."""
+        (_, a), (_, b) = self.compare_preamble(path_a, path_b)
+        print(f"{'Solver':<36s} {'Error':>17s} {'Error (cal.)':>19s} {'Time':>7s}")
+        for name in sorted(set(a) & set(b)):
+            keys = [k for k in a[name] if k in b[name]]
+            mean = lambda res, i: np.array([np.mean([run[i] for run in res[name][k]]) for k in keys])  # noqa: E731
+            d, d_cal = mean(b, 0) - mean(a, 0), mean(b, 1) - mean(a, 1)
+            ratio = mean(b, 3).mean() / mean(a, 3).mean()
+            print(f"{name:<36s} {d.mean():+8.4f} ±{standard_error(d):6.4f} {d_cal.mean():+10.4f} "
+                  f"±{standard_error(d_cal):6.4f} {ratio:6.2f}x")
 
 
-def standard_error(d):
-    """The standard error of the mean of d: nan with fewer than 2 values"""
-    return d.std(ddof=1) / np.sqrt(len(d)) if len(d) > 1 else np.nan
+_benchmark = GrossmunsterBenchmark()
 
 
 if __name__ == "__main__":

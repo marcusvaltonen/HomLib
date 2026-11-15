@@ -90,7 +90,7 @@ import homlib
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import (  # noqa: E402
-    BACKENDS, inlier_indices, make_estimator, map_points, print_runs, run_info, warn_settings)
+    BACKENDS, Benchmark, inlier_indices, make_estimator, map_points)
 
 # The scenes of each split and the scale of their reconstruction (to metres), as the benchmark's
 # dataset_configuration.yaml
@@ -248,8 +248,7 @@ def tune(args):
         settings[name] = dict(threshold=float(best[1]), snn=float(best[2]), train_mAA=float(best[0]))
         print(f"{name:<36s} threshold {best[1]:>4} px, SNN {best[2]:.2f}: mAA (10 deg, 5 m) {best[0]:.2f}"
               + (f" ({ties} other settings as good)" if ties else ""))
-    with open(args.output, "w") as f:
-        json.dump(dict(run=run_info(), settings=vars_settings(args, "train"), solvers=settings), f, indent=1)
+    _benchmark.save_results(args.output, vars_settings(args, "train"), settings, key="solvers", indent=1)
 
 
 def vars_settings(args, split):
@@ -272,8 +271,7 @@ def test(args):
     results = run(make_jobs(args, "test", configs), configs, args.jobs)
     if args.output:
         settings = dict(vars_settings(args, "test"), settings_file=args.settings)
-        with open(args.output, "w") as f:
-            json.dump(dict(run=run_info(), settings=settings, results=results), f)
+        _benchmark.save_results(args.output, settings, results)
     print_results(results, args.per_scene)
 
 
@@ -291,45 +289,45 @@ def print_results(results, per_scene=False):
                 print("    " + ", ".join(f"{s} {v:.1f}" for s, v in sorted(mains.items())))
 
 
-def compare(path_a, path_b):
-    """For the configurations of both runs (same solver, settings and iterations): the differences
-    B - A of the main and transfer mAAs, per scene then averaged over the scenes as the mAAs,
-    with their standard errors (from the per-homography differences), and the ratio of the mean
-    times"""
-    with open(path_a) as f:
-        a = json.load(f)
-    with open(path_b) as f:
-        b = json.load(f)
-    print_runs(a.get("run"), b.get("run"))
-    warn_settings(a.get("settings"), b.get("settings"))
-    ra, rb = a["results"], b["results"]
-    other = sorted({k.split("|")[0] for k in ra} & {k.split("|")[0] for k in rb}
-                   - {k.split("|")[0] for k in set(ra) & set(rb)})
-    if other:
-        print("Warning: no configuration (threshold, SNN, iterations) in common in the two runs, not compared: "
-              + ", ".join(other))
-    print(f"{'Solver':<36s} {'Iter.':>6s} {'mAA (10°, 5 m)':>18s} {'Transfer':>18s} {'Time':>6s}")
-    for key in sorted(set(ra) & set(rb), key=lambda k: (k.split("|")[0], int(k.split("|")[3]))):
-        means, variances, ta, tb = [], [], [], []
-        scenes = sorted(set(ra[key]) & set(rb[key]))
-        for scene in scenes:
-            d, sa, sb = [], [], []
-            for pair in sorted(set(ra[key][scene]) & set(rb[key][scene])):
-                (acc_a, t_a), (acc_b, t_b) = scores(ra[key][scene][pair]), scores(rb[key][scene][pair])
-                d.append(acc_b.mean(1) - acc_a.mean(1))
-                sa += list(t_a)
-                sb += list(t_b)
-            if not d:   # no homography of this scene in both runs
-                continue
-            ta.append(np.nanmean(sa))   # the mean times per scene, averaged over the scenes as in summarize
-            tb.append(np.nanmean(sb))
-            d = 100 * np.array(d)
-            means.append(d.mean(0))
-            variances.append(d.var(0, ddof=1) / len(d) if len(d) > 1 else np.zeros(4))
-        mean, se = np.mean(means, 0), np.sqrt(np.sum(variances, 0)) / len(means)
-        name, n = key.split("|")[0], key.split("|")[3]
-        print(f"{name:<36s} {n:>6s} {mean[0]:+8.2f} ±{se[0]:5.2f} pts {mean[3]:+8.2f} ±{se[3]:5.2f} pts "
-              f"{np.nanmean(tb) / np.nanmean(ta):5.2f}x")
+class HEBBenchmark(Benchmark):
+    description = "HEB benchmark of HomLib's point solvers"
+
+    def compare(self, path_a, path_b):
+        """For the configurations of both runs (same solver, settings and iterations): the
+        differences B - A of the main and transfer mAAs, per scene then averaged over the scenes
+        as the mAAs, with their standard errors (from the per-homography differences), and the
+        ratio of the mean times."""
+        (_, ra), (_, rb) = self.compare_preamble(path_a, path_b)
+        other = sorted({k.split("|")[0] for k in ra} & {k.split("|")[0] for k in rb}
+                       - {k.split("|")[0] for k in set(ra) & set(rb)})
+        if other:
+            print("Warning: no configuration (threshold, SNN, iterations) in common in the two runs, "
+                  "not compared: " + ", ".join(other))
+        print(f"{'Solver':<36s} {'Iter.':>6s} {'mAA (10°, 5 m)':>18s} {'Transfer':>18s} {'Time':>6s}")
+        for key in sorted(set(ra) & set(rb), key=lambda k: (k.split("|")[0], int(k.split("|")[3]))):
+            means, variances, ta, tb = [], [], [], []
+            scenes = sorted(set(ra[key]) & set(rb[key]))
+            for scene in scenes:
+                d, sa, sb = [], [], []
+                for pair in sorted(set(ra[key][scene]) & set(rb[key][scene])):
+                    (acc_a, t_a), (acc_b, t_b) = scores(ra[key][scene][pair]), scores(rb[key][scene][pair])
+                    d.append(acc_b.mean(1) - acc_a.mean(1))
+                    sa += list(t_a)
+                    sb += list(t_b)
+                if not d:
+                    continue
+                ta.append(np.nanmean(sa))
+                tb.append(np.nanmean(sb))
+                d = 100 * np.array(d)
+                means.append(d.mean(0))
+                variances.append(d.var(0, ddof=1) / len(d) if len(d) > 1 else np.zeros(4))
+            mean, se = np.mean(means, 0), np.sqrt(np.sum(variances, 0)) / len(means)
+            name, n = key.split("|")[0], key.split("|")[3]
+            print(f"{name:<36s} {n:>6s} {mean[0]:+8.2f} ±{se[0]:5.2f} pts {mean[3]:+8.2f} ±{se[3]:5.2f} pts "
+                  f"{np.nanmean(tb) / np.nanmean(ta):5.2f}x")
+
+
+_benchmark = HEBBenchmark()
 
 
 def main():
@@ -365,7 +363,7 @@ def main():
     cmp_p.add_argument("files", nargs=2, metavar=("A", "B"), help="Print the differences B - A between two test runs")
     args = parser.parse_args()
     if args.command == "compare":
-        compare(*args.files)
+        _benchmark.compare(*args.files)
         return
     split = "train" if args.command == "tune" else "test"
     if args.scene and args.scene not in SCENES[split]:
