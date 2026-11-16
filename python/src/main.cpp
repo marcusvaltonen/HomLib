@@ -464,7 +464,7 @@ PYBIND11_MODULE(_core, m) {
         .def_readwrite("x1", &HomLib::ProblemInstance::x1, "First set of 2D points.")
         .def_readwrite("x2", &HomLib::ProblemInstance::x2, "Second set of 2D points.")
         .def_readwrite("A", &HomLib::ProblemInstance::A, "Local affine transformations (2x2).")
-        .def_readwrite("ori", &HomLib::ProblemInstance::ori, "Orientation vectors (2D).")
+        .def_readwrite("ori", &HomLib::ProblemInstance::ori, "Keypoint angles in radians (in the first image, in the second).")
         .def("hom_error", &HomLib::ProblemInstance::hom_error,
             R"pbdoc(
                 Homography error between an estimate and the ground truth.
@@ -707,7 +707,8 @@ PYBIND11_MODULE(_core, m) {
             y : numpy.ndarray
                 2xN array of points in the second image.
             ori : numpy.ndarray
-                2xN array of orientation vectors.
+                2xN array of keypoint angles in radians: row 0 in the first
+                image, row 1 in the second.
 
             Returns
             -------
@@ -783,7 +784,8 @@ PYBIND11_MODULE(_core, m) {
             y : numpy.ndarray
                 2xN array of points in the second image.
             ori : numpy.ndarray
-                2xN array of orientation vectors.
+                2xN array of keypoint angles in radians: row 0 in the first
+                image, row 1 in the second.
             options : LORansacOptions
                 LOMSAC options.
 
