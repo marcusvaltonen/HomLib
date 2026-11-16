@@ -27,7 +27,6 @@
 #include <Eigen/Eigenvalues>
 #include "posedata.hpp"
 
-#include "invert_homography.hpp"
 #include "radial.hpp"
 #include "get_valtonenornhag_icpr_2026.hpp"
 
@@ -142,11 +141,13 @@ namespace ValtonenOrnhagICPR2026 {
                     Eigen::Matrix<double, 3, 4> G = Eigen::Map<const Eigen::Matrix<double, 4, 3>>(g.data()).transpose();
                     Eigen::Matrix3d H = G.bottomRightCorner(3, 3);
 
-                    // Package output; a singular H gives no solution
-                    HomLib::PoseData pd;
-                    if (!HomLib::invert_homography(H, &pd.homography)) {
+                    // Package output: H maps the first image to the second, as in the
+                    // overdetermined case below; an infinite k or a singular H gives no solution
+                    if (!std::isfinite(k) || !H.allFinite() || H.determinant() == 0.0) {
                         continue;
                     }
+                    HomLib::PoseData pd;
+                    pd.homography = H;
                     pd.distortion_parameter = k;
                     output.push_back(pd);
                 }
