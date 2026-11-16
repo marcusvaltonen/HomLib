@@ -64,4 +64,6 @@ class OrientationOverdeterminedTestCase(unittest.TestCase):
         solver = homlib.ValtonenOrnhagICPR2026OrientationOneSidedRight()
         sols = solver.estimate(x, y, ori=ori)
         self.assertGreaterEqual(len(sols), 1)
-        self.assertLess(min(abs(s.distortion_parameter - inst.posedata.distortion_parameter) for s in sols), 1e-6)
+        best = min(sols, key=lambda s: abs(s.distortion_parameter - inst.posedata.distortion_parameter))
+        self.assertLess(abs(best.distortion_parameter - inst.posedata.distortion_parameter), 1e-6)
+        self.assertLess(inst.hom_error(best.homography), 1e-6)   # H maps x to y, not y to x
