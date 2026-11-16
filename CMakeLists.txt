@@ -208,6 +208,34 @@ if(HOMLIB_USE_MAGSAC)
     endif()
 endif()
 
+# RansacLib's headers (LO-MSAC, in the tests, examples and Python bindings). NumRequiredIterations
+# (utils.h, twice) converts the required number of iterations to uint32_t before comparing it with
+# max_iterations: above 2^32 the conversion is undefined, and on x86-64 it wraps, so LO-MSAC can
+# stop early (tsattler/RansacLib#24). The fixed copy, in a directory searched before the original
+# one, compares first (unless utils.h no longer has the conversion).
+set(_ransaclib_dir ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/RansacLib)
+set(_ransaclib_fixed_dir ${CMAKE_CURRENT_BINARY_DIR}/ransaclib_fixed)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_ransaclib_dir}/RansacLib/utils.h)
+file(READ ${_ransaclib_dir}/RansacLib/utils.h _ransaclib_utils)
+# A regular expression rather than the exact text, to also match CRLF line endings
+string(REGEX REPLACE
+    "uint32_t num_req_iterations =[ \t\r\n]+std::min\\(static_cast<uint32_t>\\(num_iters\\), max_iterations\\);"
+    "// Compare in double before converting: num_iters can exceed UINT32_MAX, and\n  // converting it first is undefined (it wraps on x86-64). Not std::min, which\n  // would return a NaN num_iters; this gives max_iterations for NaN and inf.\n  uint32_t num_req_iterations =\n      num_iters < max_iterations ? static_cast<uint32_t>(num_iters) : max_iterations;"
+    _ransaclib_utils_fixed "${_ransaclib_utils}")
+if(_ransaclib_utils_fixed STREQUAL _ransaclib_utils)
+    file(REMOVE_RECURSE ${_ransaclib_fixed_dir})
+    message(STATUS "RansacLib: utils.h no longer converts the iteration count before clamping it, "
+        "using it as is (the workaround in ${CMAKE_CURRENT_LIST_FILE} is no longer needed)")
+    set(RANSACLIB_INCLUDE_DIR ${_ransaclib_dir})
+else()
+    # configure_file only writes utils.h when its content changes, so that a new configure
+    # doesn't recompile the files that include it.
+    file(WRITE ${_ransaclib_fixed_dir}/RansacLib/utils.h.in "${_ransaclib_utils_fixed}")
+    configure_file(${_ransaclib_fixed_dir}/RansacLib/utils.h.in ${_ransaclib_fixed_dir}/RansacLib/utils.h COPYONLY)
+    message(STATUS "RansacLib: using a fixed copy of utils.h in ${_ransaclib_fixed_dir}")
+    set(RANSACLIB_INCLUDE_DIR ${_ransaclib_fixed_dir} ${_ransaclib_dir})
+endif()
+
 
 set(HOMLIB_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/HomLib/includes/HomLib
