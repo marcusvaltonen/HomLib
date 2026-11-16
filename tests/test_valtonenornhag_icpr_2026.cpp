@@ -160,6 +160,27 @@ TEST_CASE("ValtonenOrnhag ICPR 2026 affine - minimal N=2 regression") {
     REQUIRE(output[0].distortion_parameter == Catch::Approx(inst.posedata.distortion_parameter).margin(1e-6));
 }
 
+TEST_CASE("ValtonenOrnhag ICPR 2026 ori - fewer than 3 returns empty") {
+    // One or two correspondences: no solution, rather than arbitrary ones
+    for (int n : {0, 1, 2}) {
+        HomLib::ProblemConfig config;
+        config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
+        config.point_noise = 0.0;
+        config.number_points = n;
+        config.seed = 42;
+        auto inst = HomLib::generate_problem_instance(config);
+        CAPTURE(n);
+        REQUIRE(HomLib::ValtonenOrnhagICPR2026::get_ori(inst.x1, inst.x2, inst.ori).empty());
+    }
+    // Inputs of different sizes
+    HomLib::ProblemConfig config;
+    config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
+    config.number_points = 4;
+    auto inst = HomLib::generate_problem_instance(config);
+    std::vector<Eigen::Vector2d> ori3(inst.ori.begin(), inst.ori.begin() + 3);
+    REQUIRE(HomLib::ValtonenOrnhagICPR2026::get_ori(inst.x1, inst.x2, ori3).empty());
+}
+
 TEST_CASE("ValtonenOrnhag ICPR 2026 ori - overdetermined") {
     HomLib::ProblemConfig config;
     config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
