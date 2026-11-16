@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 #include <Eigen/Dense>
+#include <cmath>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -232,7 +233,7 @@ TEST_CASE("ValtonenOrnhag ICPR 2026 ori - overdetermined noise-free") {
     REQUIRE(inst.hom_error(output[0].homography) < 1e-8);
 }
 
-TEST_CASE("ValtonenOrnhag ICPR 2026 ori - minimal N=4 regression") {
+TEST_CASE("ValtonenOrnhag ICPR 2026 ori - N=4 regression") {
     HomLib::ProblemConfig config;
     config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
     config.point_noise = 0.0;
@@ -243,4 +244,31 @@ TEST_CASE("ValtonenOrnhag ICPR 2026 ori - minimal N=4 regression") {
     auto output = HomLib::ValtonenOrnhagICPR2026::get_ori(inst.x1, inst.x2, inst.ori);
     REQUIRE(output.size() >= 1);
     REQUIRE(output[0].distortion_parameter == Catch::Approx(inst.posedata.distortion_parameter).margin(1e-6));
+}
+
+TEST_CASE("ValtonenOrnhag ICPR 2026 ori - minimal N=3") {
+    // Three correspondences give nine equations for the nine degrees of freedom (H up to scale
+    // and k): up to three solutions, one of them the true one, with H mapping x to y. A few random
+    // instances are ill-conditioned (about 0.5%, and which ones depends on the standard library's
+    // random distributions), so up to two of the 100 may miss the tolerance.
+    int found_count = 0;
+    for (unsigned int seed = 0; seed < 100; seed++) {
+        HomLib::ProblemConfig config;
+        config.distortion = HomLib::DistortionCase::ONE_SIDED_RIGHT;
+        config.point_noise = 0.0;
+        config.number_points = 3;
+        config.seed = seed;
+        auto inst = HomLib::generate_problem_instance(config);
+
+        auto output = HomLib::ValtonenOrnhagICPR2026::get_ori(inst.x1, inst.x2, inst.ori);
+        REQUIRE(output.size() <= 3);
+        for (const auto &pose : output) {
+            if (std::abs(pose.distortion_parameter - inst.posedata.distortion_parameter) < 1e-6 &&
+                inst.hom_error(pose.homography) < 1e-6) {
+                found_count++;
+                break;
+            }
+        }
+    }
+    REQUIRE(found_count >= 98);
 }
