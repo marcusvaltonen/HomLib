@@ -62,8 +62,9 @@ class AffineSolver : public AffinePoseEstimator<AffineSolver> {
             yd = yu;
             return true;
         }
-        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-            HomLib::refinement_no_dist(x, y, pose);
+        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y,
+                          const double *weights = nullptr) const {
+            HomLib::refinement_no_dist(x, y, pose, weights);
         }
     };
 

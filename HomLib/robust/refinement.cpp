@@ -1,5 +1,6 @@
 #include <Eigen/Dense>
 #include <algorithm>
+#include <cmath>
 #include <vector>
 #include "posedata.hpp"
 
@@ -12,11 +13,14 @@ static const int MAX_ITER = 10;
 namespace {
 
 // Levenberg-Marquardt on H (H(2,2) = 1) and the distortion parameters of p, shared by the
-// refinements below. accumulate(H, JtJ, g, cost) adds every point's contribution to JtJ (upper
-// triangle), g = -J^T r and the cost, with the parameters in the order h11, h21, h31, h12, h22,
-// h32, h13, h23, then the distortion parameters; update_dist(dx) adds the distortion steps to p.
+// refinements below. accumulate(H, JtJ, g, cost, weight) adds every point's contribution to JtJ
+// (upper triangle), g = -J^T r and the cost, with the parameters in the order h11, h21, h31, h12,
+// h22, h32, h13, h23, then the distortion parameters; update_dist(dx) adds the distortion steps to
+// p. weight(i) is the square root of the weight of point i, which scales its residuals and
+// Jacobian rows; without weights, it is the constant 1, which the compiler folds away.
 template <int N, class Accumulate, class UpdateDist>
-void refine(HomLib::PoseData &p, const Accumulate &accumulate, const UpdateDist &update_dist) {
+void refine(HomLib::PoseData &p, const double *weights, const Accumulate &accumulate,
+            const UpdateDist &update_dist) {
     double lm_damp = INITIAL_LM_DAMP;
     for (int iter = 0; iter < MAX_ITER; iter++) {
         Eigen::Matrix3d H = p.homography;
@@ -26,7 +30,10 @@ void refine(HomLib::PoseData &p, const Accumulate &accumulate, const UpdateDist 
         Eigen::Matrix<double, N, 1> g = Eigen::Matrix<double, N, 1>::Zero();
         double cost = 0.0;
 
-        accumulate(H, JtJ, g, cost);
+        if (weights != nullptr)
+            accumulate(H, JtJ, g, cost, [weights](size_t i) { return std::sqrt(weights[i]); });
+        else
+            accumulate(H, JtJ, g, cost, [](size_t) { return 1.0; });
 
         if (cost < TOL_CONVERGENCE_SQ)
             break;
@@ -131,10 +138,11 @@ namespace HomLib {
 void refinement_no_dist(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p)
+    HomLib::PoseData &p,
+    const double *weights)
 {
-    refine<8>(p,
-        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
+    refine<8>(p, weights,
+        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost, const auto &weight) {
             const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
             const double H10 = H(1, 0), H11 = H(1, 1), H12 = H(1, 2);
             const double H20 = H(2, 0), H21 = H(2, 1);
@@ -147,10 +155,11 @@ void refinement_no_dist(
                 const double z0 = (H00 * u + H01 * v + H02) * w;
                 const double z1 = (H10 * u + H11 * v + H12) * w;
 
+                const double s = weight(i), sw = s * w;
                 accumulate_h_block(JtJ, g, cost,
-                    u * w, v * w, w,
-                    u * w * z0, v * w * z0, u * w * z1, v * w * z1,
-                    z0 - p0, z1 - p1);
+                    u * sw, v * sw, sw,
+                    u * sw * z0, v * sw * z0, u * sw * z1, v * sw * z1,
+                    s * (z0 - p0), s * (z1 - p1));
             }
         },
         [](const auto &) {});
@@ -160,10 +169,11 @@ void refinement_no_dist(
 void refinement_onesided(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p)
+    HomLib::PoseData &p,
+    const double *weights)
 {
-    refine<9>(p,
-        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
+    refine<9>(p, weights,
+        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost, const auto &weight) {
             const double k = p.distortion_parameter2;
             const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
             const double H10 = H(1, 0), H11 = H(1, 1), H12 = H(1, 2);
@@ -179,10 +189,12 @@ void refinement_onesided(
 
                 const double r22 = p0 * p0 + p1 * p1;
                 const double df = 1.0 / (1.0 + k * r22);
-                const double re = z0 - p0 * df;
-                const double ro = z1 - p1 * df;
+                const double s = weight(i);
+                const double re = s * (z0 - p0 * df);
+                const double ro = s * (z1 - p1 * df);
 
-                const double a = u * w, b = v * w, c = w;
+                const double sw = s * w;
+                const double a = u * sw, b = v * sw, c = sw;
                 const double az0 = a * z0, bz0 = b * z0;
                 const double az1 = a * z1, bz1 = b * z1;
                 accumulate_h_block(JtJ, g, cost,
@@ -191,7 +203,7 @@ void refinement_onesided(
                 const double r22df2 = r22 * df * df;
                 accumulate_dist_col<9, 8>(JtJ, g,
                     a, b, c, az0, bz0, az1, bz1,
-                    p0 * r22df2, p1 * r22df2, re, ro);
+                    s * p0 * r22df2, s * p1 * r22df2, re, ro);
             }
         },
         [&p](const auto &dx) { p.distortion_parameter2 += dx(8); });
@@ -201,10 +213,11 @@ void refinement_onesided(
 void refinement_onesided_right(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p)
+    HomLib::PoseData &p,
+    const double *weights)
 {
-    refine<9>(p,
-        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
+    refine<9>(p, weights,
+        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost, const auto &weight) {
             const double k = p.distortion_parameter;
             const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
             const double H10 = H(1, 0), H11 = H(1, 1), H12 = H(1, 2);
@@ -221,10 +234,12 @@ void refinement_onesided_right(
                 const double z0 = (H00 * u + H01 * v + H02 * d1) * w;
                 const double z1 = (H10 * u + H11 * v + H12 * d1) * w;
 
-                const double re = z0 - p0;
-                const double ro = z1 - p1;
+                const double s = weight(i);
+                const double re = s * (z0 - p0);
+                const double ro = s * (z1 - p1);
 
-                const double a = u * w, b = v * w, c = d1 * w;
+                const double sw = s * w;
+                const double a = u * sw, b = v * sw, c = d1 * sw;
                 const double az0 = a * z0, bz0 = b * z0;
                 const double az1 = a * z1, bz1 = b * z1;
                 accumulate_h_block(JtJ, g, cost,
@@ -233,7 +248,7 @@ void refinement_onesided_right(
                 const double r12w = r12 * w;
                 accumulate_dist_col<9, 8>(JtJ, g,
                     a, b, c, az0, bz0, az1, bz1,
-                    r12w * (H02 - z0 * H22), r12w * (H12 - z1 * H22), re, ro);
+                    s * r12w * (H02 - z0 * H22), s * r12w * (H12 - z1 * H22), re, ro);
             }
         },
         [&p](const auto &dx) { p.distortion_parameter += dx(8); });
@@ -243,10 +258,11 @@ void refinement_onesided_right(
 void refinement_twosided_equal(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p)
+    HomLib::PoseData &p,
+    const double *weights)
 {
-    refine<9>(p,
-        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
+    refine<9>(p, weights,
+        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost, const auto &weight) {
             const double k = p.distortion_parameter;
             const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
             const double H10 = H(1, 0), H11 = H(1, 1), H12 = H(1, 2);
@@ -265,10 +281,12 @@ void refinement_twosided_equal(
 
                 const double r22 = p0 * p0 + p1 * p1;
                 const double df = 1.0 / (1.0 + k * r22);
-                const double re = z0 - p0 * df;
-                const double ro = z1 - p1 * df;
+                const double s = weight(i);
+                const double re = s * (z0 - p0 * df);
+                const double ro = s * (z1 - p1 * df);
 
-                const double a = u * w, b = v * w, c = d1 * w;
+                const double sw = s * w;
+                const double a = u * sw, b = v * sw, c = d1 * sw;
                 const double az0 = a * z0, bz0 = b * z0;
                 const double az1 = a * z1, bz1 = b * z1;
                 accumulate_h_block(JtJ, g, cost,
@@ -278,8 +296,8 @@ void refinement_twosided_equal(
                 const double r22df2 = r22 * df * df;
                 accumulate_dist_col<9, 8>(JtJ, g,
                     a, b, c, az0, bz0, az1, bz1,
-                    p0 * r22df2 + r12w * (H02 - z0 * H22),
-                    p1 * r22df2 + r12w * (H12 - z1 * H22), re, ro);
+                    s * (p0 * r22df2 + r12w * (H02 - z0 * H22)),
+                    s * (p1 * r22df2 + r12w * (H12 - z1 * H22)), re, ro);
             }
         },
         [&p](const auto &dx) {
@@ -292,10 +310,11 @@ void refinement_twosided_equal(
 void refinement_twosided(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p)
+    HomLib::PoseData &p,
+    const double *weights)
 {
-    refine<10>(p,
-        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost) {
+    refine<10>(p, weights,
+        [&](const Eigen::Matrix3d &H, auto &JtJ, auto &g, double &cost, const auto &weight) {
             const double k1 = p.distortion_parameter;
             const double k2 = p.distortion_parameter2;
             const double H00 = H(0, 0), H01 = H(0, 1), H02 = H(0, 2);
@@ -315,25 +334,27 @@ void refinement_twosided(
 
                 const double r22 = p0 * p0 + p1 * p1;
                 const double df = 1.0 / (1.0 + k2 * r22);
-                const double re = z0 - p0 * df;
-                const double ro = z1 - p1 * df;
+                const double s = weight(i);
+                const double re = s * (z0 - p0 * df);
+                const double ro = s * (z1 - p1 * df);
 
-                const double a = u * w, b = v * w, c = d1 * w;
+                const double sw = s * w;
+                const double a = u * sw, b = v * sw, c = d1 * sw;
                 const double az0 = a * z0, bz0 = b * z0;
                 const double az1 = a * z1, bz1 = b * z1;
                 accumulate_h_block(JtJ, g, cost,
                     a, b, c, az0, bz0, az1, bz1, re, ro);
 
                 const double r12w = r12 * w;
-                const double dk1_e = r12w * (H02 - z0 * H22);
-                const double dk1_o = r12w * (H12 - z1 * H22);
+                const double dk1_e = s * r12w * (H02 - z0 * H22);
+                const double dk1_o = s * r12w * (H12 - z1 * H22);
                 accumulate_dist_col<10, 8>(JtJ, g,
                     a, b, c, az0, bz0, az1, bz1,
                     dk1_e, dk1_o, re, ro);
 
                 const double r22df2 = r22 * df * df;
-                const double dk2_e = p0 * r22df2;
-                const double dk2_o = p1 * r22df2;
+                const double dk2_e = s * p0 * r22df2;
+                const double dk2_o = s * p1 * r22df2;
                 accumulate_dist_col<10, 9>(JtJ, g,
                     a, b, c, az0, bz0, az1, bz1,
                     dk2_e, dk2_o, re, ro);

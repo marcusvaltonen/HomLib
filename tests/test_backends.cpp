@@ -488,6 +488,77 @@ TEST_CASE("Overdetermined beats sample - Valtonen Ornhag orientation") {
 
 
 // ---------------------------------------------------------------------------
+// The weights of the non-minimal fits of GC-RANSAC and MAGSAC++
+// ---------------------------------------------------------------------------
+
+#if defined(HOMLIB_HAS_GCRANSAC) || defined(HOMLIB_HAS_MAGSAC)
+
+namespace {
+
+// The non-minimal fit of Estimator to every point, listed in reverse order, with weight 1 on the
+// inliers and 0 on every fourth point, moved off the homography, must be the fit of the inliers
+// alone. by_position: the weights are given one per point of the sample (MAGSAC), else one per
+// data point (GC-RANSAC). Returns |H - H_inliers| and |H_unweighted - H_inliers| (H normalized).
+template <class Estimator>
+std::pair<double, double> weighted_fit_errors(bool by_position) {
+    auto data = generate_test_data(7, 100, 0, HomLib::NO_DISTORTION, 1e-3);
+    std::vector<size_t> sample, inliers;
+    std::vector<double> weights_by_point(data.x.size());
+    for (size_t i = 0; i < data.x.size(); ++i) {
+        const bool moved = i % 4 == 0;
+        if (moved)
+            data.y[i] += Eigen::Vector2d(0.05, -0.05);
+        else
+            inliers.push_back(i);
+        weights_by_point[i] = moved ? 0.0 : 1.0;
+        sample.insert(sample.begin(), i);
+    }
+    std::vector<double> weights = weights_by_point;
+    if (by_position)
+        for (size_t k = 0; k < sample.size(); ++k)
+            weights[k] = weights_by_point[sample[k]];
+
+    const cv::Mat points = HomLib::detail::pack_point_cvmat(data.x, data.y);
+    HomLib::DLT::Solver solver;
+    const Estimator estimator(solver);
+    std::vector<gcransac::Model> weighted, unweighted, expected;
+    REQUIRE(estimator.estimateModelNonminimal(points, sample.data(), sample.size(), &weighted, weights.data()));
+    REQUIRE(estimator.estimateModelNonminimal(points, sample.data(), sample.size(), &unweighted));
+    REQUIRE(estimator.estimateModelNonminimal(points, inliers.data(), inliers.size(), &expected));
+    auto normalized = [](const gcransac::Model &m) {
+        const Eigen::Matrix3d H = m.descriptor.block<3, 3>(0, 0);
+        return Eigen::Matrix3d(H / H(2, 2));
+    };
+    return {(normalized(weighted[0]) - normalized(expected[0])).norm(),
+            (normalized(unweighted[0]) - normalized(expected[0])).norm()};
+}
+
+constexpr size_t kDLTSampleSize = HomLib::DLT::Solver::minimal_sample_size_value;
+using DLTMinimal = HomLib::GCPointMinimalSolver<HomLib::DLT::Solver, kDLTSampleSize>;
+using DLTNonMinimal = HomLib::GCPointNonMinimalSolver<HomLib::DLT::Solver, kDLTSampleSize>;
+
+} // anonymous namespace
+
+TEST_CASE("GC-RANSAC estimator - the non-minimal fit uses the weights, one per data point") {
+    const auto [weighted, unweighted] = weighted_fit_errors<
+        HomLib::HomLibGCEstimator<HomLib::DLT::Solver, DLTMinimal, DLTNonMinimal>>(false);
+    CAPTURE(weighted, unweighted);
+    CHECK(unweighted > 1e-3);
+    CHECK(weighted < 1e-6);
+}
+
+TEST_CASE("MAGSAC estimator - the non-minimal fit uses the weights, one per point of the sample") {
+    const auto [weighted, unweighted] = weighted_fit_errors<
+        HomLib::HomLibMAGSACEstimator<HomLib::DLT::Solver, DLTMinimal, DLTNonMinimal>>(true);
+    CAPTURE(weighted, unweighted);
+    CHECK(unweighted > 1e-3);
+    CHECK(weighted < 1e-6);
+}
+
+#endif // HOMLIB_HAS_GCRANSAC || HOMLIB_HAS_MAGSAC
+
+
+// ---------------------------------------------------------------------------
 // GC-RANSAC — optional
 // ---------------------------------------------------------------------------
 

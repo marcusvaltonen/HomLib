@@ -113,3 +113,59 @@ TEST_CASE("Refinements: the gradient of the cost vanishes at the result, for eve
         CHECK(worst < 1e-4);
     }
 }
+
+TEST_CASE("Refinements: a weight of 0 removes a point, a weight of 2 counts it twice, for every distortion case") {
+    std::mt19937 rng(2);
+    std::uniform_real_distribution<double> u(-1.0, 1.0);
+    std::normal_distribution<double> g(0.0, 1e-3);
+    for (DistortionCase model : {DistortionCase::NO_DISTORTION, DistortionCase::ONE_SIDED_LEFT, DistortionCase::ONE_SIDED_RIGHT, DistortionCase::TWO_SIDED_EQUAL, DistortionCase::TWO_SIDED}) {
+        const bool d1 = model == DistortionCase::ONE_SIDED_RIGHT || model == DistortionCase::TWO_SIDED_EQUAL || model == DistortionCase::TWO_SIDED;
+        const bool d2 = model == DistortionCase::ONE_SIDED_LEFT || model == DistortionCase::TWO_SIDED_EQUAL || model == DistortionCase::TWO_SIDED;
+        const double k1 = d1 ? -0.2 : 0.0, k2 = model == DistortionCase::TWO_SIDED ? -0.1 : d2 ? -0.2 : 0.0;
+        Eigen::Matrix3d H;
+        H << 1.1, 0.1, 0.05, -0.05, 0.9, 0.1, 0.03, -0.02, 1.0;
+        // Every fourth point is an outlier, with weight 0; every eighth point after it has weight 2
+        std::vector<Eigen::Vector2d> x1, x2, inliers1, inliers2;
+        std::vector<double> weights;
+        for (int i = 0; i < 120; i++) {
+            const Eigen::Vector2d a(u(rng), u(rng));
+            const Eigen::Vector2d z = (H * Eigen::Vector3d(a(0), a(1), 1.0 + k1 * a.squaredNorm())).hnormalized();
+            const bool outlier = i % 4 == 0;
+            const Eigen::Vector2d b = outlier ? Eigen::Vector2d(u(rng), u(rng)) : (d2 ? Distort(z, k2) : z) + Eigen::Vector2d(g(rng), g(rng));
+            x1.push_back(a);
+            x2.push_back(b);
+            const double weight = outlier ? 0.0 : i % 8 == 1 ? 2.0 : 1.0;
+            weights.push_back(weight);
+            for (int copy = 0; copy < weight; copy++) {
+                inliers1.push_back(a);
+                inliers2.push_back(b);
+            }
+        }
+        auto refine = [model](const std::vector<Eigen::Vector2d> &y1, const std::vector<Eigen::Vector2d> &y2,
+                              HomLib::PoseData &p, const double *w) {
+            if (model == DistortionCase::NO_DISTORTION)
+                HomLib::refinement_no_dist(y1, y2, p, w);
+            else if (model == DistortionCase::ONE_SIDED_LEFT)
+                HomLib::refinement_onesided(y1, y2, p, w);
+            else if (model == DistortionCase::ONE_SIDED_RIGHT)
+                HomLib::refinement_onesided_right(y1, y2, p, w);
+            else if (model == DistortionCase::TWO_SIDED_EQUAL)
+                HomLib::refinement_twosided_equal(y1, y2, p, w);
+            else
+                HomLib::refinement_twosided(y1, y2, p, w);
+        };
+        HomLib::PoseData start;
+        start.homography = H + 0.01 * Eigen::Matrix3d::Ones();
+        start.homography /= start.homography(2, 2);
+        start.distortion_parameter = k1;
+        start.distortion_parameter2 = k2;
+        HomLib::PoseData weighted = start, expected = start;
+        refine(x1, x2, weighted, weights.data());
+        refine(inliers1, inliers2, expected, nullptr);
+        const double difference = (weighted.homography - expected.homography).norm()
+            + std::abs(weighted.distortion_parameter - expected.distortion_parameter)
+            + std::abs(weighted.distortion_parameter2 - expected.distortion_parameter2);
+        CAPTURE(model, difference);
+        CHECK(difference < 1e-10);
+    }
+}

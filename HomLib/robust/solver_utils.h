@@ -151,6 +151,8 @@ inline BoundNmFn bind_nm(const NonMinimalEstimateFn& fn,
                        std::vector<PoseData>* p) { return fn(x, y, nullptr, &ori, p); };
 }
 
+// Fits a model to all the points (x, y). weights, if given, has one weight per point: they weight the
+// final refinement (nm.refine), not the initial fit nor the choice among its models.
 template <class Solver, class EstimateFunc>
 inline bool non_minimal_dispatch(
     const Solver& solver,
@@ -159,7 +161,8 @@ inline bool non_minimal_dispatch(
     EstimateFunc estimate_fn,
     PoseData& best,
     const NonMinimalSettings& nm = {},
-    const BoundNmFn& solver_fn = {})
+    const BoundNmFn& solver_fn = {},
+    const double* weights = nullptr)
 {
     const size_t n = x.size();
     const size_t ss = static_cast<size_t>(solver.minimal_sample_size());
@@ -187,7 +190,7 @@ inline bool non_minimal_dispatch(
     }
 
     if (found && nm.refine)
-        solver.refine(best, x, y);
+        solver.refine(best, x, y, weights);
     return found;
 }
 

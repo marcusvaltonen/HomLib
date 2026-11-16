@@ -61,11 +61,11 @@ inline bool flipped_distort(const PoseData& pose, const Eigen::Vector2d& yu, Eig
 
 template <DistortionCase DC>
 inline void flipped_refine(PoseData& pose, const std::vector<Eigen::Vector2d>& x,
-                           const std::vector<Eigen::Vector2d>& y) {
+                           const std::vector<Eigen::Vector2d>& y, const double* weights) {
     if constexpr (DC == ONE_SIDED_RIGHT)
-        refinement_onesided_right(x, y, pose);
+        refinement_onesided_right(x, y, pose, weights);
     else
-        refinement_onesided(x, y, pose);
+        refinement_onesided(x, y, pose, weights);
 }
 
 } // namespace detail
@@ -104,8 +104,9 @@ public:
         return detail::flipped_distort<DISTORTION_CASE>(pose, yu, yd);
     }
     inline void refine(PoseData& pose, const std::vector<Eigen::Vector2d>& x,
-                       const std::vector<Eigen::Vector2d>& y) const {
-        detail::flipped_refine<DISTORTION_CASE>(pose, x, y);
+                       const std::vector<Eigen::Vector2d>& y,
+                       const double* weights = nullptr) const {
+        detail::flipped_refine<DISTORTION_CASE>(pose, x, y, weights);
     }
 
     InnerSolver inner_;
@@ -148,8 +149,9 @@ public:
         return detail::flipped_distort<DISTORTION_CASE>(pose, yu, yd);
     }
     inline void refine(PoseData& pose, const std::vector<Eigen::Vector2d>& x,
-                       const std::vector<Eigen::Vector2d>& y) const {
-        detail::flipped_refine<DISTORTION_CASE>(pose, x, y);
+                       const std::vector<Eigen::Vector2d>& y,
+                       const double* weights = nullptr) const {
+        detail::flipped_refine<DISTORTION_CASE>(pose, x, y, weights);
     }
 
     InnerSolver inner_;
@@ -192,8 +194,9 @@ public:
         return detail::flipped_distort<DISTORTION_CASE>(pose, yu, yd);
     }
     inline void refine(PoseData& pose, const std::vector<Eigen::Vector2d>& x,
-                       const std::vector<Eigen::Vector2d>& y) const {
-        detail::flipped_refine<DISTORTION_CASE>(pose, x, y);
+                       const std::vector<Eigen::Vector2d>& y,
+                       const double* weights = nullptr) const {
+        detail::flipped_refine<DISTORTION_CASE>(pose, x, y, weights);
     }
 
     InnerSolver inner_;

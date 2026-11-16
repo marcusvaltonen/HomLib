@@ -175,8 +175,9 @@ public:
             s.estimate(xs, ys, poses);
         };
 
+        // weights_: one per point of the sample (HomLibGCEstimator::estimateModelNonminimal)
         PoseData best;
-        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_)))
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_), weights_))
             return false;
 
         models_.push_back(pose_to_gc_model(best));
@@ -236,8 +237,9 @@ public:
             s.estimate(xs, ys, As, poses);
         };
 
+        // weights_: one per point of the sample (HomLibGCEstimator::estimateModelNonminimal)
         PoseData best;
-        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_, A)))
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_, A), weights_))
             return false;
 
         models_.push_back(pose_to_gc_model(best));
@@ -296,8 +298,9 @@ public:
             s.estimate(xs, ys, os, poses);
         };
 
+        // weights_: one per point of the sample (HomLibGCEstimator::estimateModelNonminimal)
         PoseData best;
-        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_, ori)))
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_, ori), weights_))
             return false;
 
         models_.push_back(pose_to_gc_model(best));

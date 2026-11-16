@@ -69,8 +69,9 @@ class AffineSolverSingleSided : public AffinePoseEstimator<AffineSolverSingleSid
             yd = yu;
             return true;
         }
-        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-            HomLib::refinement_onesided_right(x, y, pose);
+        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y,
+                          const double *weights = nullptr) const {
+            HomLib::refinement_onesided_right(x, y, pose, weights);
         }
     };
 
@@ -100,8 +101,9 @@ class OrientationSolverSingleSided : public OrientationPoseEstimator<Orientation
             yd = yu;
             return true;
         }
-        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-            HomLib::refinement_onesided_right(x, y, pose);
+        inline void refine(HomLib::PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y,
+                          const double *weights = nullptr) const {
+            HomLib::refinement_onesided_right(x, y, pose, weights);
         }
     };
 }

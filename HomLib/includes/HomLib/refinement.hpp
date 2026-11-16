@@ -21,34 +21,42 @@
 #ifndef INCLUDES_HOMLIB_REFINEMENT_HPP_
 #define INCLUDES_HOMLIB_REFINEMENT_HPP_
 
+#include <vector>
 #include <Eigen/Dense>
 #include "posedata.hpp"
 
 namespace HomLib {
+// Levenberg-Marquardt refinement of p on the correspondences (x1[i], x2[i]), minimizing the sum of
+// the squared residuals of the points (see refinement.cpp), each multiplied by weights[i] if given.
 void refinement_no_dist(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p
+    HomLib::PoseData &p,
+    const double *weights = nullptr
 );
 void refinement_onesided(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p
+    HomLib::PoseData &p,
+    const double *weights = nullptr
 );
 void refinement_onesided_right(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p
+    HomLib::PoseData &p,
+    const double *weights = nullptr
 );
 void refinement_twosided_equal(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p
+    HomLib::PoseData &p,
+    const double *weights = nullptr
 );
 void refinement_twosided(
     const std::vector<Eigen::Vector2d> &x1,
     const std::vector<Eigen::Vector2d> &x2,
-    HomLib::PoseData &p
+    HomLib::PoseData &p,
+    const double *weights = nullptr
 );
 }
 

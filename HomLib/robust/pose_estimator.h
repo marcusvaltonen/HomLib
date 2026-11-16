@@ -55,8 +55,9 @@ namespace HomLib {
 			return true;
 		}
 
-		inline void refine(PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-			refinement_no_dist(x, y, pose);
+		inline void refine(PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y,
+			const double *weights = nullptr) const {
+			refinement_no_dist(x, y, pose, weights);
 		}
 	};
 
@@ -75,8 +76,9 @@ namespace HomLib {
 			return true;
 		}
 
-		inline void refine(PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-			refinement_onesided(x, y, pose);
+		inline void refine(PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y,
+			const double *weights = nullptr) const {
+			refinement_onesided(x, y, pose, weights);
 		}
 	};
 
@@ -90,8 +92,9 @@ namespace HomLib {
 			return Solver::minimal_sample_size_value;
 		}
 
-		inline void refine(PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-			refinement_twosided_equal(x, y, pose);
+		inline void refine(PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y,
+			const double *weights = nullptr) const {
+			refinement_twosided_equal(x, y, pose, weights);
 		}
 	};
 
@@ -105,8 +108,9 @@ namespace HomLib {
 			return Solver::minimal_sample_size_value;
 		}
 
-		inline void refine(PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y) const {
-			refinement_twosided(x, y, pose);
+		inline void refine(PoseData &pose, const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y,
+			const double *weights = nullptr) const {
+			refinement_twosided(x, y, pose, weights);
 		}
 	};
 };

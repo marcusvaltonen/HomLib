@@ -84,7 +84,9 @@ public:
     }
 
     // Non-minimal estimation (no external normalization — HomLib solvers
-    // handle normalization internally)
+    // handle normalization internally). GC-RANSAC passes one weight per data point
+    // (weights_[sample_[k]] is the weight of point sample_[k]); the solver engines take
+    // one per point of the sample.
     OLGA_INLINE bool estimateModelNonminimal(
         const cv::Mat& data_,
         const size_t* sample_,
@@ -94,6 +96,13 @@ public:
     {
         if (sample_number_ < nonMinimalSampleSize())
             return false;
+        std::vector<double> sample_weights;
+        if (weights_ && sample_) {
+            sample_weights.resize(sample_number_);
+            for (size_t k = 0; k < sample_number_; ++k)
+                sample_weights[k] = weights_[sample_[k]];
+            weights_ = sample_weights.data();
+        }
         return non_minimal_solver->estimateModel(
             data_, sample_, sample_number_, *models_, weights_);
     }
@@ -181,6 +190,21 @@ public:
                           const NonMinimalSettings& nm = {},
                           const NonMinimalEstimateFn& nm_solver_fn = {})
         : Base(solver, nm, nm_solver_fn) {}
+
+    // MAGSAC passes one weight per point of the sample, since doesNormalizationForNonMinimalFitting()
+    // is true: weights_[k] is the weight of point sample_[k], as the solver engines take them.
+    OLGA_INLINE bool estimateModelNonminimal(
+        const cv::Mat& data_,
+        const size_t* sample_,
+        const size_t& sample_number_,
+        std::vector<gcransac::Model>* models_,
+        const double* weights_ = nullptr) const override
+    {
+        if (sample_number_ < Base::nonMinimalSampleSize())
+            return false;
+        return this->non_minimal_solver->estimateModel(
+            data_, sample_, sample_number_, *models_, weights_);
+    }
 
     inline double residualForScoring(
         const cv::Mat& point_,
