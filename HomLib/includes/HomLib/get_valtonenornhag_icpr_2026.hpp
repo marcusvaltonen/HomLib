@@ -76,21 +76,21 @@ class AffineSolverSingleSided : public AffinePoseEstimator<AffineSolverSingleSid
 
 class OrientationSolverSingleSided : public OrientationPoseEstimator<OrientationSolverSingleSided> {
     public:
-        static constexpr int minimal_sample_size_value = 4;
+        static constexpr int minimal_sample_size_value = 3;
         static constexpr bool supports_overdetermined = true;
         static constexpr DistortionCase DISTORTION_CASE = ONE_SIDED_RIGHT;
         OrientationSolverSingleSided() = default;
         int solve(const std::vector<Eigen::Vector2d> &x, const std::vector<Eigen::Vector2d> &y, const std::vector<Eigen::Vector2d> &ori, std::vector<HomLib::PoseData> *poses,
                   const HomLib::DistortionRange &range = HomLib::DistortionRange()) const {
             std::vector<HomLib::PoseData> output = HomLib::ValtonenOrnhagICPR2026::get_ori(x, y, ori);
-            HomLib::filter_distortion_range(&output, range);   // a single solution at the minimal sample size
+            HomLib::filter_distortion_range(&output, range);   // up to three solutions at the minimal sample size
             for (size_t i = 0; i < output.size(); i++) {
                 poses->push_back(output[i]);
             }
             return output.size();
         }
         int minimal_sample_size() const {
-            return 4;  // Degenerates ?
+            return 3;
         }
         // xu: xd undistorted, yd: yu distorted; false where there is none (see radial.hpp)
         inline bool undistort(const HomLib::PoseData &pose, const Eigen::Vector2d &xd, Eigen::Vector2d &xu) const {
