@@ -53,8 +53,10 @@ random subset of the homographies of each scene (250 for ``tune``, 1000 for
 4 px threshold and an SNN threshold of 0.8 for every solver; ``--snn 1`` tests
 without prefiltering.
 
-Unlike the paper, only the two thresholds are tuned, and LOMSAC samples
-uniformly, so the results compare with the paper's curves without PROSAC. The
+Unlike the paper, only the two thresholds are tuned, and the sampler is
+uniform by default, so the results compare with the paper's curves without
+PROSAC; ``--sampler prosac`` (with GC-RANSAC, MAGSAC++ or SupeRANSAC) gives
+PROSAC the matches sorted by SNN ratio, as the paper's scripts. The
 benchmark's code has no license, so the script reimplements its metrics; on the
 same estimates (without distortion), both give the same errors. The script's
 docstring lists the other details.

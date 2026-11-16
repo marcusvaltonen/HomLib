@@ -174,7 +174,7 @@ GC-RANSAC configuration types
   ``NonMinimalSettings`` or dict with ``"strategy"`` key).
 
 The ``estimate()`` method accepts an optional ``scores`` parameter: a 1-D
-array of per-match confidence values in [0, 1], sorted in descending order.
+array of per-match confidence values in [0, 1], in the order of the matches.
 See :ref:`confidence_scores` for details.
 
 MAGSAC++

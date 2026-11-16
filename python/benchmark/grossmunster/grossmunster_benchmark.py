@@ -54,7 +54,7 @@ from grossmunster_data import LOMSAC_SETTINGS, MIN_ITERATIONS, PAIRS, THRESHOLD,
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import (  # noqa: E402
-    BACKENDS, inlier_indices, make_estimator, print_runs, run_info, warn_settings)
+    BACKENDS, inlier_indices, make_estimator, print_runs, run_info, warn_settings, with_sampler)
 
 # Table 3 of the paper: the solvers, and their mean error and mean time (ms)
 TABLE3 = [("KukelovaCVPR2015TwoSided", "Kukelova et al. (5pt)", 0.039, 2657),
@@ -136,7 +136,7 @@ def main():
             results[name][key] = runs
     if args.output:
         settings = dict(matches=Path(args.matches).name, threshold=args.threshold, backend=args.backend,
-                        min_iterations=args.min_iterations, seeds=args.seeds, pairs=keys, **extra)
+                        sampler="uniform", min_iterations=args.min_iterations, seeds=args.seeds, pairs=keys, **extra)
         with open(args.output, "w") as f:
             json.dump(dict(run=run_info(), settings=settings, results=results), f)
     print_results(results, keys, pairs, args.per_pair)
@@ -170,7 +170,7 @@ def compare(path_a, path_b):
             runs.append(json.load(f))
     (a, b) = (r["results"] for r in runs)
     print_runs(runs[0].get("run"), runs[1].get("run"))
-    warn_settings(runs[0].get("settings"), runs[1].get("settings"))
+    warn_settings(with_sampler(runs[0].get("settings")), with_sampler(runs[1].get("settings")))
     print(f"{'Solver':<36s} {'Error':>17s} {'Error (cal.)':>19s} {'Time':>7s}")
     for name in sorted(set(a) & set(b)):
         keys = [k for k in a[name] if k in b[name]]
