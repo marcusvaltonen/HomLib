@@ -795,12 +795,39 @@ TEST_CASE("SupeRANSAC - the settings that use grids") {
         REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
     }
 
-    // The grid scoring scores the best point of each grid cell, and these points span too few cells
-    // for it to find the model: it only has to run
+    // The grid scoring scores only the best point of each grid cell, and doesn't find the model on
+    // these points (it keeps a model of 4 inliers): it only has to run
     superansac::RANSACSettings settings;
     settings.inlierThreshold = 0.005;
     settings.scoring = superansac::scoring::ScoringType::GRID;
     REQUIRE_NOTHROW(HomLib::run_superansac_point(solver, data.x, data.y, {}, {}, settings));
+}
+
+TEST_CASE("SupeRANSAC - the grid neighborhood has cells smaller than the points' range") {
+    // The grid has neighborhoodGridDensity (4) cells along each axis, whatever the unit: with
+    // coordinates in [-0.5, 0.5], as normalized ones, cells of at least one unit made a single cell,
+    // and every point was the neighbor of every other one
+    std::mt19937 rng(5);
+    std::uniform_real_distribution<double> u(-0.5, 0.5);
+    std::vector<Eigen::Vector2d> x, y;
+    for (int i = 0; i < 400; ++i) {
+        x.emplace_back(u(rng), u(rng));
+        y.push_back(0.9 * x.back());
+    }
+    const DataMatrix data = HomLib::detail::pack_point_data(x, y);
+    const DataMatrix shifted = data.rowwise() - data.colwise().minCoeff();
+    superansac::RANSACSettings settings;
+    REQUIRE(settings.neighborhood == superansac::neighborhood::NeighborhoodType::Grid);
+    std::unique_ptr<superansac::neighborhood::AbstractNeighborhoodGraph> graph;
+    HomLib::detail::initialize_neighborhood<4>(shifted, graph, settings);
+
+    // x and y are proportional, so the points fill 4 x 4 cells, about 25 points each
+    size_t largest = 0;
+    for (size_t i = 0; i < x.size(); ++i)
+        largest = std::max(largest, graph->getNeighbors(i).size());
+    CAPTURE(largest, graph->filledCellNumber());
+    CHECK(graph->filledCellNumber() == 16);
+    CHECK(largest < x.size() / 8);
 }
 
 TEST_CASE("SupeRANSAC - the uniform sampler draws only indices of points") {

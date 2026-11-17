@@ -1,9 +1,10 @@
 #pragma once
 #ifdef HOMLIB_HAS_SUPERANSAC
 
+#include <memory>
+#include <stdexcept>
 #include <utility>
 #include <vector>
-#include <memory>
 
 #include <Eigen/Dense>
 
@@ -111,10 +112,12 @@ void initialize_neighborhood(
     if (settings.neighborhood == NeighborhoodType::Grid) {
         auto* grid = dynamic_cast<GridNeighborhoodGraph<DimensionNumber>*>(graph.get());
         const double density = settings.neighborhoodSettings.neighborhoodGridDensity;
+        // density cells along each axis, over the range of the points (positive, even if all points
+        // have the same coordinate), whatever the unit: HomLib's coordinates are often normalized
         std::vector<double> cellSizes(DimensionNumber);
         for (size_t i = 0; i < DimensionNumber; ++i) {
             double range = data.col(i).maxCoeff() - data.col(i).minCoeff();
-            cellSizes[i] = std::max(1.0, range / density);
+            cellSizes[i] = std::max(range / density, 1e-9);
         }
         grid->setCellSizes(cellSizes, static_cast<size_t>(density));
     } else if (settings.neighborhood == NeighborhoodType::FLANN_KNN) {
@@ -250,6 +253,8 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
         for (size_t i = 0; i < DimensionNumber; ++i)
             sizes[i] = std::max(shifted.col(i).maxCoeff(), 1e-9);
         auto* pnapsac = dynamic_cast<superansac::samplers::ProgressiveNAPSACSampler<DimensionNumber>*>(sampler.get());
+        if (!pnapsac)
+            throw std::logic_error("SupeRANSAC: the ProgressiveNAPSAC sampler has an unexpected type");
         pnapsac->setSampleSize(estimator->sampleSize());
         pnapsac->setLayerData({16, 8, 4, 2}, sizes);
     }
