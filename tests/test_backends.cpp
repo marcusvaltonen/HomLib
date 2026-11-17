@@ -597,6 +597,44 @@ TEST_CASE("GC-RANSAC - fewer points than a minimal sample") {
     }
 }
 
+TEST_CASE("GC-RANSAC - the grid neighborhood has cells smaller than the points' range") {
+    // The grid has cell_number (4) cells along each coordinate, whatever the unit: with coordinates
+    // in [-0.5, 0.5], as normalized ones, cells of at least one unit made a single cell, and every
+    // point was the neighbor of every other one in the graph cut
+    std::mt19937 rng(5);
+    std::uniform_real_distribution<double> u(-0.5, 0.5);
+    std::vector<Eigen::Vector2d> x, y;
+    std::vector<Eigen::Matrix2d> A;
+    for (int i = 0; i < 400; ++i) {
+        x.emplace_back(u(rng), u(rng));
+        y.push_back(0.9 * x.back());
+        A.push_back(Eigen::Matrix2d::Random());
+    }
+    const HomLib::GCRANSACSettings settings;
+    REQUIRE(settings.cell_number == 4);
+
+    // With affine entries, only the four coordinates are split into cells
+    for (const cv::Mat& data : {HomLib::detail::pack_point_cvmat(x, y),
+                                HomLib::detail::pack_affine_cvmat(x, y, A)}) {
+        cv::Mat points;
+        const auto graph = HomLib::detail::make_grid_neighborhood(data, settings.cell_number, points);
+
+        // x and y are proportional, so the points fill 4 x 4 cells, about 25 points each, and each
+        // point's neighbors are less than a cell (a quarter of the range) away along each axis
+        CHECK(graph.filledCellNumber() == 16);
+        size_t largest = 0;
+        double farthest = 0;
+        for (size_t i = 0; i < x.size(); ++i) {
+            largest = std::max(largest, graph.getNeighbors(i).size());
+            for (size_t j : graph.getNeighbors(i))
+                farthest = std::max({farthest, std::abs(x[i](0) - x[j](0)), std::abs(x[i](1) - x[j](1))});
+        }
+        CAPTURE(largest, farthest);
+        CHECK(largest < x.size() / 8);
+        CHECK(farthest < 0.25);
+    }
+}
+
 #endif // HOMLIB_HAS_GCRANSAC
 
 

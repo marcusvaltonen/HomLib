@@ -1,6 +1,8 @@
 #pragma once
 #ifdef HOMLIB_HAS_GCRANSAC
 
+#include <algorithm>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -53,7 +55,35 @@ struct GCRANSACSettings {
 
 namespace detail {
 
-template <size_t DimensionNumber, class Estimator>
+using GridNeighborhood = gcransac::neighborhood::GridNeighborhoodGraph<4>;
+
+// GC-RANSAC's grid neighborhood (its graph-cut local optimization uses it) on the points'
+// coordinates, the first four columns of data (not the affine entries or the orientations, as in
+// GC-RANSAC's own bindings): cell_number cells along each coordinate, over the points' range,
+// whatever the unit (HomLib's coordinates are often normalized). The grid takes only
+// non-negative coordinates: points gets the coordinates shifted by their minimum, and must
+// outlive the graph.
+inline GridNeighborhood make_grid_neighborhood(const cv::Mat& data, size_t cell_number, cv::Mat& points)
+{
+    points = data.colRange(0, 4).clone();
+    std::vector<double> cell_sizes(4);
+    for (int i = 0; i < 4; ++i) {
+        double lo = std::numeric_limits<double>::infinity(), hi = -lo;
+        for (int r = 0; r < points.rows; ++r) {
+            lo = std::min(lo, points.at<double>(r, i));
+            hi = std::max(hi, points.at<double>(r, i));
+        }
+        for (int r = 0; r < points.rows; ++r)
+            points.at<double>(r, i) -= lo;
+        // A little more than range / cell_number, so that the points at the maximum fall in the
+        // last cell (GC-RANSAC doesn't clamp the cell indices), and positive even if all points
+        // have the same coordinate
+        cell_sizes[i] = std::max((hi - lo) * (1 + 1e-9), 1e-9) / cell_number;
+    }
+    return GridNeighborhood(&points, cell_sizes, cell_number);
+}
+
+template <class Estimator>
 std::pair<PoseData, GCRANSACStatistics> run_gcransac_pipeline(
     const Estimator& estimator,
     const cv::Mat& data,
@@ -61,34 +91,10 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_pipeline(
     const GCRANSACSettings& opts)
 {
     const backend_seed::Scope seed_scope(opts.seed);
-    using NeighborhoodGraph = gcransac::neighborhood::GridNeighborhoodGraph<DimensionNumber>;
     using SamplerBase = gcransac::sampler::Sampler<cv::Mat, size_t>;
 
-    // Build neighborhood graph.
-    // GridNeighborhoodGraph computes cell indices as
-    //   floor(coord / cell_size)  →  stored as size_t
-    // so coordinates must be non-negative.  Shift each dimension
-    // by its minimum so the grid sees values in [0, range].
-    std::vector<double> cell_sizes(DimensionNumber);
-    std::vector<double> lo_vals(DimensionNumber, 1e30);
-    for (size_t i = 0; i < DimensionNumber; ++i) {
-        double hi = -1e30;
-        for (int r = 0; r < data.rows; ++r) {
-            double v = data.at<double>(r, i);
-            lo_vals[i] = std::min(lo_vals[i], v);
-            hi = std::max(hi, v);
-        }
-        cell_sizes[i] = std::max(1.0, (hi - lo_vals[i]) / opts.cell_number);
-    }
-
-    cv::Mat shifted_data = data.clone();
-    for (int r = 0; r < shifted_data.rows; ++r) {
-        double* row = shifted_data.ptr<double>(r);
-        for (size_t i = 0; i < DimensionNumber; ++i)
-            row[i] -= lo_vals[i];
-    }
-
-    NeighborhoodGraph neighborhood(&shifted_data, cell_sizes, opts.cell_number);
+    cv::Mat points;
+    const GridNeighborhood neighborhood = make_grid_neighborhood(data, opts.cell_number, points);
 
     // Main sampler — type depends on settings + probabilities
     std::unique_ptr<SamplerBase> main_sampler;
@@ -123,7 +129,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_pipeline(
     // Configure GCRANSAC
     using GC = gcransac::GCRANSAC<
         Estimator,
-        NeighborhoodGraph,
+        GridNeighborhood,
         gcransac::MSACScoringFunction<Estimator>>;
 
     GC gcransac;
@@ -175,7 +181,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_point(
 
     auto data = detail::pack_point_cvmat(x, y);
     Est estimator(solver, nm, nm_solver_fn);
-    auto result = detail::run_gcransac_pipeline<4>(estimator, data, probabilities, settings);
+    auto result = detail::run_gcransac_pipeline(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }
@@ -198,7 +204,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_affine(
 
     auto data = detail::pack_affine_cvmat(x, y, A);
     Est estimator(solver, nm, nm_solver_fn);
-    auto result = detail::run_gcransac_pipeline<8>(estimator, data, probabilities, settings);
+    auto result = detail::run_gcransac_pipeline(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }
@@ -221,7 +227,7 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_orientation(
 
     auto data = detail::pack_orientation_cvmat(x, y, ori);
     Est estimator(solver, nm, nm_solver_fn);
-    auto result = detail::run_gcransac_pipeline<6>(estimator, data, probabilities, settings);
+    auto result = detail::run_gcransac_pipeline(estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }
