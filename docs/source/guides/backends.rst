@@ -151,8 +151,9 @@ Requires building with ``-DHOMLIB_USE_GCRANSAC=ON``. Check availability:
      - 0.975
      - Weight for graph-cut spatial coherence (0–1)
    * - ``cell_number``
-     - 16
-     - Grid cells per dimension for neighbourhood graph
+     - 4
+     - Cells along each point coordinate, over the points' range, of the grid
+       that defines the neighbours in the graph cut
    * - ``do_local_optimization``
      - ``True``
      - Enable GC-RANSAC local optimisation
