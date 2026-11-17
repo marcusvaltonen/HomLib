@@ -112,12 +112,14 @@ void initialize_neighborhood(
     if (settings.neighborhood == NeighborhoodType::Grid) {
         auto* grid = dynamic_cast<GridNeighborhoodGraph<DimensionNumber>*>(graph.get());
         const double density = settings.neighborhoodSettings.neighborhoodGridDensity;
-        // density cells along each axis, over the range of the points (positive, even if all points
-        // have the same coordinate), whatever the unit: HomLib's coordinates are often normalized
+        // density cells along each of the four coordinates of the points, over their range
+        // (positive, even if all points have the same coordinate), whatever the unit: HomLib's
+        // coordinates are often normalized. One cell along the other columns (affine entries,
+        // orientations), which SupeRANSAC's own bindings don't grid either.
         std::vector<double> cellSizes(DimensionNumber);
         for (size_t i = 0; i < DimensionNumber; ++i) {
             double range = data.col(i).maxCoeff() - data.col(i).minCoeff();
-            cellSizes[i] = std::max(range / density, 1e-9);
+            cellSizes[i] = i < 4 ? std::max(range / density, 1e-9) : range + 1.0;
         }
         grid->setCellSizes(cellSizes, static_cast<size_t>(density));
     } else if (settings.neighborhood == NeighborhoodType::FLANN_KNN) {

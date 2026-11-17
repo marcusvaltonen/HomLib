@@ -818,6 +818,7 @@ TEST_CASE("SupeRANSAC - the grid neighborhood has cells smaller than the points'
     const DataMatrix shifted = data.rowwise() - data.colwise().minCoeff();
     superansac::RANSACSettings settings;
     REQUIRE(settings.neighborhood == superansac::neighborhood::NeighborhoodType::Grid);
+    REQUIRE(settings.neighborhoodSettings.neighborhoodGridDensity == 4);
     std::unique_ptr<superansac::neighborhood::AbstractNeighborhoodGraph> graph;
     HomLib::detail::initialize_neighborhood<4>(shifted, graph, settings);
 
@@ -828,6 +829,15 @@ TEST_CASE("SupeRANSAC - the grid neighborhood has cells smaller than the points'
     CAPTURE(largest, graph->filledCellNumber());
     CHECK(graph->filledCellNumber() == 16);
     CHECK(largest < x.size() / 8);
+
+    // With orientations, only the four coordinates are split into cells
+    std::vector<Eigen::Vector2d> ori;
+    for (int i = 0; i < 400; ++i)
+        ori.emplace_back(u(rng), u(rng));
+    const DataMatrix with_ori = HomLib::detail::pack_orientation_data(x, y, ori);
+    const DataMatrix shifted_ori = with_ori.rowwise() - with_ori.colwise().minCoeff();
+    HomLib::detail::initialize_neighborhood<6>(shifted_ori, graph, settings);
+    CHECK(graph->filledCellNumber() == 16);
 }
 
 TEST_CASE("SupeRANSAC - the uniform sampler draws only indices of points") {
