@@ -21,9 +21,10 @@ Eigen::Vector2d Distort(const Eigen::Vector2d &u, double k)
 // (refinement_twosided_equal) and TWO_SIDED (refinement_twosided)
 using HomLib::DistortionCase;
 
-// The cost minimized by the refinements, sum |pi(H (x1, 1 + k1 |x1|^2)) - x2 / (1 + k2 |x2|^2)|^2
-// (k1 = 0 or k2 = 0 where the model has no distortion), at q = (H entries in column-major order,
-// h22 = 1; k1; k2)
+// The cost minimized by the refinements, at q = (H entries in column-major order, h22 = 1; k1; k2),
+// with k1 = 0 or k2 = 0 where the model has no distortion: for the two-sided models, the transfer
+// error in the second image, sum |Distort(pi(H (x1, 1 + k1 |x1|^2)), k2) - x2|^2; for the others,
+// sum |pi(H (x1, 1 + k1 |x1|^2)) - x2 / (1 + k2 |x2|^2)|^2
 double Cost(DistortionCase model, const std::vector<Eigen::Vector2d> &x1, const std::vector<Eigen::Vector2d> &x2,
             const double *q)
 {
@@ -35,8 +36,10 @@ double Cost(DistortionCase model, const std::vector<Eigen::Vector2d> &x1, const 
     double c = 0;
     for (size_t i = 0; i < x1.size(); i++) {
         const Eigen::Vector2d z = (H * Eigen::Vector3d(x1[i](0), x1[i](1), 1.0 + k1 * x1[i].squaredNorm())).hnormalized();
-        const Eigen::Vector2d y = x2[i] / (1.0 + k2 * x2[i].squaredNorm());
-        c += (z - y).squaredNorm();
+        if (model == DistortionCase::TWO_SIDED_EQUAL || model == DistortionCase::TWO_SIDED)
+            c += (Distort(z, k2) - x2[i]).squaredNorm();
+        else
+            c += (z - x2[i] / (1.0 + k2 * x2[i].squaredNorm())).squaredNorm();
     }
     return c;
 }
@@ -111,5 +114,45 @@ TEST_CASE("Refinements: the gradient of the cost vanishes at the result, for eve
         }
         CAPTURE(model, worst);
         CHECK(worst < 1e-4);
+    }
+}
+
+TEST_CASE("Refinements: a model of an identity with distortion still fits its points") {
+    // With H = I and k1 = k2 = t, the model maps every point of the first image to itself (where
+    // 4 t |x|^2 < 1): t isn't observable. The two-sided refinements minimized the error in the
+    // undistorted plane of the second image, which shrinks as t grows: from the ground truth, they
+    // went to t ~ 100 and errors of a third of the points' spread (HPatches' illumination pairs,
+    // with every two-sided solver, on GC-RANSAC and MAGSAC). They now minimize the error in the
+    // second image, so the refined model fits the points (t can still move). The one-sided
+    // refinement keeps its cost, which needs H to collapse as well to tend to 0.
+    std::mt19937 rng(2);
+    std::uniform_real_distribution<double> u(-1.0, 1.0);
+    std::normal_distribution<double> g(0.0, 3e-3);
+    std::vector<Eigen::Vector2d> x1, x2;
+    for (int i = 0; i < 300; i++) {
+        x1.emplace_back(u(rng), u(rng));
+        x2.push_back(x1.back() + Eigen::Vector2d(g(rng), g(rng)));
+    }
+    for (DistortionCase model : {DistortionCase::ONE_SIDED_LEFT, DistortionCase::TWO_SIDED_EQUAL, DistortionCase::TWO_SIDED}) {
+        HomLib::PoseData p;
+        p.homography = Eigen::Matrix3d::Identity();
+        p.distortion_parameter = p.distortion_parameter2 = 0.0;
+        if (model == DistortionCase::ONE_SIDED_LEFT)
+            HomLib::refinement_onesided(x1, x2, p);
+        else if (model == DistortionCase::TWO_SIDED_EQUAL)
+            HomLib::refinement_twosided_equal(x1, x2, p);
+        else
+            HomLib::refinement_twosided(x1, x2, p);
+        const double k1 = model == DistortionCase::ONE_SIDED_LEFT ? 0.0 : p.distortion_parameter;
+        const double k2 = p.distortion_parameter2;
+        std::vector<double> errors;
+        for (size_t i = 0; i < x1.size(); i++) {
+            const Eigen::Vector2d z = (p.homography * Eigen::Vector3d(x1[i](0), x1[i](1), 1.0 + k1 * x1[i].squaredNorm())).hnormalized();
+            errors.push_back(4 * k2 * z.squaredNorm() < 1 ? (Distort(z, k2) - x2[i]).norm() : 1e9);
+        }
+        std::nth_element(errors.begin(), errors.begin() + errors.size() / 2, errors.end());
+        const double median = errors[errors.size() / 2];
+        CAPTURE(model, k1, k2, median);
+        CHECK(median < 5e-3);
     }
 }
