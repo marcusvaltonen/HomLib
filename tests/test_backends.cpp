@@ -773,11 +773,33 @@ TEST_CASE("SupeRANSAC - the settings that use grids") {
     // SupeRANSAC's grids take only non-negative coordinates, and HomLib's are centred on the image
     // centre: the runner builds them on shifted coordinates. It also sets up P-NAPSAC's sample
     // size and grid layers (without them, P-NAPSAC's initialization doesn't end).
-    auto data = generate_test_data(47, 500, 100, HomLib::ONE_SIDED_LEFT);
+    // The grids span the range of all the points, so the outliers are drawn in the inliers'
+    // bounding boxes, as matches lie in their images: generate_test_data's spread over 25 times the
+    // inliers' range, which put every inlier in one cell, and the grid scoring, which counts the
+    // cells with an inlier, kept a model through 4 outliers of 4 cells.
+    auto data = generate_test_data(47, 500, 0, HomLib::ONE_SIDED_LEFT);
+    data.n_outliers = 100;
+    Eigen::Array2d lo_x = data.x[0], hi_x = lo_x, lo_y = data.y[0], hi_y = lo_y;
+    for (int i = 0; i < data.n_total; ++i) {
+        lo_x = lo_x.min(data.x[i].array());
+        hi_x = hi_x.max(data.x[i].array());
+        lo_y = lo_y.min(data.y[i].array());
+        hi_y = hi_y.max(data.y[i].array());
+    }
+    std::mt19937 rng(47);
+    std::vector<int> outliers(data.n_total);
+    std::iota(outliers.begin(), outliers.end(), 0);
+    std::shuffle(outliers.begin(), outliers.end(), rng);
+    outliers.resize(data.n_outliers);
+    std::uniform_real_distribution<double> u(0.0, 1.0);
+    for (int i : outliers) {
+        data.x[i] = lo_x + (hi_x - lo_x) * Eigen::Array2d(u(rng), u(rng));
+        data.y[i] = lo_y + (hi_y - lo_y) * Eigen::Array2d(u(rng), u(rng));
+    }
     HomLib::Wadenback3DV2026::SolverSingleSided solver;
 
     using S = superansac::samplers::SamplerType;
-    for (int variant = 0; variant < 3; variant++) {
+    for (int variant = 0; variant < 4; variant++) {
         superansac::RANSACSettings settings;
         REQUIRE(settings.neighborhood == superansac::neighborhood::NeighborhoodType::Grid);
         settings.inlierThreshold = 0.005;
@@ -785,8 +807,10 @@ TEST_CASE("SupeRANSAC - the settings that use grids") {
             settings.sampler = S::NAPSAC;
         else if (variant == 1)
             settings.sampler = S::ProgressiveNAPSAC;
-        else
+        else if (variant == 2)
             settings.localOptimization = superansac::local_optimization::LocalOptimizationType::GCRANSAC;
+        else
+            settings.scoring = superansac::scoring::ScoringType::GRID;
         CAPTURE(variant);
 
         auto [pose, stats] = HomLib::run_superansac_point(solver, data.x, data.y, {}, {}, settings);
@@ -794,13 +818,6 @@ TEST_CASE("SupeRANSAC - the settings that use grids") {
         REQUIRE(stats.inliers.size() > 0.9 * (data.n_total - data.n_outliers));
         REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
     }
-
-    // The grid scoring scores only the best point of each grid cell, and doesn't find the model on
-    // these points (it keeps a model of 4 inliers): it only has to run
-    superansac::RANSACSettings settings;
-    settings.inlierThreshold = 0.005;
-    settings.scoring = superansac::scoring::ScoringType::GRID;
-    REQUIRE_NOTHROW(HomLib::run_superansac_point(solver, data.x, data.y, {}, {}, settings));
 }
 
 TEST_CASE("SupeRANSAC - the grid neighborhood has cells smaller than the points' range") {
