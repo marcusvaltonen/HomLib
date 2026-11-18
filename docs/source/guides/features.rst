@@ -137,9 +137,10 @@ additional information, needing **3 correspondences** instead of 5.
 **Data format:**
 
 - ``x``, ``y`` — shape ``(2, N)``, same as point features.
-- ``ori`` — shape ``(2, N)``, unit orientation vectors.  Column ``i`` is
-  ``[cos(θ₁ᵢ - θ₂ᵢ), sin(θ₁ᵢ - θ₂ᵢ)]`` where ``θ₁ᵢ`` and ``θ₂ᵢ``
-  are the keypoint angles in image 1 and image 2 respectively.
+- ``ori`` — shape ``(2, N)``, the keypoint angles in radians.  Column ``i``
+  is ``[θ₁ᵢ, θ₂ᵢ]``, where ``θ₁ᵢ`` and ``θ₂ᵢ`` are the angles of the
+  keypoints of match ``i`` in image 1 and image 2 respectively (the solvers
+  take their sines and cosines).
 
 **Converting from SIFT/ORB angles:**
 
@@ -148,9 +149,9 @@ additional information, needing **3 correspondences** instead of 5.
    import numpy as np
    import homlib
 
-   # angles1, angles2: shape (N,) in radians, from SIFT or ORB
-   angle_diff = angles1 - angles2
-   ori = np.vstack([np.cos(angle_diff), np.sin(angle_diff)])  # shape (2, N)
+   # angles1, angles2: shape (N,), the keypoints' angles in degrees, as
+   # OpenCV's KeyPoint.angle
+   ori = np.radians(np.vstack([angles1, angles2]))  # shape (2, N)
 
    solver = homlib.ValtonenOrnhagICPR2026OrientationOneSided()
    poses = solver.estimate(x, y, ori=ori)

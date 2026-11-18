@@ -38,7 +38,15 @@ namespace ValtonenOrnhagICPR2026 {
         const std::vector<Eigen::Matrix2d> &Aff,
         bool extra_check
     ) {
-    
+        // Six equations per correspondence: fewer than two correspondences (twelve equations)
+        // leave a null space of more than three dimensions, from which the generalized eigenvalue
+        // problem below would take an arbitrary basis (and extra_check would read a fifth
+        // correspondence): no solution. With two or more, M has at least twelve rows, so the
+        // branch for fewer is never taken.
+        if (x.size() < 2 || y.size() != x.size() || Aff.size() != x.size()) {
+            return {};
+        }
+
         double weight = 1.0;
 
         // Create M matrix

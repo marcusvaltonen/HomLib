@@ -42,7 +42,7 @@ set(BINDING_COMMON_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${HOMLIB_INCLUDE_DIRS}
 )
-set(BINDING_THIRDPARTY_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty/RansacLib)
+set(BINDING_THIRDPARTY_INCLUDES ${RANSACLIB_INCLUDE_DIR})
 
 # Helper: configure common properties for a binding object library
 function(configure_binding_object target)
