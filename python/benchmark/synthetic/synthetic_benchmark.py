@@ -51,7 +51,7 @@ import homlib
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import (  # noqa: E402
-    BACKENDS, inlier_indices, make_estimator, print_runs, run_info, warn_settings)
+    BACKENDS, inlier_indices, make_estimator, print_runs, run_info, warn_settings, with_sampler)
 
 FOCAL = 1000.0   # pixels: the noise is given in pixels for this focal length
 
@@ -130,7 +130,7 @@ def main():
                                backend)
         if args.output:
             settings = dict(problems=args.problems or 200, noise=None, iterations=args.iterations, seed=args.seed,
-                            outliers=args.outliers, backend=backend)
+                            outliers=args.outliers, backend=backend, sampler="uniform")
             with open(args.output, "w") as f:
                 json.dump(dict(run=run_info(), settings=settings, outliers=results), f)
         print_outliers(results)
@@ -259,7 +259,7 @@ def compare(path_a, path_b):
     print_runs(run_a, run_b)
     if ("outliers" in a) != ("outliers" in b):
         raise SystemExit("can't compare a run with --outliers and a run without it")
-    warn_settings(settings_a, settings_b)
+    warn_settings(with_sampler(settings_a), with_sampler(settings_b))
     if "outliers" in a:
         compare_outliers(a["outliers"], b["outliers"])
         return

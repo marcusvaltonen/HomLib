@@ -81,6 +81,24 @@ Common options
    threshold: it gets the threshold as its largest noise level,
    ``sigma_max``.
 
+``--sampler NAME`` (HPatches and HEB)
+   The sampler of the robust estimator: ``uniform`` (default, for every
+   backend), ``prosac``, ``importance`` or ``ar`` (see
+   :ref:`confidence_scores`); LOMSAC has only ``uniform``, and another
+   combination is an error. PROSAC gets the matches sorted by decreasing score
+   (a stable sort), and its inliers are mapped back to the order of the matches;
+   the importance and AR samplers get the scores, which the others don't use.
+   The scores are those of the matches files (HPatches; older files have none)
+   and 1 minus the SNN ratio (HEB). Before this option, the benchmarks ran
+   SupeRANSAC with its own default, PROSAC, on matches in the order of the
+   files: the results files saved before it count as ``prosac (unsorted)`` for
+   SupeRANSAC on HPatches (``prosac`` on HEB, whose files are sorted by SNN
+   ratio) and ``uniform`` for the other backends, when ``--compare`` checks
+   the settings. The Grossmünster benchmark and the synthetic outlier
+   experiment have no ``--sampler``: they run every backend with uniform
+   sampling, SupeRANSAC included (before, PROSAC on the matches in their
+   order).
+
 ``--seeds N`` (HPatches, default 3; HEB, default 1)
    The number of runs per pair. LOMSAC gets fixed seeds, so its runs are
    reproducible on the same platform (other platforms draw other samples from

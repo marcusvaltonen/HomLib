@@ -46,9 +46,9 @@ of HomLib has three of them, each with its SHA-256:
 
 The score of a match is higher for a better match: 1 minus the distance ratio
 of the ratio test for SIFT, and the match confidence for LightGlue and LoMa.
-The benchmark doesn't use them yet: they are for the ``scores`` argument of
-the robust estimators' ``estimate``, which the samplers guided by the quality
-of the matches use.
+``--sampler prosac`` sorts the matches by them, and ``--sampler importance``
+and ``--sampler ar`` pass them to the robust estimators' ``estimate`` (see
+:ref:`benchmark_common_options`).
 
 .. code-block:: bash
 

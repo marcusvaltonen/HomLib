@@ -40,6 +40,11 @@ them.
 ``--backend gcransac|magsac|superansac`` replaces LOMSAC with another robust estimator, if HomLib was
 built with it (see BACKENDS for the settings that it gets).
 
+``--sampler uniform|prosac|importance|ar`` chooses the sampler of the robust estimator (uniform by
+default, for every backend; LOMSAC has only uniform). PROSAC gets the matches sorted by decreasing
+score, and its inliers are mapped back to the order of the matches file; the importance and AR
+samplers get the scores. The matches files of hpatches_features.py have them; older ones don't.
+
 ``--iterations N`` runs the estimator for exactly N iterations, instead of stopping when it is
 confident. Several runs give the accuracy as a function of the time, as in Fig. 6 of Wadenbäck et al.
 
@@ -52,7 +57,7 @@ Usage
 -----
     python hpatches_features.py --data_dir data --output data/hpatches_sift.npz
     python hpatches_benchmark.py data/hpatches_sift.npz [--solvers Wadenback3DV2026TwoSided DLT]
-                                 [--backend lomsac] [--seeds 3] [--output results.json]
+                                 [--backend lomsac] [--sampler uniform] [--seeds 3] [--output results.json]
                                  [--protocol gluefactory [--data_dir data]]
     python hpatches_benchmark.py --compare before.json after.json
 """
@@ -72,7 +77,8 @@ from hpatches_data import HPATCHES_DIRNAME, add_image_sizes, load_matches
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import (  # noqa: E402
-    BACKENDS, inlier_indices, make_estimator, map_points, print_runs, run_info, warn_settings)
+    BACKENDS, add_sampler_argument, check_sampler, inlier_indices, make_estimator, map_points, original_indices,
+    prepare_matches, print_runs, run_info, warn_settings, with_sampler)
 
 # glue-factory's HPatches evaluation: the shorter side of the resized images, and the sequences of
 # large images that it leaves out (HPatches.ignored_scenes in gluefactory/datasets/hpatches.py)
@@ -96,7 +102,8 @@ def gluefactory_size(width, height, side=GLUEFACTORY_RESIZE):
 
 
 def resize_pair(pair):
-    """The pair in pixels of its two images resized as in glue-factory's evaluation. Resizing an
+    """The pair in pixels of its two images resized as in glue-factory's evaluation (the scores of
+    the matches unchanged). Resizing an
     image of width w to w' maps x to (x + 0.5) w' / w - 0.5 (pixel centers at integer coordinates),
     and the image center (w - 1) / 2 to (w' - 1) / 2: the points, centered on the image center,
     scale by w' / w, and likewise in y.
@@ -115,7 +122,7 @@ def resize_pair(pair):
     S2 = np.diag([w2 / pair["width2"], h2 / pair["height2"], 1.0])
     H = translation(-0.5) @ pair["H"] @ translation(0.5)
     return dict(x=S1[:2, :2] @ pair["x"], y=S2[:2, :2] @ pair["y"], H=S2 @ H @ np.linalg.inv(S1),
-                width=w1, height=h1, width2=w2, height2=h2)
+                scores=pair["scores"], width=w1, height=h1, width2=w2, height2=h2)
 
 
 def translation(a):
@@ -165,6 +172,7 @@ def main():
                              "images: the directory of HPatches (with hpatches-sequences-release)")
     parser.add_argument("--backend", choices=sorted(BACKENDS), default="lomsac",
                         help="Robust estimator (default: lomsac). The others need HomLib built with them")
+    add_sampler_argument(parser)
     parser.add_argument("--seeds", type=int, default=3, help="Runs per pair (random seeds, for LOMSAC)")
     parser.add_argument("--iterations", type=int, default=None,
                         help="Run the estimator for exactly this many iterations")
@@ -188,6 +196,10 @@ def main():
         parser.error("the matches file is required")
     if args.data_dir is not None and args.protocol != "gluefactory":
         parser.error("--data_dir is only used by --protocol gluefactory")
+    try:
+        check_sampler(args.backend, args.sampler)
+    except ValueError as e:
+        parser.error(str(e))
     pairs = load_matches(Path(args.matches))
     if args.protocol == "gluefactory":
         try:
@@ -197,23 +209,28 @@ def main():
 
     solvers = homlib.solver_ids(names=args.solvers) if args.solvers else point_solvers
     nm_solver_obj = homlib.Solver(args.non_minimal_solver) if args.non_minimal_solver else None
+    # The matches and scores that the sampler gets, and their order in the matches file
+    try:
+        prepared = {key: prepare_matches(p["x"], p["y"], p["scores"], args.sampler) for key, p in pairs.items()}
+    except ValueError as e:
+        parser.error(f"{args.matches}: {e}")
     # results[solver][pair] = per seed: (share of the true inliers found, corner error, time)
     results = {s.name: {} for s in solvers}
     for key, pair in tqdm(pairs.items(), desc="Pairs"):
         gt = set(true_inliers(pair, args.threshold).tolist())
         if not gt and args.protocol == "original":
             continue
-        x, y = np.ascontiguousarray(pair["x"]), np.ascontiguousarray(pair["y"])
+        x, y, scores, order = prepared[key]
         for s in solvers:
             runs = []
             for seed in range(1, args.seeds + 1):
                 estimator = make_estimator(args.backend, homlib.Solver(s), args.threshold, args.iterations, seed,
                                            non_minimal_strategy=args.non_minimal_strategy,
-                                           non_minimal_solver=nm_solver_obj)
+                                           non_minimal_solver=nm_solver_obj, sampler=args.sampler)
                 t0 = time.perf_counter()
-                pose, stats = estimator.estimate(x, y)
+                pose, stats = estimator.estimate(x, y, scores=scores)
                 elapsed = time.perf_counter() - t0
-                found = set(inlier_indices(stats))
+                found = set(original_indices(inlier_indices(stats), order).tolist())
                 # glue-factory counts a failed estimate (no inlier) as an infinite error
                 failed = not found and args.protocol == "gluefactory"
                 runs.append((len(gt & found) / len(gt) if gt else np.nan,
@@ -221,7 +238,7 @@ def main():
             results[s.name][key] = runs
     if args.output:
         settings = dict(matches=Path(args.matches).name, threshold=args.threshold, backend=args.backend,
-                        seeds=args.seeds, iterations=args.iterations, protocol=args.protocol,
+                        sampler=args.sampler, seeds=args.seeds, iterations=args.iterations, protocol=args.protocol,
                         non_minimal_strategy=args.non_minimal_strategy,
                         non_minimal_solver=args.non_minimal_solver)
         with open(args.output, "w") as f:
@@ -237,13 +254,14 @@ def load_results(path):
     """(run, settings, results) of a file saved with --output (run: its command and environment,
     None in older files). The files saved before the settings were
     the results alone: their settings are None. The files saved before --protocol used the original
-    protocol. A null share of the true inliers found is NaN, and a null corner error is infinite
-    (older files have NaN and Infinity instead)."""
+    protocol, and those saved before --sampler the default sampler of their backend (with_sampler).
+    A null share of the true inliers found is NaN, and a null corner error is infinite (older files
+    have NaN and Infinity instead)."""
     with open(path) as f:
         data = json.load(f)
     description = data.get("run") if "settings" in data else None
     settings, results = ((None, data) if "settings" not in data
-                         else ({"protocol": "original", **data["settings"]}, data["results"]))
+                         else (with_sampler({"protocol": "original", **data["settings"]}), data["results"]))
     for per_pair in results.values():
         for runs in per_pair.values():
             for run in runs:

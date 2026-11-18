@@ -275,11 +275,15 @@ supported by GC-RANSAC, MAGSAC, and SupeRANSAC.
 
 .. code-block:: python
 
-   # scores: 1-D array of per-match confidences in [0, 1], length N,
-   # sorted in descending order (highest confidence first).
+   # scores: 1-D array of per-match confidences in [0, 1], length N, in the
+   # order of the matches. PROSAC uses only the order of the matches: sort them
+   # by decreasing score for it (estimate doesn't), and map the inliers back.
+   order = np.argsort(-scores, kind="stable")
    gc = homlib.GCRANSAC(solver, threshold=3.0,
                         sampler=homlib.GCSamplerType.PROSAC)
-   estimate, stats = gc.estimate(x, y, scores=scores)
+   estimate, stats = gc.estimate(np.ascontiguousarray(x[:, order]),
+                                 np.ascontiguousarray(y[:, order]))
+   inliers = order[stats.inliers]   # indices in the original order
 
 **Available samplers for GC-RANSAC and MAGSAC** (``homlib.GCSamplerType``):
 
@@ -303,9 +307,11 @@ supported by GC-RANSAC, MAGSAC, and SupeRANSAC.
 
 **Available samplers for SupeRANSAC** (``homlib.SuperansacSamplerType``):
 the same set as above, plus ``NAPSAC`` and ``ProgressiveNAPSAC``
-(neighbourhood-based samplers).
+(neighbourhood-based samplers). SupeRANSAC's default sampler is ``PROSAC``
+(GC-RANSAC's and MAGSAC's is ``Uniform``): give it the matches sorted by
+decreasing score, or set ``sampler=homlib.SuperansacSamplerType.Uniform``.
 
-Scores are **optional**: omitting them uses Uniform sampling. If a sampler
+Scores are **optional**: Uniform and PROSAC don't use them. If a sampler
 that needs scores is selected without providing them, a ``RuntimeError`` is
 raised (GC-RANSAC, MAGSAC) or the sampler falls back to uniform weights
 (SupeRANSAC ImportanceSampler).
@@ -327,13 +333,13 @@ approaches:
 
    import numpy as np
 
-   # Real scores (from a learned matcher, already sorted descending)
+   # Real scores (from a learned matcher)
    scores_raw = pair["scores"]
    s_min, s_max = scores_raw.min(), scores_raw.max()
    scores_real = (scores_raw - s_min) / (s_max - s_min)
 
-   # Linear scores (Barath et al. convention)
-   # Works well with PROSAC, which only cares about ordering.
+   # Linear scores (Barath et al. convention), for matches already sorted
+   # by decreasing score: they keep only the order
    N = x.shape[1]
    scores_linear = np.linspace(1.0, 0.01, N)
 
