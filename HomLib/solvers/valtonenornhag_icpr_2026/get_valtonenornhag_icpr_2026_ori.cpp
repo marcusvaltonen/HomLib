@@ -37,6 +37,12 @@ namespace ValtonenOrnhagICPR2026 {
         const std::vector<Eigen::Vector2d> &y,
         const std::vector<Eigen::Vector2d> &ori
     ) {
+        // Three equations per correspondence: fewer than three correspondences (nine equations)
+        // leave a null space of more than three dimensions, from which the generalized eigenvalue
+        // problem below would take an arbitrary basis: no solution
+        if (x.size() < 3 || y.size() != x.size() || ori.size() != x.size()) {
+            return {};
+        }
 
         double weight = 1.0;
 
