@@ -217,6 +217,11 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
     if (data.rows() < sample_size)
         return {};
 
+    // SupeRANSAC's grids (the grid neighborhood and P-NAPSAC's layers) take only non-negative
+    // coordinates, and HomLib's are centred on the image centre: the neighborhoods are built on
+    // the coordinates shifted by their minimum
+    const DataMatrix shifted = data.rowwise() - data.colwise().minCoeff();
+
     // Neighborhood graph (lazily initialized for GCRANSAC LO, NAPSAC samplers, GRID scoring)
     std::unique_ptr<superansac::neighborhood::AbstractNeighborhoodGraph> neighborhoodGraph;
     bool useNeighborhood = needs_neighborhood(
@@ -224,7 +229,7 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
         settings.scoring == superansac::scoring::ScoringType::GRID;
 
     if (useNeighborhood)
-        initialize_neighborhood<DimensionNumber>(data, neighborhoodGraph, settings);
+        initialize_neighborhood<DimensionNumber>(shifted, neighborhoodGraph, settings);
 
     auto sampler = create_sampler<DimensionNumber>(settings.sampler);
     auto scoring = superansac::scoring::createScoring<DimensionNumber>(settings.scoring, settings.useSprt);
@@ -238,6 +243,16 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
     if (settings.sampler == S::NAPSAC && neighborhoodGraph)
         dynamic_cast<superansac::samplers::NAPSACSampler*>(sampler.get())
             ->setNeighborhood(neighborhoodGraph.get());
+    if (settings.sampler == S::ProgressiveNAPSAC) {
+        // Grids of 16, 8, 4 and 2 cells along each axis, as in SupeRANSAC's Python bindings, over
+        // the range of the points (positive, even if all points have the same coordinate)
+        std::vector<double> sizes(DimensionNumber);
+        for (size_t i = 0; i < DimensionNumber; ++i)
+            sizes[i] = std::max(shifted.col(i).maxCoeff(), 1e-9);
+        auto* pnapsac = dynamic_cast<superansac::samplers::ProgressiveNAPSACSampler<DimensionNumber>*>(sampler.get());
+        pnapsac->setSampleSize(estimator->sampleSize());
+        pnapsac->setLayerData({16, 8, 4, 2}, sizes);
+    }
     if (!probabilities.empty() && settings.sampler == S::ARSampler) {
         dynamic_cast<superansac::samplers::AdaptiveReorderingSampler*>(sampler.get())
             ->initialize(&data, probabilities);
@@ -246,7 +261,9 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
             ->setProbabilities(probabilities);
         sampler->initialize(data);
     } else {
-        sampler->initialize(data);
+        // P-NAPSAC builds its grids on the points it's initialized with; the other samplers use
+        // only their number
+        sampler->initialize(shifted);
     }
 
     // Scoring initialization
@@ -300,6 +317,7 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
     SuperansacStatistics stats;
     stats.num_iterations = ransac.getIterationNumber();
     stats.inliers = ransac.getInliers();
+    stats.best_score = ransac.getBestScore().getValue();
 
     PoseData best_pose;
     if (stats.inliers.size() >= estimator->sampleSize())

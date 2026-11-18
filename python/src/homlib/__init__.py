@@ -357,7 +357,8 @@ class RobustEstimator(ABC):
         A : numpy.ndarray, optional
             4xN local affine transformations (required for affine solvers).
         ori : numpy.ndarray, optional
-            2xN orientation vectors (required for orientation solvers).
+            2xN keypoint angles in radians: row 0 in the first image, row 1
+            in the second (required for orientation solvers).
         scores : numpy.ndarray, optional
             1-D array of per-match confidence scores in [0, 1], in the
             order of the matches.  Used by ARSampler and

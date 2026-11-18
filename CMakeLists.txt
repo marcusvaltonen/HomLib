@@ -86,6 +86,39 @@ if(HOMLIB_USE_SUPERANSAC)
     # Python module, where the linker keeps only one definition of each inline member
     # (an ODR violation): rename SupeRANSAC's, in every target that uses its headers.
     target_compile_definitions(SupeRANSAC PUBLIC Graph=SuperansacGraph Energy=SuperansacEnergy)
+
+    # SupeRansac::run updates its stopping test only when it runs local optimization inside the
+    # loop, which is off by default, so every run takes maxIterations iterations
+    # (danini/superansac#12). The SupeRANSAC target compiles a fixed copy of superansac.cpp
+    # instead, which updates the stopping test after every new best model, and runs the local
+    # optimization there only if the setting is on. When superansac.cpp no longer matches (fixed
+    # upstream), the original is compiled and CMake says so.
+    set(_superansac_cpp ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/superansac/src/superansac.cpp)
+    set(_superansac_fixed_dir ${CMAKE_CURRENT_BINARY_DIR}/superansac_fixed)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_superansac_cpp})
+    file(READ ${_superansac_cpp} _superansac)
+    string(REGEX REPLACE
+        "if \\(settings\\.localOptimizationInsideTheLoop && isModelUpdated\\)([ \t\r\n]*{[ \t\r\n]*// Perform local optimization if needed[ \t\r\n]*)if \\(localOptimizer != nullptr\\)"
+        "if (isModelUpdated)  // (HomLib: update the stopping test without local optimization too)\\1if (settings.localOptimizationInsideTheLoop && localOptimizer != nullptr)"
+        _superansac_fixed "${_superansac}")
+    if(_superansac_fixed STREQUAL _superansac)
+        file(REMOVE_RECURSE ${_superansac_fixed_dir})
+        message(STATUS "SupeRANSAC: superansac.cpp no longer updates its stopping test only with local "
+            "optimization inside the loop, using it as is (the workaround in ${CMAKE_CURRENT_LIST_FILE} "
+            "is no longer needed)")
+    else()
+        # configure_file only writes the copy when its content changes
+        file(WRITE ${_superansac_fixed_dir}/superansac.cpp.in "${_superansac_fixed}")
+        configure_file(${_superansac_fixed_dir}/superansac.cpp.in ${_superansac_fixed_dir}/superansac.cpp COPYONLY)
+        get_target_property(_superansac_sources SupeRANSAC SOURCES)
+        list(TRANSFORM _superansac_sources REPLACE "^superansac\\.cpp$" "${_superansac_fixed_dir}/superansac.cpp")
+        if(NOT "${_superansac_fixed_dir}/superansac.cpp" IN_LIST _superansac_sources)
+            message(FATAL_ERROR "SupeRANSAC: the SupeRANSAC target no longer lists superansac.cpp, "
+                "update the fix in ${CMAKE_CURRENT_LIST_FILE}")
+        endif()
+        set_property(TARGET SupeRANSAC PROPERTY SOURCES ${_superansac_sources})
+        message(STATUS "SupeRANSAC: compiling a fixed copy of superansac.cpp in ${_superansac_fixed_dir}")
+    endif()
 endif()
 
 # GC-RANSAC's headers: the GC-RANSAC backend uses them, and so does the MAGSAC backend (MAGSAC++
@@ -206,6 +239,34 @@ if(HOMLIB_USE_MAGSAC)
             set(MAGSAC_INCLUDE_DIR ${_magsac_fixed_dir} ${MAGSAC_INCLUDE_DIR})
         endif()
     endif()
+endif()
+
+# RansacLib's headers (LO-MSAC, in the tests, examples and Python bindings). NumRequiredIterations
+# (utils.h, twice) converts the required number of iterations to uint32_t before comparing it with
+# max_iterations: above 2^32 the conversion is undefined, and on x86-64 it wraps, so LO-MSAC can
+# stop early (tsattler/RansacLib#24). The fixed copy, in a directory searched before the original
+# one, compares first (unless utils.h no longer has the conversion).
+set(_ransaclib_dir ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/RansacLib)
+set(_ransaclib_fixed_dir ${CMAKE_CURRENT_BINARY_DIR}/ransaclib_fixed)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_ransaclib_dir}/RansacLib/utils.h)
+file(READ ${_ransaclib_dir}/RansacLib/utils.h _ransaclib_utils)
+# A regular expression rather than the exact text, to also match CRLF line endings
+string(REGEX REPLACE
+    "uint32_t num_req_iterations =[ \t\r\n]+std::min\\(static_cast<uint32_t>\\(num_iters\\), max_iterations\\);"
+    "// Compare in double before converting: num_iters can exceed UINT32_MAX, and\n  // converting it first is undefined (it wraps on x86-64). Not std::min, which\n  // would return a NaN num_iters; this gives max_iterations for NaN and inf.\n  uint32_t num_req_iterations =\n      num_iters < max_iterations ? static_cast<uint32_t>(num_iters) : max_iterations;"
+    _ransaclib_utils_fixed "${_ransaclib_utils}")
+if(_ransaclib_utils_fixed STREQUAL _ransaclib_utils)
+    file(REMOVE_RECURSE ${_ransaclib_fixed_dir})
+    message(STATUS "RansacLib: utils.h no longer converts the iteration count before clamping it, "
+        "using it as is (the workaround in ${CMAKE_CURRENT_LIST_FILE} is no longer needed)")
+    set(RANSACLIB_INCLUDE_DIR ${_ransaclib_dir})
+else()
+    # configure_file only writes utils.h when its content changes, so that a new configure
+    # doesn't recompile the files that include it.
+    file(WRITE ${_ransaclib_fixed_dir}/RansacLib/utils.h.in "${_ransaclib_utils_fixed}")
+    configure_file(${_ransaclib_fixed_dir}/RansacLib/utils.h.in ${_ransaclib_fixed_dir}/RansacLib/utils.h COPYONLY)
+    message(STATUS "RansacLib: using a fixed copy of utils.h in ${_ransaclib_fixed_dir}")
+    set(RANSACLIB_INCLUDE_DIR ${_ransaclib_fixed_dir} ${_ransaclib_dir})
 endif()
 
 

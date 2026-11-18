@@ -18,7 +18,7 @@ x = np.random.randn(2, N)
 y = H @ np.vstack((x, np.ones((1, N))))
 y = y[:2] / y[2]
 
-print(f"H={H / H[2,2]}")
+print(f"H={H / H[2, 2]}")
 
 ######################################
 # Run estimator from homlib on the minimal sample.
