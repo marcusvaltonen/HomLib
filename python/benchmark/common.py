@@ -16,9 +16,10 @@ import homlib
 
 
 # The robust estimators: their names in HomLib, and the names of their inlier threshold and of their
-# iteration bounds. MAGSAC++ has no threshold, but a largest noise level, sigma_max, which also
-# selects its final inliers (the matches within sigma_max). Only LOMSAC takes a random seed: the
-# others draw theirs at random, so their runs are not reproducible.
+# iteration bounds. MAGSAC++ takes the threshold as sigma_max, the largest residual of an inlier (k
+# times its largest noise level), which also selects its final inliers. Only LOMSAC gets the
+# benchmark's seed here: GC-RANSAC and MAGSAC++ take a `seed` too (#85), not passed yet, and
+# SupeRANSAC's runs are deterministic.
 BACKENDS = {
     "lomsac": ("LOMSAC", "inlier_threshold", "min_num_iterations", "max_num_iterations"),
     "gcransac": ("GCRANSAC", "threshold", "min_iterations", "max_iterations"),
