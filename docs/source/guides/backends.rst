@@ -96,14 +96,14 @@ model, it refines via iterative least-squares on the inlier set (LO-RANSAC).
      - 0.9999
      - Early termination probability
    * - ``num_lo_steps``
-     - 4
+     - 10
      - Local optimisation refinement steps
    * - ``final_least_squares``
-     - ``True``
+     - ``False``
      - Final Gauss-Newton refinement on all inliers
    * - ``random_seed``
      - 0
-     - Random seed (0 = non-deterministic)
+     - Seed of the random generators (every value, 0 included, gives the same run each time)
 
 **When to use:** Default choice for production. Deterministic with
 ``random_seed``. Well-tested and fast.
@@ -139,19 +139,22 @@ Requires building with ``-DHOMLIB_USE_GCRANSAC=ON``. Check availability:
      - Default
      - Description
    * - ``threshold``
-     - 2.0
-     - Inlier threshold (raw, not squared)
+     - 3.0
+     - Inlier threshold, in the units of the points passed to ``estimate()`` (raw, not squared)
    * - ``confidence``
      - 0.99
      - RANSAC confidence
    * - ``max_iterations``
      - 5 000
      - Maximum iterations
+   * - ``min_iterations``
+     - 50
+     - Minimum iterations
    * - ``spatial_coherence_weight``
-     - 0.975
+     - 0.14
      - Weight for graph-cut spatial coherence (0–1)
    * - ``cell_number``
-     - 16
+     - 4
      - Grid cells per dimension for neighbourhood graph
    * - ``do_local_optimization``
      - ``True``
@@ -209,6 +212,9 @@ Requires building with ``-DHOMLIB_USE_MAGSAC=ON``. Check availability:
    * - ``max_iterations``
      - 5 000
      - Maximum iterations
+   * - ``min_iterations``
+     - 50
+     - Minimum iterations
    * - ``partition_number``
      - 5
      - Partitions in the sigma consensus integral
