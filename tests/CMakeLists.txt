@@ -50,11 +50,11 @@ catch_discover_tests(HomLibTests)
 homlib_strict_standard(HomLibTests)
 
 # Backend integration tests — separate executable with optional backend dependencies
-add_executable(HomLibBackendTests test_backends.cpp)
+add_executable(HomLibBackendTests test_backends.cpp test_ransaclib.cpp)
 target_link_libraries(HomLibBackendTests PRIVATE
     HomLib Catch2::Catch2WithMain Eigen3::Eigen PoseLib::PoseLib)
 target_include_directories(HomLibBackendTests PRIVATE ${HOMLIB_INCLUDE_DIRS})
-target_include_directories(HomLibBackendTests SYSTEM PRIVATE ${CATCH2_SYSTEM_INCLUDES} ${CMAKE_SOURCE_DIR}/thirdparty/RansacLib)
+target_include_directories(HomLibBackendTests SYSTEM PRIVATE ${CATCH2_SYSTEM_INCLUDES} ${RANSACLIB_INCLUDE_DIR})
 
 if(HOMLIB_USE_GCRANSAC)
     target_compile_definitions(HomLibBackendTests PRIVATE HOMLIB_HAS_GCRANSAC)
