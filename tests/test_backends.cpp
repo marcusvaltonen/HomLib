@@ -746,6 +746,63 @@ TEST_CASE("SupeRANSAC - orientation features") {
     REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
 }
 
+TEST_CASE("SupeRANSAC - stops early on an easy problem") {
+    // SupeRANSAC updated its stopping test only with local optimization inside the loop (off by
+    // default), so every run took max_iterations iterations (danini/superansac#12): CMakeLists.txt
+    // patches it. With 80% inliers, the stopping test asks for a few iterations: the run stops at
+    // min_iterations.
+    auto data = generate_test_data(46, 500, 100, HomLib::ONE_SIDED_LEFT);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
+
+    superansac::RANSACSettings settings;
+    settings.inlierThreshold = 0.005;
+    settings.minIterations = 100;
+    settings.maxIterations = 5000;
+    settings.sampler = superansac::samplers::SamplerType::Uniform;
+    REQUIRE_FALSE(settings.localOptimizationInsideTheLoop);
+
+    auto [pose, stats] = HomLib::run_superansac_point(solver, data.x, data.y, {}, {}, settings);
+
+    CHECK(stats.num_iterations == settings.minIterations);
+    CHECK(stats.best_score > 0);
+    REQUIRE(stats.inliers.size() > 0.9 * (data.n_total - data.n_outliers));
+    REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
+}
+
+TEST_CASE("SupeRANSAC - the settings that use grids") {
+    // SupeRANSAC's grids take only non-negative coordinates, and HomLib's are centred on the image
+    // centre: the runner builds them on shifted coordinates. It also sets up P-NAPSAC's sample
+    // size and grid layers (without them, P-NAPSAC's initialization doesn't end).
+    auto data = generate_test_data(47, 500, 100, HomLib::ONE_SIDED_LEFT);
+    HomLib::Wadenback3DV2026::SolverSingleSided solver;
+
+    using S = superansac::samplers::SamplerType;
+    for (int variant = 0; variant < 3; variant++) {
+        superansac::RANSACSettings settings;
+        REQUIRE(settings.neighborhood == superansac::neighborhood::NeighborhoodType::Grid);
+        settings.inlierThreshold = 0.005;
+        if (variant == 0)
+            settings.sampler = S::NAPSAC;
+        else if (variant == 1)
+            settings.sampler = S::ProgressiveNAPSAC;
+        else
+            settings.localOptimization = superansac::local_optimization::LocalOptimizationType::GCRANSAC;
+        CAPTURE(variant);
+
+        auto [pose, stats] = HomLib::run_superansac_point(solver, data.x, data.y, {}, {}, settings);
+
+        REQUIRE(stats.inliers.size() > 0.9 * (data.n_total - data.n_outliers));
+        REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
+    }
+
+    // The grid scoring scores the best point of each grid cell, and these points span too few cells
+    // for it to find the model: it only has to run
+    superansac::RANSACSettings settings;
+    settings.inlierThreshold = 0.005;
+    settings.scoring = superansac::scoring::ScoringType::GRID;
+    REQUIRE_NOTHROW(HomLib::run_superansac_point(solver, data.x, data.y, {}, {}, settings));
+}
+
 TEST_CASE("SupeRANSAC - the uniform sampler draws only indices of points") {
     // SupeRANSAC's UniformRandomSampler, initialized on the data, can draw the index of the row
     // after the last point; create_sampler gives HomLib's

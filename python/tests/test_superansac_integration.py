@@ -82,6 +82,7 @@ class SuperansacIntegrationTestCase(unittest.TestCase):
 
         self.assertIsInstance(stats.inliers, list)
         self.assertGreater(stats.num_iterations, 0)
+        self.assertGreater(stats.best_score, 0)
 
     def test_superansac_vs_lomsac(self):
         solver = homlib.Wadenback3DV2026OneSided()
