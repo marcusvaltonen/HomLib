@@ -24,13 +24,12 @@ constexpr DistortionCase flipped_case(DistortionCase c) {
 }
 
 inline void flip_poses(std::vector<PoseData>& poses) {
-    // A nearly singular H (|det| of the unit-norm H below 1e-12), or one without a finite inverse,
-    // gives no solution
+    // An H without a finite inverse gives no solution. A nearly singular H is kept, as the inner
+    // solver keeps it: the flipped solver returns the same solutions as the inner one.
     size_t n = 0;
     for (PoseData& p : poses) {
         Eigen::Matrix3d H_inv;
-        if (!(std::abs((p.homography / p.homography.norm()).determinant()) > 1e-12) ||
-            !invert_homography(p.homography, &H_inv))
+        if (!invert_homography(p.homography, &H_inv))
             continue;
         p.homography = H_inv;
         std::swap(p.distortion_parameter, p.distortion_parameter2);

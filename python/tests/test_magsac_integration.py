@@ -107,8 +107,11 @@ class MAGSACIntegrationTestCase(unittest.TestCase):
 
     def test_magsac_plus_plus_vs_original(self):
         solver = homlib.Wadenback3DV2026OneSided()
-        mgpp = homlib.MAGSAC(solver, sigma_max=0.5, use_magsac_plus_plus=True)
-        mg_orig = homlib.MAGSAC(solver, sigma_max=0.5, use_magsac_plus_plus=False)
+        # sigma_max = 0.5, larger than the spread of the points (0.3), let MAGSAC's original
+        # sigma-consensus return a distortion k = -1.7 that fits the inliers within 0.5, in about 1
+        # run in 80; 0.1 is still 1000 times the noise
+        mgpp = homlib.MAGSAC(solver, sigma_max=0.1, use_magsac_plus_plus=True)
+        mg_orig = homlib.MAGSAC(solver, sigma_max=0.1, use_magsac_plus_plus=False)
 
         est_pp, stats_pp = mgpp.estimate(self.x, self.y)
         est_orig, stats_orig = mg_orig.estimate(self.x, self.y)

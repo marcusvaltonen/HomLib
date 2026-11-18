@@ -25,11 +25,12 @@
 
 namespace HomLib {
   // H_inv = H^-1; false (H_inv not finite) if H is singular or the inverse overflows: the solvers
-  // that compute H^-1 return no solution for such an H
+  // that compute H^-1 return no solution for such an H. LU with partial pivoting, accurate to about
+  // cond(H) * epsilon; the cofactor formula of Eigen's inverse() for 3x3 matrices is up to
+  // thousands of times less accurate on the nearly singular H that some solvers find.
   inline bool invert_homography(const Eigen::Matrix3d &H, Eigen::Matrix3d *H_inv) {
-    bool invertible;
-    H.computeInverseWithCheck(*H_inv, invertible, 0.0);
-    return invertible && H_inv->allFinite();
+    *H_inv = H.partialPivLu().inverse();
+    return H_inv->allFinite();
   }
 }
 
