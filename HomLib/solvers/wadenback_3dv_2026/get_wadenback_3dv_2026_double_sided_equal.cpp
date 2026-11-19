@@ -3,7 +3,7 @@
 #include <vector>
 #include <limits>
 
-#include "PoseLib/misc/sturm.h"
+#include "sturm.hpp"
 
 #include "posedata.hpp"
 #include "wadenback_common.hpp"
@@ -39,7 +39,7 @@ std::vector<HomLib::PoseData> get_double_sided_equal(
 
     // Find real roots
     double roots[6];
-    int nroots = bisect_sturm_scaled<6>(p, roots);
+    int nroots = HomLib::sturm::bisect_sturm_scaled<6>(p, roots);
 
     std::vector<HomLib::PoseData> output;
 

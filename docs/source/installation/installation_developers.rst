@@ -12,9 +12,6 @@ To build the core C++ library you need Eigen 3.3+. On Ubuntu:
 
    apt install libeigen3-dev
 
-and also `PoseLib <https://github.com/PoseLib/PoseLib>`__. Follow
-the installation instructions in the repo.
-
 Furthermore, you need `RansacLib <https://github.com/tsattler/RansacLib>`__, which
 is included as a submodule. You may simply pull it recursively:
 

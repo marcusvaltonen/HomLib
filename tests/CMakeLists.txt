@@ -38,7 +38,7 @@ add_executable(HomLibTests
 )
 
 # Link against Catch2WithMain - this provides the main() function
-target_link_libraries(HomLibTests PRIVATE HomLib Catch2::Catch2WithMain Eigen3::Eigen PoseLib::PoseLib)
+target_link_libraries(HomLibTests PRIVATE HomLib Catch2::Catch2WithMain Eigen3::Eigen)
 target_include_directories(HomLibTests PRIVATE ${HOMLIB_INCLUDE_DIRS})
 target_include_directories(HomLibTests SYSTEM PRIVATE ${CATCH2_SYSTEM_INCLUDES})
 
@@ -52,7 +52,7 @@ homlib_strict_standard(HomLibTests)
 # Backend integration tests — separate executable with optional backend dependencies
 add_executable(HomLibBackendTests test_backends.cpp test_ransaclib.cpp)
 target_link_libraries(HomLibBackendTests PRIVATE
-    HomLib Catch2::Catch2WithMain Eigen3::Eigen PoseLib::PoseLib)
+    HomLib Catch2::Catch2WithMain Eigen3::Eigen)
 target_include_directories(HomLibBackendTests PRIVATE ${HOMLIB_INCLUDE_DIRS})
 target_include_directories(HomLibBackendTests SYSTEM PRIVATE ${CATCH2_SYSTEM_INCLUDES} ${RANSACLIB_INCLUDE_DIR})
 

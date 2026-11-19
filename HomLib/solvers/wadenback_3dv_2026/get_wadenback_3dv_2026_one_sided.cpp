@@ -3,7 +3,7 @@
 #include <vector>
 #include <limits>
 
-#include "PoseLib/misc/univariate.h"
+#include "univariate.hpp"
 
 #include "posedata.hpp"
 #include "wadenback_common.hpp"
@@ -44,7 +44,7 @@ std::vector<HomLib::PoseData> get_one_sided(
     }
     double inv_c3 = 1.0 / c3;
     double roots[3];
-    int nroots = poselib::univariate::solve_cubic_real(c2 * inv_c3, c1 * inv_c3, c0 * inv_c3, roots);
+    int nroots = HomLib::univariate::solve_cubic_real(c2 * inv_c3, c1 * inv_c3, c0 * inv_c3, roots);
 
     std::vector<HomLib::PoseData> output;
 

@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// Tests of bisect_sturm_scaled (wadenback_common.hpp), the root finder of the two-sided
+// Tests of bisect_sturm_scaled (sturm.hpp), the root finder of the two-sided
 // Wadenbäck solvers. Each test builds a polynomial from known roots.
 
 #include <algorithm>
@@ -26,7 +26,7 @@
 #include <random>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
-#include "wadenback_common.hpp"
+#include "sturm.hpp"
 
 namespace {
 
@@ -55,7 +55,7 @@ template <int N>
 std::vector<double> scaled_roots(const std::vector<double> &p) {
     REQUIRE(p.size() == N + 1);
     double roots[N];
-    const int n = HomLib::Wadenback3DV2026::bisect_sturm_scaled<N>(p.data(), roots);
+    const int n = HomLib::sturm::bisect_sturm_scaled<N>(p.data(), roots);
     std::vector<double> found(roots, roots + n);
     std::sort(found.begin(), found.end());
     return found;
@@ -76,8 +76,8 @@ void check_roots(std::vector<double> expected, const std::vector<double> &found,
 }  // namespace
 
 TEST_CASE("bisect_sturm_scaled - finds small real roots, 0 included") {
-    // Degree 9: these small real roots times x^2 - 2x + 2 (roots 1 +/- i). PoseLib's bisect_sturm
-    // alone finds them with errors up to about 4e-4. A problem without distortion in
+    // Degree 9: these small real roots times x^2 - 2x + 2 (roots 1 +/- i). bisect_sturm alone
+    // finds them with errors up to about 4e-4. A problem without distortion in
     // test_wadenback_3dv_2026.cpp tests the root at 0 that bisect_sturm loses.
     const std::vector<double> real = {-0.05, -0.003, 0.0, 1e-4, 0.002, 0.01, 0.04};
     check_roots(real, scaled_roots<9>(poly_from_roots(real, {{2.0, -2.0, 1.0}})), 1e-9);

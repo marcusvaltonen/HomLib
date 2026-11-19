@@ -161,7 +161,7 @@ pip install homlib
 ```
 
 ### Python (from source)
-Requires [PoseLib](https://github.com/PoseLib/PoseLib/tree/master) and Eigen 3.
+Requires Eigen 3.3 or later.
 
 ```bash
 pip install .
@@ -181,14 +181,13 @@ The GC-RANSAC, MAGSAC and SupeRANSAC backends need Boost, OpenCV 4, gflags and O
 ```bash
 git submodule update --init --recursive
 brew install eigen boost opencv@4 gflags libomp
-CMAKE_ARGS="-DCMAKE_PREFIX_PATH=<PoseLib prefix> -DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4" pip install .
+CMAKE_ARGS="-DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4" pip install .
 ```
 For a C++ build, pass the same `-DOpenCV_DIR` to `cmake`.
 
 ### C++ (from source)
 Dependencies:
-- **Eigen 3**: `apt-get install libeigen3-dev`
-- **[PoseLib](https://github.com/PoseLib/PoseLib)**: build and install from source
+- **Eigen 3.3 or later**: `apt-get install libeigen3-dev`
 - **RansacLib** (submodule): `git submodule update --init --recursive`
 
 ```bash

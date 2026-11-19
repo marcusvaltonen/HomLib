@@ -71,7 +71,6 @@ option(HOMLIB_NATIVE_ARCH "Use -march=native for CPU-specific optimizations (not
 find_package(Eigen3 REQUIRED)
 set(EIGEN_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 
-find_package(PoseLib REQUIRED)
 include_directories(${CMAKE_SOURCE_DIR})
 
 if(HOMLIB_USE_SUPERANSAC)

@@ -20,7 +20,7 @@
 
 #include "solver_kukelova_cvpr_2015.hpp"
 #include <Eigen/Dense>
-#include "PoseLib/misc/sturm.h"
+#include "sturm.hpp"
 
 namespace HomLib {
 namespace KukelovaCVPR2015 {
@@ -80,9 +80,9 @@ namespace KukelovaCVPR2015 {
         // stay inaccurate.
         double p[6];
         Eigen::Matrix<double, 5, 5> AMp = AM;
-        poselib::sturm::charpoly_danilevsky_piv(AMp, p);
+        HomLib::sturm::charpoly_danilevsky_piv(AMp, p);
         double roots[5];
-        int nroots = poselib::sturm::bisect_sturm<5>(p, roots, 1e-14);
+        int nroots = HomLib::sturm::bisect_sturm<5>(p, roots, 1e-14);
 
         // Close eigenvalues are ill-conditioned roots of the characteristic polynomial, which only
         // determines them roughly: then Eigen's eigensolver, as before (about 1 problem in 100).

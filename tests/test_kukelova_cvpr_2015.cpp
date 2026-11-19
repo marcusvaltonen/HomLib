@@ -168,7 +168,7 @@ TEST_CASE("Kukelova CVPR 2015 - range check of the estimator") {
 TEST_CASE("Kukelova CVPR 2015 - every solution satisfies the five equations") {
     // Every solution is a root of the minimal problem, the true one or not: it maps the five
     // undistorted points x_i to the y_i, up to rounding. The eigenvalues of the action matrix as
-    // roots of its characteristic polynomial are less accurate (with PoseLib's default tolerance in
+    // roots of its characteristic polynomial are less accurate (with the default tolerance of
     // bisect_sturm, 26% of the solutions had a residual above 1e-9, and 0.5% above 0.1).
     int solutions = 0, inaccurate = 0;
     double worst = 0;
