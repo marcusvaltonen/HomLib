@@ -3,7 +3,7 @@
 #include <vector>
 #include <limits>
 
-#include "PoseLib/misc/sturm.h"
+#include "sturm.hpp"
 
 #include "posedata.hpp"
 #include "wadenback_common.hpp"

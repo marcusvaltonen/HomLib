@@ -5,6 +5,7 @@ set(SRCS
     helpers/normalize2dpts.cpp
     helpers/radial.cpp
     helpers/roots.cpp
+    helpers/univariate.cpp
     robust/refinement.cpp
     solvers/cai_pami_2025/get_cai_pami_2025.cpp
     solvers/dlt/get_dlt.cpp
@@ -31,7 +32,6 @@ set(SRCS
 
 add_library(HomLib STATIC ${SRCS})
 target_link_libraries(HomLib PRIVATE Eigen3::Eigen)
-target_link_libraries(HomLib PRIVATE PoseLib::PoseLib)
 target_include_directories(HomLib PRIVATE ${HOMLIB_INCLUDE_DIRS})
 set_target_properties(HomLib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 

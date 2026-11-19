@@ -1,7 +1,7 @@
 #include <Eigen/Dense>
 #include <vector>
 
-#include "PoseLib/misc/sturm.h"
+#include "sturm.hpp"
 
 #include "posedata.hpp"
 #include "wadenback_common.hpp"
@@ -128,7 +128,7 @@ std::vector<HomLib::PoseData> get_double_sided(
     Eigen::Matrix<double, 9, 9> AMp = AM;
 
     // Find real eigenvalues (roots)
-    poselib::sturm::charpoly_danilevsky_piv(AMp, p);
+    HomLib::sturm::charpoly_danilevsky_piv(AMp, p);
     double roots[9];
     int nroots = bisect_sturm_scaled<9>(p, roots);
     fast_eigenvector_solver(roots, nroots, AM, sols);

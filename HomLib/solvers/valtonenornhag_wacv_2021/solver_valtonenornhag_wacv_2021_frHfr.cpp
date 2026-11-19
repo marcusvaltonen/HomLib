@@ -20,8 +20,8 @@
 
 #include "solver_valtonenornhag_wacv_2021_frHfr.hpp"
 #include <Eigen/Dense>
-#include "PoseLib/misc/sturm.h"
-#include "PoseLib/misc/univariate.h"
+#include "sturm.hpp"
+#include "univariate.hpp"
 
 namespace HomLib {
 namespace ValtonenOrnhagWACV2021 {
@@ -172,9 +172,9 @@ namespace ValtonenOrnhagWACV2021 {
         // Real eigenvalues of the 3×3 action matrix via its characteristic polynomial
         double p[4];
         Eigen::Matrix<double, 3, 3> AMp = AM;
-        poselib::sturm::charpoly_danilevsky_piv(AMp, p);
+        HomLib::sturm::charpoly_danilevsky_piv(AMp, p);
         double roots[3];
-        int nroots = poselib::univariate::solve_cubic_real(p[2], p[1], p[0], roots);
+        int nroots = HomLib::univariate::solve_cubic_real(p[2], p[1], p[0], roots);
 
         // Fast eigenvector extraction.
         // AM.row(2) = [0,1,0], so v[1] = λ·v[2]; with v[2] = 1: v[1] = λ.
