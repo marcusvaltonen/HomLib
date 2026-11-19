@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <vector>
-#include "PoseLib/misc/sturm.h"
+#include "sturm.hpp"
 
 namespace HomLib {
 namespace Wadenback3DV2026 {
@@ -27,7 +27,8 @@ Eigen::Matrix<double, 12, 1> compute_coeffs(
     const std::vector<Eigen::Vector2d> &x
 );
 // Finds the real roots of p[0] + p[1] x + ... + p[N] x^N, writes them to roots (at most N), and
-// returns their number. It calls PoseLib's bisect_sturm on q(z) = p(s (z + c)).
+// returns their number. It calls bisect_sturm (sturm.hpp, a copy of PoseLib's) on
+// q(z) = p(s (z + c)).
 //
 // bisect_sturm stops on absolute thresholds. Ridders' method stops when the bracket is below 1e-3
 // or after 30 iterations. Newton's method stops when |p(x)| / |p_N| < tol (1e-10 by default). The
@@ -60,7 +61,7 @@ int bisect_sturm_scaled(const double *p, double *roots) {
     for (int i = 0; i < N; i++)   // Taylor shift: q(z) becomes q(z + c)
         for (int j = N - 1; j >= i; j--)
             q[j] += c * q[j + 1];
-    int nroots = poselib::sturm::bisect_sturm<N>(q, roots, 1e-14);
+    int nroots = HomLib::sturm::bisect_sturm<N>(q, roots, 1e-14);
     for (int i = 0; i < nroots; i++)
         roots[i] = (roots[i] + c) * s;
     return nroots;

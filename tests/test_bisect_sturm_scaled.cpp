@@ -76,8 +76,8 @@ void check_roots(std::vector<double> expected, const std::vector<double> &found,
 }  // namespace
 
 TEST_CASE("bisect_sturm_scaled - finds small real roots, 0 included") {
-    // Degree 9: these small real roots times x^2 - 2x + 2 (roots 1 +/- i). PoseLib's bisect_sturm
-    // alone finds them with errors up to about 4e-4. A problem without distortion in
+    // Degree 9: these small real roots times x^2 - 2x + 2 (roots 1 +/- i). bisect_sturm (the copy
+    // of PoseLib's) alone finds them with errors up to about 4e-4. A problem without distortion in
     // test_wadenback_3dv_2026.cpp tests the root at 0 that bisect_sturm loses.
     const std::vector<double> real = {-0.05, -0.003, 0.0, 1e-4, 0.002, 0.01, 0.04};
     check_roots(real, scaled_roots<9>(poly_from_roots(real, {{2.0, -2.0, 1.0}})), 1e-9);

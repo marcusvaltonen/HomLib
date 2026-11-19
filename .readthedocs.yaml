@@ -16,21 +16,6 @@ build:
   jobs:
     post_checkout:
       - git submodule update --init --recursive
-    pre_install:
-      - |
-        set -e
-        echo "Building PoseLib..."
-        git clone https://github.com/PoseLib/PoseLib.git /tmp/poselib
-        cd /tmp/poselib
-        mkdir -p build
-        cd build
-        cmake .. -DCMAKE_INSTALL_PREFIX="$HOME/.local" -DCMAKE_BUILD_TYPE=Release
-        make -j4 install
-        echo "PoseLib installed to $HOME/.local"
-
-        # Make CMake find PoseLib later during pip install .
-        mkdir -p "$HOME/.cmake/packages/PoseLib"
-        echo "$HOME/.local/lib/cmake/PoseLib" > "$HOME/.cmake/packages/PoseLib/rtd-build"
 
 sphinx:
   configuration: docs/source/conf.py

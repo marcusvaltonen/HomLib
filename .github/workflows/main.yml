@@ -13,7 +13,6 @@ on:
 env:
   BUILD_CONFIGURATION: Release
   BUILD_DIR: _build
-  POSELIB_VERSION: a69263d5d8
 
 jobs:
   build:
@@ -92,38 +91,12 @@ jobs:
         env:
           VCPKG_ROOT: C:\vcpkg
 
-      - name: Cache PoseLib build
-        uses: actions/cache@v4
-        id: cache-poselib
-        with:
-          path: ${{github.workspace}}/poselib-install
-          key: ${{ matrix.config.os }}-poselib-${{ env.POSELIB_VERSION }}
-
-      - name: Build and install PoseLib
-        if: steps.cache-poselib.outputs.cache-hit != 'true'
-        run: |
-          git clone https://github.com/PoseLib/PoseLib.git
-          cd PoseLib
-          git checkout ${{ env.POSELIB_VERSION }}
-          mkdir build && cd build
-          cmake_args="-DCMAKE_INSTALL_PREFIX=${{github.workspace}}/poselib-install \
-                      -DPOSELIB_BUILD_TESTS=OFF \
-                      -DPOSELIB_BUILD_EXAMPLES=OFF"
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cmake_args="$cmake_args -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
-          fi
-          cmake .. $cmake_args
-          cmake --build . --config ${{env.BUILD_CONFIGURATION}} --parallel 4
-          cmake --install . --config ${{env.BUILD_CONFIGURATION}}
-        shell: bash
-
       - name: Configure project
         run: |
           if [[ -n "${{ matrix.config.cxx }}" ]]; then
             export CC=${{ matrix.config.cc }} CXX=${{ matrix.config.cxx }}
           fi
           cmake_args="-B ${{github.workspace}}/${{env.BUILD_DIR}} \
-                      -DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install \
                       -DCMAKE_BUILD_TYPE=${{env.BUILD_CONFIGURATION}}"
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cmake_args="$cmake_args -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake \
@@ -256,19 +229,6 @@ jobs:
         env:
           VCPKG_ROOT: C:\vcpkg
 
-      - name: Restore PoseLib cache
-        uses: actions/cache@v4
-        id: cache-poselib
-        with:
-          path: ${{github.workspace}}/poselib-install
-          key: ${{ matrix.config.os }}-poselib-${{ env.POSELIB_VERSION }}
-
-      - name: Fail if cache miss
-        if: steps.cache-poselib.outputs.cache-hit != 'true'
-        run: |
-          echo "Cache miss for PoseLib. Build cannot proceed."
-          exit 1
-
       - name: Setup python
         uses: actions/setup-python@v5
         with:
@@ -286,14 +246,13 @@ jobs:
           fi
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             python -m build \
-              --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}\\poselib-install;-DHOMLIB_USE_SUPERANSAC=OFF;-DHOMLIB_USE_GCRANSAC=OFF;-DHOMLIB_USE_MAGSAC=OFF"
+              --config-setting=cmake.args="-DHOMLIB_USE_SUPERANSAC=OFF;-DHOMLIB_USE_GCRANSAC=OFF;-DHOMLIB_USE_MAGSAC=OFF"
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
             # opencv@4 is keg-only: give its location.
             python -m build \
-              --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install;-DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4"
+              --config-setting=cmake.args="-DOpenCV_DIR=$(brew --prefix opencv@4)/lib/cmake/opencv4"
           else
-            python -m build \
-              --config-setting=cmake.args="-DCMAKE_PREFIX_PATH=${{github.workspace}}/poselib-install"
+            python -m build
           fi
         shell: bash
 
@@ -352,19 +311,6 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - name: Restore PoseLib cache
-        uses: actions/cache@v4
-        id: cache-poselib
-        with:
-          path: ${{github.workspace}}/poselib-install
-          key: ${{ matrix.config.os }}-poselib-${{ env.POSELIB_VERSION }}
-
-      - name: Fail if cache miss
-        if: steps.cache-poselib.outputs.cache-hit != 'true'
-        run: |
-          echo "Cache miss for PoseLib. Build cannot proceed."
-          exit 1
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
         env:
@@ -373,16 +319,12 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: yum install -y eigen3-devel
           CIBW_ENVIRONMENT_LINUX: >-
             BUILD_SHARED_LIBS="OFF"
-            CMAKE_PREFIX_PATH="/project/poselib-install"
             CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=OFF -DHOMLIB_USE_GCRANSAC=OFF -DHOMLIB_USE_MAGSAC=OFF"
           CIBW_ARCHS_LINUX: "native"
           CIBW_BEFORE_ALL_WINDOWS: >
-            C:\vcpkg\vcpkg --triplet x64-windows install eigen3 &&
-            if not exist D:\poselib mkdir D:\poselib &&
-            xcopy /E /I "%GITHUB_WORKSPACE%\poselib-install\*" D:\poselib\
+            C:\vcpkg\vcpkg --triplet x64-windows install eigen3
           CIBW_ENVIRONMENT_WINDOWS: >-
             BUILD_SHARED_LIBS="OFF"
-            CMAKE_PREFIX_PATH="D:\\poselib"
             CMAKE_TOOLCHAIN_FILE="C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
             CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=OFF -DHOMLIB_USE_GCRANSAC=OFF -DHOMLIB_USE_MAGSAC=OFF"
             MSBUILDDISABLENODEREUSE="1"
@@ -390,7 +332,6 @@ jobs:
           CIBW_BEFORE_ALL_MACOS: brew install eigen
           CIBW_ENVIRONMENT_MACOS: >-
             BUILD_SHARED_LIBS="OFF"
-            CMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/poselib-install"
             CMAKE_ARGS="-DHOMLIB_USE_SUPERANSAC=OFF -DHOMLIB_USE_GCRANSAC=OFF -DHOMLIB_USE_MAGSAC=OFF"
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
           CIBW_SKIP: "*-musllinux_x86_64"

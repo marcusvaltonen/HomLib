@@ -42,7 +42,7 @@
 #include "radial.hpp"
 
 #include "wadenback_common.hpp"
-#include "PoseLib/solvers/homography_4pt.h"
+#include "get_cai_pami_2025.hpp"
 
 struct BenchmarkResults {
     std::vector<long> runtimes;
@@ -448,7 +448,7 @@ int main(int argc, char *argv[]) {
     error_after = inst.hom_error(pd.homography) + inst.dist_error(pd.distortion_parameter, pd.distortion_parameter2);
     std::cout << "before after: " << error_after << std::endl;
 
-    std::cout << "\n\n==== Testing Guo's method vs DLT ====" << std::endl;
+    std::cout << "\n\n==== Testing Guo's method vs Cai's method (CaiPAMI2025) ====" << std::endl;
     config.number_points = 4;
     config.distortion = HomLib::DistortionCase::NO_DISTORTION;
     inst = HomLib::generate_problem_instance(config);
@@ -472,19 +472,11 @@ int main(int argc, char *argv[]) {
         auto end = std::chrono::high_resolution_clock::now();
         runtimes_guo.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
         err_guo.push_back(inst.hom_error(H1));
-        Eigen::Matrix3d H2;
-        
-        std::vector<Eigen::Vector3d> x1, x2;
-        Eigen::Vector3d tmp;
-        for (int i = 0; i < 4; i++) {
-            tmp = inst.x1[i].homogeneous();
-            x1.push_back(tmp);
-            tmp = inst.x2[i].homogeneous();
-            x2.push_back(tmp);
-        }
         start = std::chrono::high_resolution_clock::now();
-        poselib::homography_4pt(x1, x2, &H2, false);
+        // A port of PoseLib's homography_4pt (without its cheirality check, as called here before)
+        const std::vector<HomLib::PoseData> sols = HomLib::CaiPAMI2025::get<false>(inst.x1, inst.x2);
         end = std::chrono::high_resolution_clock::now();
+        const Eigen::Matrix3d H2 = sols.empty() ? Eigen::Matrix3d::Zero() : sols[0].homography;
         runtimes_dlt.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
         err_dlt.push_back(inst.hom_error(H2));
     }
@@ -503,7 +495,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Guo's method:" << std::endl;
     std::cout << "\tMedian execution time: " << runtime_guo_median << " ns" << std::endl;
     std::cout << "\tHomography error: " << err_guo_median << " (median)" << std::endl;
-    std::cout << "DLT  method:" << std::endl;
+    std::cout << "Cai's method:" << std::endl;
     std::cout << "\tMedian execution time: " << runtime_dlt_median << " ns" << std::endl;
     std::cout << "\tHomography error: " << err_dlt_median << " (median)" << std::endl;
 

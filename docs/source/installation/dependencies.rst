@@ -22,7 +22,6 @@ To build the core C++ library from source you need:
 
 - **CMake** 3.15 or later
 - **Eigen** 3.3 or later — on Ubuntu: ``apt-get install libeigen3-dev``
-- **PoseLib** — must be built and installed from `source <https://github.com/PoseLib/PoseLib>`__
 - **RansacLib** — included as a git submodule (header-only):
 
   .. code-block:: bash
