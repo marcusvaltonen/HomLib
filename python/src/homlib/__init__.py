@@ -360,9 +360,11 @@ class RobustEstimator(ABC):
             2xN keypoint angles in radians: row 0 in the first image, row 1
             in the second (required for orientation solvers).
         scores : numpy.ndarray, optional
-            1-D array of per-match confidence scores in [0, 1],
-            sorted in descending order.  Used by score-aware
-            samplers (PROSAC, ARSampler, ImportanceSampler).
+            1-D array of per-match confidence scores in [0, 1], in the
+            order of the matches.  Used by ARSampler and
+            ImportanceSampler.  PROSAC ignores them and draws its first
+            samples from the first matches: sort the matches by
+            decreasing score for it (estimate doesn't sort them).
             Supported by GC-RANSAC, MAGSAC, and SupeRANSAC.
 
         Returns

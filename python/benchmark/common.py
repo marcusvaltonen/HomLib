@@ -1,6 +1,6 @@
-"""What the benchmarks share: the robust estimators, the description of a run (its command and its
-environment), the check of the settings of two runs, and the mapping of points with an estimated
-model."""
+"""What the benchmarks share: the robust estimators and their samplers, the description of a run
+(its command and its environment), the check of the settings of two runs, and the mapping of points
+with an estimated model."""
 
 import datetime
 import os
@@ -27,14 +27,68 @@ BACKENDS = {
 }
 
 
+# The samplers of each backend, by their names on the command line, and their names in the backend's
+# sampler enum (GCSamplerType, SuperansacSamplerType); LOMSAC has only uniform sampling. PROSAC draws
+# its first samples from the first matches: it needs them sorted by decreasing score, and doesn't use
+# the scores themselves (prepare_matches sorts them). The importance and AR samplers use the scores.
+GC_SAMPLERS = {"uniform": "Uniform", "prosac": "PROSAC", "importance": "ImportanceSampler", "ar": "ARSampler"}
+SAMPLERS = {"lomsac": {"uniform": None}, "gcransac": GC_SAMPLERS, "magsac": GC_SAMPLERS,
+            "superansac": GC_SAMPLERS}
+SORTED_SAMPLERS = {"prosac"}   # take the matches sorted by decreasing score
+SCORED_SAMPLERS = {"importance", "ar"}   # take the scores
+
+
+def add_sampler_argument(parser):
+    """Adds --sampler to an argparse parser; check_sampler checks it against the backend."""
+    parser.add_argument("--sampler", choices=sorted({s for samplers in SAMPLERS.values() for s in samplers}),
+                        default="uniform",
+                        help="Sampler of the robust estimator (default: uniform, for every backend). prosac gets "
+                             "the matches sorted by decreasing score; importance and ar get the scores. LOMSAC "
+                             "has only uniform")
+
+
+def check_sampler(backend, sampler):
+    """Raises a ValueError if the backend has no such sampler."""
+    if sampler not in SAMPLERS[backend]:
+        raise ValueError(f"--backend {backend} has no sampler {sampler} (its samplers: "
+                         f"{', '.join(sorted(SAMPLERS[backend]))})")
+
+
+def prepare_matches(x, y, scores, sampler):
+    """The matches (2xN x and y) and the scores to give to estimate() with the sampler, and their
+    order: order[i] is the index in x and y of the i-th match returned (None if the order is
+    unchanged). PROSAC gets the matches sorted by decreasing score (a stable sort: matches of equal
+    scores keep their order); only the samplers that use the scores get them (None for the others).
+    original_indices maps the inliers back to the indices of x and y. Raises a ValueError if the
+    sampler needs scores and there are none."""
+    if scores is None and sampler in SORTED_SAMPLERS | SCORED_SAMPLERS:
+        raise ValueError(f"the sampler {sampler} needs the scores of the matches, and the matches have none")
+    order = None
+    if sampler in SORTED_SAMPLERS:
+        order = np.argsort(-np.asarray(scores), kind="stable")
+        x, y, scores = x[:, order], y[:, order], np.asarray(scores)[order]
+    scores = np.ascontiguousarray(scores, dtype=float) if sampler in SCORED_SAMPLERS else None
+    return np.ascontiguousarray(x), np.ascontiguousarray(y), scores, order
+
+
+def original_indices(inliers, order):
+    """The indices of the inliers in the matches before prepare_matches reordered them"""
+    return np.asarray(inliers, dtype=int) if order is None else order[np.asarray(inliers, dtype=int)]
+
+
 def make_estimator(backend, solver, threshold, iterations, seed,
                    min_iterations=None, non_minimal_strategy=None,
-                   non_minimal_solver=None, **extra):
+                   non_minimal_solver=None, sampler="uniform", **extra):
     """The robust estimator, with the inlier threshold, and exactly this many iterations if
-    iterations isn't None, or at least min_iterations if it isn't None. extra: other settings of the
-    backend, by their names in HomLib."""
+    iterations isn't None, or at least min_iterations if it isn't None. sampler: a sampler of
+    SAMPLERS[backend] (uniform by default for every backend: SupeRANSAC's own default is PROSAC).
+    extra: other settings of the backend, by their names in HomLib."""
+    check_sampler(backend, sampler)
     cls, threshold_name, min_name, max_name = BACKENDS[backend]
     options = {threshold_name: threshold, **extra}
+    if SAMPLERS[backend][sampler] is not None:
+        enum = homlib.SuperansacSamplerType if backend == "superansac" else homlib.GCSamplerType
+        options["sampler"] = getattr(enum, SAMPLERS[backend][sampler])
     if iterations is not None:
         options.update({min_name: iterations, max_name: iterations})
     elif min_iterations is not None:

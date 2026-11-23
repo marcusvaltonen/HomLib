@@ -45,8 +45,11 @@ scenes; the dataset's test/ folder has 8).
 Differences from the paper and its code:
 - Only the two thresholds are tuned (the paper also tunes parameters specific to each estimator),
   over our grid (the paper gives none), on a subset of the homographies (``--max_pairs``).
-- The samplers are uniform (LOMSAC's), so the results compare with the paper's curves without
-  PROSAC (its scripts default to PROSAC on the SNN-sorted matches).
+- The sampler is uniform by default, so the results compare with the paper's curves without
+  PROSAC (its scripts default to PROSAC on the SNN-sorted matches). ``--sampler prosac`` (with
+  another backend than LOMSAC) gives PROSAC the matches sorted by increasing SNN ratio (the order
+  of the dataset's files), and ``--sampler importance|ar`` gives the importance and AR samplers
+  1 - SNN ratio as the scores.
 - A run without an estimation (fewer than 4 matches after prefiltering) has no time, and is left
   out of the mean time; the benchmark's scripts count it as 0. The runs use all the cores
   (``--jobs``), so their times compare within a run.
@@ -67,7 +70,8 @@ Usage
 -----
     python heb_benchmark.py tune /path/to/heb --output settings.json [--max_pairs 250]
     python heb_benchmark.py test /path/to/heb [--settings settings.json] [--iterations 10 100 1000 10000]
-                                 [--scene NAME] [--max_pairs 1000] [--backend lomsac] [--output heb.json]
+                                 [--scene NAME] [--max_pairs 1000] [--backend lomsac] [--sampler uniform]
+                                 [--output heb.json]
     python heb_benchmark.py compare before.json after.json
 """
 
@@ -90,7 +94,8 @@ import homlib
 # common.py is in the parent directory (benchmark/)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import (  # noqa: E402
-    BACKENDS, inlier_indices, make_estimator, map_points, print_runs, run_info, warn_settings)
+    BACKENDS, add_sampler_argument, check_sampler, inlier_indices, make_estimator, map_points, prepare_matches,
+    print_runs, run_info, warn_settings)
 
 # The scenes of each split and the scale of their reconstruction (to metres), as the benchmark's
 # dataset_configuration.yaml
@@ -150,7 +155,7 @@ def pose_errors(H, pose, K1, K2, scale):
 def run_pair(job):
     """For each configuration (solver, threshold, SNN threshold, iterations): per seed, (rotation
     error, translation error, transfer error, number of inliers, time)"""
-    path, split, scene, pair, configs, backend, seeds = job
+    path, split, scene, pair, configs, backend, sampler, seeds = job
     with h5py.File(scene_file(path, split, scene), "r") as f:
         corr, pose, K1, K2, size1, size2 = read_pair(f, pair)
     c1, c2 = size1[:2] / 2, size2[:2] / 2   # the sizes are (width, height)
@@ -161,17 +166,19 @@ def run_pair(job):
     for key in configs:
         name, threshold, snn, iterations = key.split("|")
         keep = corr[:, 8] < float(snn) if float(snn) < 1 else np.ones(len(corr), bool)
-        x = np.ascontiguousarray((corr[keep, 0:2] - c1).T)
-        y = np.ascontiguousarray((corr[keep, 2:4] - c2).T)
+        # The scores of the matches: 1 - SNN ratio. Only the number of inliers is used below, so the
+        # order of the matches that PROSAC gets doesn't matter after the estimation
+        x, y, scores, _ = prepare_matches((corr[keep, 0:2] - c1).T, (corr[keep, 2:4] - c2).T, 1 - corr[keep, 8],
+                                          sampler)
         solver = homlib.Solver(homlib.solver_ids(names=[name])[0])
         runs = []
         for seed in range(1, seeds + 1):
             if x.shape[1] < 4:   # no estimation, so no time (NaN, left out of the mean time)
                 runs.append((FAILED, FAILED, FAILED, 0, None))
                 continue
-            estimator = make_estimator(backend, solver, float(threshold), int(iterations), seed)
+            estimator = make_estimator(backend, solver, float(threshold), int(iterations), seed, sampler=sampler)
             t0 = time.perf_counter()
-            model, stats = estimator.estimate(x, y)
+            model, stats = estimator.estimate(x, y, scores=scores)
             elapsed = time.perf_counter() - t0
             n_in = len(inlier_indices(stats))
             err_R = err_t = transfer = FAILED
@@ -219,7 +226,7 @@ def make_jobs(args, split, configs):
             pairs = sorted(k[len("corr_"):] for k in f.keys() if k.startswith("corr_"))
         if 0 < args.max_pairs < len(pairs):
             pairs = sorted(np.random.default_rng(0).choice(pairs, args.max_pairs, replace=False))
-        jobs += [(args.path, split, scene, p, configs, args.backend, args.seeds) for p in pairs]
+        jobs += [(args.path, split, scene, p, configs, args.backend, args.sampler, args.seeds) for p in pairs]
     return jobs
 
 
@@ -253,14 +260,19 @@ def tune(args):
 
 
 def vars_settings(args, split):
-    return dict(split=split, scene=args.scene, max_pairs=args.max_pairs, backend=args.backend, seeds=args.seeds)
+    return dict(split=split, scene=args.scene, max_pairs=args.max_pairs, backend=args.backend, sampler=args.sampler,
+                seeds=args.seeds)
 
 
 def test(args):
     tuned = {}
     if args.settings:
         with open(args.settings) as f:
-            tuned = json.load(f)["solvers"]
+            settings_file = json.load(f)
+        tuned = settings_file["solvers"]
+        tuned_with = settings_file.get("settings", {}).get("sampler")
+        if tuned_with != args.sampler:
+            print(f"Warning: {args.settings} was tuned with the sampler {tuned_with}, and this run uses {args.sampler}")
     missing = [name for name in args.solvers if args.settings and name not in tuned]
     if missing:
         sys.exit(f"{args.settings} has no settings for {', '.join(missing)}: run tune with these solvers")
@@ -342,6 +354,7 @@ def main():
         p.add_argument("--scene", default=None, help="One scene of the split (default: all)")
         p.add_argument("--backend", choices=sorted(BACKENDS), default="lomsac",
                        help="Robust estimator (default: lomsac). The others need HomLib built with them")
+        add_sampler_argument(p)
         p.add_argument("--seeds", type=int, default=1, help="Runs per pair (random seeds, for LOMSAC)")
         p.add_argument("--solvers", nargs="+", choices=point_solvers, default=point_solvers)
         p.add_argument("--jobs", type=int, default=os.cpu_count(), help="Processes (default: one per core)")
@@ -367,6 +380,10 @@ def main():
     if args.command == "compare":
         compare(*args.files)
         return
+    try:
+        check_sampler(args.backend, args.sampler)
+    except ValueError as e:
+        parser.error(str(e))
     split = "train" if args.command == "tune" else "test"
     if args.scene and args.scene not in SCENES[split]:
         parser.error(f"{args.scene} isn't in the {split} split: {', '.join(SCENES[split])}")

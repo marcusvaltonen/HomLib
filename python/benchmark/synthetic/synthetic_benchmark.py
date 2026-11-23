@@ -130,7 +130,7 @@ def main():
                                backend)
         if args.output:
             settings = dict(problems=args.problems or 200, noise=None, iterations=args.iterations, seed=args.seed,
-                            outliers=args.outliers, backend=backend)
+                            outliers=args.outliers, backend=backend, sampler="uniform")
             with open(args.output, "w") as f:
                 json.dump(dict(run=run_info(), settings=settings, outliers=results), f)
         print_outliers(results)
