@@ -202,7 +202,8 @@ Requires building with ``-DHOMLIB_USE_MAGSAC=ON``. Check availability:
      - Description
    * - ``sigma_max``
      - 10.0
-     - Maximum noise level for sigma consensus
+     - Largest residual of an inlier: k σ_max, where σ_max is the largest noise level of sigma
+       consensus and k = 3.03 (the 0.99 quantile for the 2-D residual)
    * - ``confidence``
      - 0.99
      - RANSAC confidence
@@ -581,8 +582,8 @@ The backends use different threshold conventions:
   ``inlier_threshold = pixel_threshold / focal_length``
 - **GC-RANSAC**: raw threshold in normalised coordinates.
   ``threshold = pixel_threshold / focal_length``
-- **MAGSAC++**: sigma maximum (upper bound on noise sigma).
-  ``sigma_max`` in normalised coordinates.
+- **MAGSAC++**: ``sigma_max``, the largest residual of an inlier (k σ_max, see above), in
+  normalised coordinates.
 - **SupeRANSAC**: raw threshold in normalised coordinates.
   ``inlier_threshold = pixel_threshold / focal_length``
 
