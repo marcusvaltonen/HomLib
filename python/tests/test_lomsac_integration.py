@@ -144,6 +144,8 @@ class LomsacIntegrationTestCase(unittest.TestCase):
         options = homlib.LORansacOptions()
         self.assertGreater(options.max_num_iterations, 0)
         self.assertGreater(options.success_probability, 0)
+        self.assertTrue(options.final_least_squares)   # on in HomLib, off in RansacLib
+        self.assertTrue(homlib.LOMSAC(homlib.DLT()).options.final_least_squares)
 
     def test_ransac_statistics_fields(self):
         solver = homlib.Wadenback3DV2026OneSided()
