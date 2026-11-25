@@ -19,7 +19,7 @@ import homlib
 # Create a solver and configure LOMSAC
 
 solver = homlib.Wadenback3DV2026OneSided()
-lomsac = homlib.LOMSAC(solver, inlier_threshold=0.07, final_least_squares=True)
+lomsac = homlib.LOMSAC(solver, inlier_threshold=0.07)
 
 ###############################################################################
 # Generate random problem instance (no radial distortion added for simplicity)

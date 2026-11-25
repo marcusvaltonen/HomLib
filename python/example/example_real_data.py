@@ -46,7 +46,6 @@ INLIER_THRESHOLD = 3.0            # Pixel reprojection error for RANSAC
 # homlib RANSAC options (keyword arguments forwarded to LORansacOptions)
 LOMSAC_KWARGS = dict(
     inlier_threshold=INLIER_THRESHOLD,
-    final_least_squares=True,
     random_seed=2026,
     lo_starting_iterations=8,
     min_num_iterations=70,

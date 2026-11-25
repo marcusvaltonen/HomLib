@@ -536,10 +536,14 @@ PYBIND11_MODULE(_core, m) {
     py::class_<ransac_lib::LORansacOptions>(m, "LORansacOptions",
         R"pbdoc(
             Options for the Locally Optimized MSAC (LOMSAC) estimator.
+
+            RansacLib's defaults, except ``final_least_squares``, which is on.
         )pbdoc")
-        .def(
-            py::init<>()
-        )
+        .def(py::init([]() {
+            ransac_lib::LORansacOptions options;
+            options.final_least_squares_ = true;
+            return options;
+        }))
         .def_readwrite("min_num_iterations", &ransac_lib::LORansacOptions::min_num_iterations_,
             "Minimum number of RANSAC iterations.")
         .def_readwrite("max_num_iterations", &ransac_lib::LORansacOptions::max_num_iterations_,
@@ -563,7 +567,8 @@ PYBIND11_MODULE(_core, m) {
         .def_readwrite("lo_starting_iterations", &ransac_lib::LORansacOptions::lo_starting_iterations_,
             "Number of initial iterations before local optimisation begins.")
         .def_readwrite("final_least_squares", &ransac_lib::LORansacOptions::final_least_squares_,
-            "Whether to run a final least-squares refinement.")
+            "Whether to refine the best model on all its inliers at the end, keeping the refined "
+            "model if it scores better (default: True).")
         .def("__repr__",
             [](const ransac_lib::LORansacOptions &opt) {
                 return "LORansacOptions("
