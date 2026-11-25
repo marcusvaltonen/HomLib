@@ -55,6 +55,24 @@ inline cv::Mat pack_orientation_cvmat(
     return data;
 }
 
+inline cv::Mat pack_scale_orientation_cvmat(
+    const std::vector<Eigen::Vector2d>& x,
+    const std::vector<Eigen::Vector2d>& y,
+    const std::vector<Eigen::Vector2d>& ori,
+    const std::vector<Eigen::Vector2d>& scale)
+{
+    const int n = static_cast<int>(x.size());
+    cv::Mat data(n, 8, CV_64F);
+    for (int i = 0; i < n; ++i) {
+        double* row = data.ptr<double>(i);
+        row[0] = x[i](0); row[1] = x[i](1);
+        row[2] = y[i](0); row[3] = y[i](1);
+        row[4] = ori[i](0); row[5] = ori[i](1);
+        row[6] = scale[i](0); row[7] = scale[i](1);
+    }
+    return data;
+}
+
 } // namespace detail
 } // namespace HomLib
 

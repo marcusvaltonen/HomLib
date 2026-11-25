@@ -128,6 +128,45 @@ private:
     Solver solver_;
 };
 
+// Minimal solver for scale-and-orientation features: extracts ori from cols 4-5, scale from cols 6-7.
+template <class Solver>
+class HomLibScaleOrientationMinimalSolver : public superansac::estimator::solver::AbstractSolver {
+public:
+    explicit HomLibScaleOrientationMinimalSolver(const Solver& solver) : solver_(solver) {}
+
+    bool returnMultipleModels() const override { return true; }
+    size_t maximumSolutions() const override { return 16; }
+    size_t sampleSize() const override { return solver_.minimal_sample_size(); }
+
+    FORCE_INLINE bool estimateModel(
+        const DataMatrix& kData,
+        const size_t* kSample,
+        const size_t kSampleNumber,
+        std::vector<superansac::models::Model>& models,
+        const double* kWeights = nullptr) const override
+    {
+        std::vector<Eigen::Vector2d> x(kSampleNumber), y(kSampleNumber);
+        std::vector<Eigen::Vector2d> ori(kSampleNumber), scale(kSampleNumber);
+        for (size_t i = 0; i < kSampleNumber; ++i) {
+            const size_t idx = kSample ? kSample[i] : i;
+            x[i] = Eigen::Vector2d(kData(idx, 0), kData(idx, 1));
+            y[i] = Eigen::Vector2d(kData(idx, 2), kData(idx, 3));
+            ori[i] = Eigen::Vector2d(kData(idx, 4), kData(idx, 5));
+            scale[i] = Eigen::Vector2d(kData(idx, 6), kData(idx, 7));
+        }
+
+        std::vector<PoseData> poses;
+        solver_.estimate(x, y, ori, scale, &poses);
+
+        for (const auto& pose : poses)
+            models.push_back(pose_to_model(pose));
+        return !models.empty();
+    }
+
+private:
+    Solver solver_;
+};
+
 // Point non-minimal solver: dispatches via shared non_minimal_dispatch.
 template <class Solver>
 class HomLibPointNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
@@ -286,6 +325,64 @@ public:
 
         PoseData best;
         if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_, ori)))
+            return false;
+        models.push_back(pose_to_model(best));
+        return true;
+    }
+
+private:
+    Solver solver_;
+    NonMinimalSettings nm_;
+    NonMinimalEstimateFn nm_solver_fn_;
+};
+
+// Scale-and-orientation non-minimal solver: dispatches via shared non_minimal_dispatch.
+template <class Solver>
+class HomLibScaleOrientationNonMinimalSolver : public superansac::estimator::solver::AbstractSolver {
+public:
+    explicit HomLibScaleOrientationNonMinimalSolver(const Solver& solver,
+        const NonMinimalSettings& nm = {},
+        const NonMinimalEstimateFn& nm_solver_fn = {})
+        : solver_(solver), nm_(nm), nm_solver_fn_(nm_solver_fn) {}
+
+    bool returnMultipleModels() const override { return false; }
+    size_t maximumSolutions() const override { return 1; }
+    size_t sampleSize() const override { return solver_.minimal_sample_size(); }
+
+    FORCE_INLINE bool estimateModel(
+        const DataMatrix& kData,
+        const size_t* kSample,
+        const size_t kSampleNumber,
+        std::vector<superansac::models::Model>& models,
+        const double* kWeights = nullptr) const override
+    {
+        if (kSampleNumber < static_cast<size_t>(solver_.minimal_sample_size()))
+            return false;
+
+        std::vector<Eigen::Vector2d> x(kSampleNumber), y(kSampleNumber);
+        std::vector<Eigen::Vector2d> ori(kSampleNumber), scale(kSampleNumber);
+        for (size_t i = 0; i < kSampleNumber; ++i) {
+            const size_t idx = kSample ? kSample[i] : i;
+            x[i] = Eigen::Vector2d(kData(idx, 0), kData(idx, 1));
+            y[i] = Eigen::Vector2d(kData(idx, 2), kData(idx, 3));
+            ori[i] = Eigen::Vector2d(kData(idx, 4), kData(idx, 5));
+            scale[i] = Eigen::Vector2d(kData(idx, 6), kData(idx, 7));
+        }
+
+        auto est_fn = [&ori, &scale](const Solver& s,
+                             const std::vector<Eigen::Vector2d>& xv,
+                             const std::vector<Eigen::Vector2d>& yv,
+                             const std::vector<size_t>& idx, size_t ss,
+                             std::vector<PoseData>* poses) {
+            std::vector<Eigen::Vector2d> xs(ss), ys(ss), os(ss), sc(ss);
+            for (size_t i = 0; i < ss; ++i) {
+                xs[i] = xv[idx[i]]; ys[i] = yv[idx[i]]; os[i] = ori[idx[i]]; sc[i] = scale[idx[i]];
+            }
+            s.estimate(xs, ys, os, sc, poses);
+        };
+
+        PoseData best;
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_, ori, scale)))
             return false;
         models.push_back(pose_to_model(best));
         return true;

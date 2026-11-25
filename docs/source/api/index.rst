@@ -129,8 +129,18 @@ Solvers that leverage orientation-covariant features. These have
 ``feature_type == FeatureType.Orientation`` and require the ``ori`` parameter
 in :meth:`~Solver.estimate`.
 
+.. autoclass:: BarathICCV2019Orientation
 .. autoclass:: ValtonenOrnhagICPR2026OrientationOneSided
 .. autoclass:: ValtonenOrnhagICPR2026OrientationOneSidedRight
+
+Scale-and-orientation-covariant solvers
+---------------------------------------
+
+Solvers that leverage scale-and-orientation-covariant features (e.g. SIFT).
+These have ``feature_type == FeatureType.ScaleAndOrientation`` and require
+both ``ori`` and ``scale`` parameters in :meth:`~Solver.estimate`.
+
+.. autoclass:: BarathICCV2019SIFT
 
 RANSAC backends
 ---------------

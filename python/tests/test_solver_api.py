@@ -28,6 +28,8 @@ class DistortionCasePropertyTestCase(unittest.TestCase):
         homlib.SolverId.BarathVISAPP20163PT: homlib.DistortionCase.NO_DISTORTION,
         homlib.SolverId.ValtonenOrnhagICPR2026AffineOneSided: homlib.DistortionCase.ONE_SIDED_LEFT,
         homlib.SolverId.ValtonenOrnhagICPR2026AffineOneSidedRight: homlib.DistortionCase.ONE_SIDED_RIGHT,
+        homlib.SolverId.BarathICCV2019SIFT: homlib.DistortionCase.NO_DISTORTION,
+        homlib.SolverId.BarathICCV2019Orientation: homlib.DistortionCase.NO_DISTORTION,
         homlib.SolverId.ValtonenOrnhagICPR2026OrientationOneSided: homlib.DistortionCase.ONE_SIDED_LEFT,
         homlib.SolverId.ValtonenOrnhagICPR2026OrientationOneSidedRight: homlib.DistortionCase.ONE_SIDED_RIGHT,
     }

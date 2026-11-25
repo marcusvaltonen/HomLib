@@ -99,6 +99,27 @@ inline DataMatrix pack_orientation_data(
     return data;
 }
 
+inline DataMatrix pack_scale_orientation_data(
+    const std::vector<Eigen::Vector2d>& x,
+    const std::vector<Eigen::Vector2d>& y,
+    const std::vector<Eigen::Vector2d>& ori,
+    const std::vector<Eigen::Vector2d>& scale)
+{
+    const size_t n = x.size();
+    DataMatrix data(n, 8);
+    for (size_t i = 0; i < n; ++i) {
+        data(i, 0) = x[i](0);
+        data(i, 1) = x[i](1);
+        data(i, 2) = y[i](0);
+        data(i, 3) = y[i](1);
+        data(i, 4) = ori[i](0);
+        data(i, 5) = ori[i](1);
+        data(i, 6) = scale[i](0);
+        data(i, 7) = scale[i](1);
+    }
+    return data;
+}
+
 template <size_t DimensionNumber>
 void initialize_neighborhood(
     const DataMatrix& data,
@@ -265,7 +286,6 @@ std::pair<PoseData, SuperansacStatistics> run_pipeline(
         // only their number
         sampler->initialize(shifted);
     }
-
     // Scoring initialization
     scoring->setThreshold(settings.inlierThreshold);
     if (settings.scoring == superansac::scoring::ScoringType::MAGSAC) {
@@ -377,6 +397,25 @@ std::pair<PoseData, SuperansacStatistics> run_superansac_orientation(
     auto data = detail::pack_orientation_data(x, y, ori);
     SuperansacOrientationEstimator<Solver> estimator(solver, nm, nm_solver_fn);
     auto result = detail::run_pipeline<6>(&estimator, data, probabilities, settings);
+    detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
+    return result;
+}
+
+template <class Solver>
+std::pair<PoseData, SuperansacStatistics> run_superansac_scale_orientation(
+    const Solver& solver,
+    const std::vector<Eigen::Vector2d>& x,
+    const std::vector<Eigen::Vector2d>& y,
+    const std::vector<Eigen::Vector2d>& ori,
+    const std::vector<Eigen::Vector2d>& scale,
+    const std::vector<double>& probabilities,
+    const NonMinimalSettings& nm,
+    const superansac::RANSACSettings& settings,
+    const NonMinimalEstimateFn& nm_solver_fn = {})
+{
+    auto data = detail::pack_scale_orientation_data(x, y, ori, scale);
+    SuperansacScaleOrientationEstimator<Solver> estimator(solver, nm, nm_solver_fn);
+    auto result = detail::run_pipeline<8>(&estimator, data, probabilities, settings);
     detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
     return result;
 }

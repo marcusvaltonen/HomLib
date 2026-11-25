@@ -13,6 +13,7 @@
 #include <ransac_estimator.h>
 #include <affine_ransac_estimator.h>
 #include <orientation_ransac_estimator.h>
+#include <scale_orientation_ransac_estimator.h>
 
 namespace HomLib {
 
@@ -113,6 +114,36 @@ std::pair<PoseData, ransac_lib::RansacStatistics> run_lomsac_orientation(
     estimator.nm_solver_fn = nm_solver_fn;
 
     return run_lomsac(estimator, options);
+}
+
+template <typename Solver>
+std::pair<PoseData, ransac_lib::RansacStatistics> run_lomsac_scale_orientation(
+    const Solver& solver,
+    const std::vector<Eigen::Vector2d>& x,
+    const std::vector<Eigen::Vector2d>& y,
+    const std::vector<Eigen::Vector2d>& ori,
+    const std::vector<Eigen::Vector2d>& scale,
+    const NonMinimalSettings& nm,
+    const ransac_lib::LORansacOptions& options,
+    const NonMinimalEstimateFn& nm_solver_fn = {})
+{
+    ScaleOrientationRansacEstimator<Solver> estimator(x, y, ori, scale, solver, nm);
+    estimator.nm_solver_fn = nm_solver_fn;
+
+    ransac_lib::RansacStatistics stats;
+    PoseData best_model;
+    best_model.homography = Eigen::Matrix3d::Identity();
+    best_model.focal_length = 0.0;
+    best_model.distortion_parameter = 0.0;
+    best_model.distortion_parameter2 = 0.0;
+
+    ransac_lib::LocallyOptimizedMSAC<
+        PoseData,
+        std::vector<PoseData>,
+        ScaleOrientationRansacEstimator<Solver>> lomsac;
+    lomsac.EstimateModel(options, estimator, &best_model, &stats);
+
+    return {std::move(best_model), std::move(stats)};
 }
 
 } // namespace HomLib

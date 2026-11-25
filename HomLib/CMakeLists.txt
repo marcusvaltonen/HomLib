@@ -10,6 +10,8 @@ set(SRCS
     solvers/cai_pami_2025/get_cai_pami_2025.cpp
     solvers/dlt/get_dlt.cpp
     solvers/barath_visapp_2016/get_barath_visapp_2016_affine.cpp
+    solvers/barath_iccv_2019/get_barath_iccv_2019_sift.cpp
+    solvers/barath_iccv_2019/get_barath_iccv_2019_ori.cpp
     solvers/barath_visapp_2016/get_barath_visapp_2016_haf.cpp
     solvers/barath_visapp_2016/get_barath_visapp_2016_3pt.cpp
     solvers/fitzgibbon_cvpr_2001/get_fitzgibbon_cvpr_2001.cpp

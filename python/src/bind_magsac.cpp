@@ -78,6 +78,31 @@ static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_ori
     });
 }
 
+static std::pair<HomLib::PoseData, HomLib::MAGSACStatistics> dispatch_magsac_scale_orientation(
+    const PySolver& solver,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& ori_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& scale_,
+    const std::vector<double>& probabilities,
+    HomLib::NonMinimalSettings nm,
+    const py::object& non_minimal_solver_obj,
+    const HomLib::MAGSACSettings& settings)
+{
+    std::vector<Eigen::Vector2d> x, y, ori, scale;
+    preprocess_scale_orientation(x_, y_, ori_, scale_, &x, &y, &ori, &scale);
+
+    HomLib::NonMinimalEstimateFn nm_solver_fn;
+    if (!non_minimal_solver_obj.is_none())
+        nm_solver_fn = resolve_non_minimal_fn(non_minimal_solver_obj.cast<PySolver>());
+
+    return HomLib::dispatch_scale_orientation_solver(solver.id, [&](auto tag) {
+        using Solver = std::decay_t<decltype(tag)>;
+        auto s = make_solver<Solver>(solver);
+        return HomLib::run_magsac_scale_orientation(s, x, y, ori, scale, probabilities, nm, settings, nm_solver_fn);
+    });
+}
+
 // --- pybind11 bindings ---
 
 void bind_magsac(py::module_& m) {
@@ -126,6 +151,11 @@ void bind_magsac(py::module_& m) {
     m.def("dispatch_magsac_affine", &dispatch_magsac_affine,
         "Run an affine-covariant solver within the MAGSAC framework.",
         "solver"_a, "x"_a, "y"_a, "A"_a, "probabilities"_a = std::vector<double>{},
+        "nm"_a = HomLib::NonMinimalSettings{},
+        "non_minimal_solver"_a = py::none(), "settings"_a);
+    m.def("dispatch_magsac_scale_orientation", &dispatch_magsac_scale_orientation,
+        "Run a scale-and-orientation-covariant solver within the MAGSAC framework.",
+        "solver"_a, "x"_a, "y"_a, "ori"_a, "scale"_a, "probabilities"_a = std::vector<double>{},
         "nm"_a = HomLib::NonMinimalSettings{},
         "non_minimal_solver"_a = py::none(), "settings"_a);
     m.def("dispatch_magsac_orientation", &dispatch_magsac_orientation,

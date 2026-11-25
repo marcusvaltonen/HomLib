@@ -165,6 +165,30 @@ std::pair<PoseData, MAGSACStatistics> run_magsac_affine(
 }
 
 template <class Solver>
+std::pair<PoseData, MAGSACStatistics> run_magsac_scale_orientation(
+    const Solver& solver,
+    const std::vector<Eigen::Vector2d>& x,
+    const std::vector<Eigen::Vector2d>& y,
+    const std::vector<Eigen::Vector2d>& ori,
+    const std::vector<Eigen::Vector2d>& scale,
+    const std::vector<double>& probabilities,
+    const NonMinimalSettings& nm,
+    const MAGSACSettings& settings,
+    const NonMinimalEstimateFn& nm_solver_fn = {})
+{
+    constexpr size_t SS = Solver::minimal_sample_size_value;
+    using MinSolver = GCScaleOrientationMinimalSolver<Solver, SS>;
+    using NonMinSolver = GCScaleOrientationNonMinimalSolver<Solver, SS>;
+    using Est = HomLibMAGSACEstimator<Solver, MinSolver, NonMinSolver>;
+
+    auto data = detail::pack_scale_orientation_cvmat(x, y, ori, scale);
+    Est estimator(solver, nm, nm_solver_fn);
+    auto result = detail::run_magsac_pipeline(estimator, data, probabilities, settings);
+    detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
+    return result;
+}
+
+template <class Solver>
 std::pair<PoseData, MAGSACStatistics> run_magsac_orientation(
     const Solver& solver,
     const std::vector<Eigen::Vector2d>& x,

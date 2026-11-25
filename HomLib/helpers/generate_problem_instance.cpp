@@ -95,10 +95,12 @@ namespace HomLib {
 	        instance.x2.clear();
 	        instance.A.clear();
 	        instance.ori.clear();
+	        instance.scale.clear();
 	        instance.x1.reserve(config.number_points);
 	        instance.x2.reserve(config.number_points);
 	        instance.A.reserve(config.number_points);
 	        instance.ori.reserve(config.number_points);
+	        instance.scale.reserve(config.number_points);
 
 		    // Generate plane
 		    Eigen::Vector3d n;
@@ -212,6 +214,7 @@ namespace HomLib {
 		            instance.x2.push_back(x2hd);
 		            instance.A.push_back(A);
 		            instance.ori.push_back(ori);
+		            instance.scale.push_back(Eigen::Vector2d(1.0, std::sqrt(A.determinant())));
 
 		            point_okay = true;
 		            break;

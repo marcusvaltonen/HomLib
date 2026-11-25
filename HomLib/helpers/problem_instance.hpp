@@ -36,6 +36,7 @@ struct ProblemInstance {
     std::vector<Eigen::Vector2d> x2;
     std::vector<Eigen::Matrix2d> A;
     std::vector<Eigen::Vector2d> ori;
+    std::vector<Eigen::Vector2d> scale;
 
     double hom_error(const Eigen::Matrix3d &H_est) const
     {   

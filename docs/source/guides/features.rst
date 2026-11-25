@@ -3,7 +3,7 @@
 Feature Types Guide
 ===================
 
-HomLib supports three kinds of local features, each enabling different
+HomLib supports four kinds of local features, each enabling different
 solvers with different minimal sample sizes.  Richer features encode more
 geometric information per correspondence, which reduces the minimal sample
 size and dramatically improves RANSAC convergence — especially at high
@@ -32,11 +32,16 @@ Overview
      - Hessian-Affine, AffNet, MSER
      - 1–2
      - 3 solvers
+   * - :attr:`~homlib.FeatureType.ScaleAndOrientation`
+     - ``x``, ``y`` (2×N) + ``ori`` (2×N) + ``scale`` (2×N)
+     - SIFT
+     - 2
+     - 1 solver
    * - :attr:`~homlib.FeatureType.Orientation`
      - ``x``, ``y`` (2×N) + ``ori`` (2×N)
      - SIFT, ORB (with angle)
      - 3
-     - 1 solver
+     - 3 solvers
 
 A lower minimal sample size means RANSAC needs exponentially fewer iterations
 for the same inlier ratio.  For example, at 50% inliers, a 2-point solver
@@ -147,6 +152,46 @@ frames of matched features.
 - :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSidedRight` — 2-point, one-sided distortion (right).
 
 
+Scale-and-orientation-covariant features
+-----------------------------------------
+
+SIFT keypoints provide both a dominant orientation and a characteristic scale.
+Scale-and-orientation-covariant solvers exploit both, needing only **2
+correspondences** for a minimal sample :cite:`BarathKukelova2019`.
+
+**Data format:**
+
+- ``x``, ``y`` — shape ``(2, N)``, same as point features.
+- ``ori`` — shape ``(2, N)``, the keypoint angles in radians.  Column ``i``
+  is ``[θ₁ᵢ, θ₂ᵢ]``, the angles in image 1 and image 2.
+- ``scale`` — shape ``(2, N)``, the keypoint scales.  Column ``i``
+  is ``[s₁ᵢ, s₂ᵢ]``, the scales in image 1 and image 2.
+
+**Usage:**
+
+.. code-block:: python
+
+   import numpy as np
+   import homlib
+
+   # angles1, angles2: shape (N,), keypoint angles in degrees
+   # scales1, scales2: shape (N,), keypoint scales (sigma)
+   ori = np.radians(np.vstack([angles1, angles2]))  # shape (2, N)
+   scale = np.vstack([scales1, scales2])  # shape (2, N)
+
+   solver = homlib.BarathICCV2019SIFT()
+   poses = solver.estimate(x, y, ori=ori, scale=scale)
+
+   # With RANSAC
+   lomsac = homlib.LOMSAC(solver, inlier_threshold=0.07)
+   estimate, stats = lomsac.estimate(x, y, ori=ori, scale=scale)
+
+**Available solvers:**
+
+- :class:`~homlib.BarathICCV2019SIFT` — 2-point, pure homography (no distortion)
+  :cite:`BarathKukelova2019`.
+
+
 Orientation-covariant features
 -------------------------------
 
@@ -182,6 +227,8 @@ additional information, needing **3 correspondences** instead of 5.
 
 **Available solvers:**
 
+- :class:`~homlib.BarathICCV2019Orientation` — 3-point (overdetermined), pure homography
+  (no distortion) :cite:`BarathKukelova2019`.
 - :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSided` — 3-point,
   one-sided distortion (left).
 - :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSidedRight` — 3-point,
@@ -191,7 +238,7 @@ additional information, needing **3 correspondences** instead of 5.
 Using features with RANSAC backends
 ------------------------------------
 
-All three feature types work with all four RANSAC backends.  Pass the extra
+All four feature types work with all four RANSAC backends.  Pass the extra
 feature data as keyword arguments to ``estimate()``:
 
 .. code-block:: python
@@ -205,6 +252,10 @@ feature data as keyword arguments to ``estimate()``:
    # Affine solver — pass A
    solver_aff = homlib.ValtonenOrnhagICPR2026AffineOneSided()
    est, stats = homlib.LOMSAC(solver_aff, inlier_threshold=0.07).estimate(x, y, A=A)
+
+   # Scale-and-orientation solver — pass ori and scale
+   solver_sift = homlib.BarathICCV2019SIFT()
+   est, stats = homlib.LOMSAC(solver_sift, inlier_threshold=0.07).estimate(x, y, ori=ori, scale=scale)
 
    # Orientation solver — pass ori
    solver_ori = homlib.ValtonenOrnhagICPR2026OrientationOneSided()
