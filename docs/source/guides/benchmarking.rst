@@ -77,9 +77,8 @@ Common options
 ``--backend NAME`` (HPatches, HEB, and synthetic with ``--outliers``)
    The robust estimator: ``lomsac`` (default, see :ref:`backend_guide`),
    ``gcransac``, ``magsac`` or ``superansac``. The last three need HomLib built
-   with them (see :ref:`backend_availability`). MAGSAC++ has no inlier
-   threshold: it gets the threshold as its largest noise level,
-   ``sigma_max``.
+   with them (see :ref:`backend_availability`). MAGSAC++ gets the threshold as
+   ``sigma_max``, the largest residual of an inlier (see :ref:`backend_guide`).
 
 ``--seeds N`` (HPatches, default 3; HEB, default 1)
    The number of runs per pair. LOMSAC gets fixed seeds, so its runs are
