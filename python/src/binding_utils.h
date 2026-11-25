@@ -139,6 +139,7 @@ inline HomLib::DistortionRange user_range(const PySolver& py_solver) {
 
 HOMLIB_DEFINE_OPTION(extra_check)
 HOMLIB_DEFINE_OPTION(use_qr)
+HOMLIB_DEFINE_OPTION(F_)
 
 // Detect flipped solver wrappers (they have a public inner_ member).
 template <typename T, typename = void>
@@ -154,6 +155,10 @@ Solver make_solver(const PySolver& py_solver) {
     if constexpr (has_inner<Solver>::value) {
         HOMLIB_COPY_OPTION(s.inner_, py_solver.options, extra_check, bool)
         HOMLIB_COPY_OPTION(s.inner_, py_solver.options, use_qr, bool)
+    }
+    if constexpr (has_F_<std::decay_t<decltype(s)>>::value) {
+        if (py_solver.options.contains("F"))
+            s.F_ = py_solver.options["F"].cast<Eigen::Matrix3d>();
     }
     s.normalize_image_coord = py_solver.normalize_image_coord;
     if (py_solver.has_k_range) {

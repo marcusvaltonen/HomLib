@@ -25,8 +25,8 @@ Overview
    * - :attr:`~homlib.FeatureType.Points`
      - ``x``, ``y`` (2×N)
      - SIFT, ORB, SuperPoint
-     - 5–6
-     - 11 solvers
+     - 3–6
+     - 12 solvers
    * - :attr:`~homlib.FeatureType.Affine`
      - ``x``, ``y`` (2×N) + ``A`` (N×2×2)
      - Hessian-Affine, AffNet, MSER
@@ -82,6 +82,22 @@ and matcher produces point correspondences.
    lomsac = homlib.LOMSAC(solver, inlier_threshold=0.07)
    estimate, stats = lomsac.estimate(x, y)
 
+The :class:`~homlib.BarathVISAPP20163PT` solver requires a known fundamental
+matrix, which reduces the minimal sample size to **3 points**
+:cite:`Barath2016`:
+
+.. code-block:: python
+
+   import cv2
+   import homlib
+
+   # Estimate fundamental matrix from correspondences
+   F, mask = cv2.findFundamentalMat(pts1, pts2, cv2.FM_RANSAC)
+
+   solver = homlib.BarathVISAPP20163PT(F=F)
+   lomsac = homlib.LOMSAC(solver, inlier_threshold=0.07)
+   estimate, stats = lomsac.estimate(x, y)
+
 
 Affine-covariant features
 --------------------------
@@ -122,7 +138,11 @@ frames of matched features.
 
 **Available solvers:**
 
-- :class:`~homlib.BarathVISAPP2016Affine` — 2-point, pure homography (no distortion).
+- :class:`~homlib.BarathVISAPP2016Affine` — 2-point, pure homography (no distortion)
+  :cite:`Barath2016`.
+- :class:`~homlib.BarathVISAPP2016HAF` — 1-point + known fundamental matrix (no distortion)
+  :cite:`Barath2016`.  Requires a pre-estimated fundamental matrix ``F`` passed
+  to the constructor: ``homlib.BarathVISAPP2016HAF(F=F)``.
 - :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSided` — 2-point, one-sided distortion (left).
 - :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSidedRight` — 2-point, one-sided distortion (right).
 

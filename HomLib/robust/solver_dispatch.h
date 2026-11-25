@@ -51,6 +51,8 @@ auto dispatch_point_solver(SolverId id, Func&& func) {
             return func(FlippedOneSidedSolver<Wadenback3DV2026::SolverSingleSided>{});
         case SolverId::GuoPRL2019:
             return func(GuoPRL2019::Solver{});
+        case SolverId::BarathVISAPP20163PT:
+            return func(BarathVISAPP2016::ThreePTSolver{});
         default:
             throw std::invalid_argument("Not a point-based solver");
     }
@@ -61,6 +63,8 @@ auto dispatch_affine_solver(SolverId id, Func&& func) {
     switch (id) {
         case SolverId::BarathVISAPP2016Affine:
             return func(BarathVISAPP2016::AffineSolver{});
+        case SolverId::BarathVISAPP2016HAF:
+            return func(BarathVISAPP2016::HAFSolver{});
         case SolverId::ValtonenOrnhagICPR2026AffineOneSided:
             return func(FlippedAffineOneSidedSolver<ValtonenOrnhagICPR2026::AffineSolverSingleSided>{});
         case SolverId::ValtonenOrnhagICPR2026AffineOneSidedRight:

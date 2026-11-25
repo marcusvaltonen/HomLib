@@ -92,6 +92,7 @@ distortion on each image.
 
 All point-based solvers have ``feature_type == FeatureType.Points``.
 
+.. autoclass:: BarathVISAPP20163PT
 .. autoclass:: CaiPAMI2025
 .. autoclass:: DLT
 .. autoclass:: GuoPRL2019
@@ -117,6 +118,7 @@ than point-based solvers. These have ``feature_type == FeatureType.Affine`` and
 require the ``A`` parameter in :meth:`~Solver.estimate`.
 
 .. autoclass:: BarathVISAPP2016Affine
+.. autoclass:: BarathVISAPP2016HAF
 .. autoclass:: ValtonenOrnhagICPR2026AffineOneSided
 .. autoclass:: ValtonenOrnhagICPR2026AffineOneSidedRight
 

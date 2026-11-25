@@ -207,6 +207,10 @@ Point-based solvers
      - 4
      - None
      - :cite:`Guo2019`
+   * - :class:`~homlib.BarathVISAPP20163PT`
+     - 3+
+     - None
+     - :cite:`Barath2016` (requires known F)
 
 Affine-covariant solvers
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -223,6 +227,10 @@ Affine-covariant solvers
      - 2+
      - None
      - :cite:`Barath2016`
+   * - :class:`~homlib.BarathVISAPP2016HAF`
+     - 1+
+     - None
+     - :cite:`Barath2016` (requires known F)
    * - :class:`~homlib.ValtonenOrnhagICPR2026AffineOneSided`
      - 2+
      - One-sided (left)

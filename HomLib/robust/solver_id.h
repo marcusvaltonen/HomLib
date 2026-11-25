@@ -30,6 +30,9 @@ enum class SolverId {
     GuoPRL2019,
     // Affine-based (AffinePoseEstimator<T>)
     BarathVISAPP2016Affine,
+    BarathVISAPP2016HAF,
+    // Point-based with fundamental matrix
+    BarathVISAPP20163PT,
     ValtonenOrnhagICPR2026AffineOneSided,
     ValtonenOrnhagICPR2026AffineOneSidedRight,
     // Orientation-based (OrientationPoseEstimator<T>)
@@ -42,6 +45,7 @@ enum class FeatureType { Points, Affine, Orientation };
 inline FeatureType feature_type_for(SolverId id) {
     switch (id) {
         case SolverId::BarathVISAPP2016Affine:
+        case SolverId::BarathVISAPP2016HAF:
         case SolverId::ValtonenOrnhagICPR2026AffineOneSided:
         case SolverId::ValtonenOrnhagICPR2026AffineOneSidedRight:
             return FeatureType::Affine;

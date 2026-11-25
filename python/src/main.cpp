@@ -182,6 +182,8 @@ PYBIND11_MODULE(_core, m) {
         .value("Wadenback3DV2026TwoSided", HomLib::SolverId::Wadenback3DV2026TwoSided)
         .value("GuoPRL2019", HomLib::SolverId::GuoPRL2019)
         .value("BarathVISAPP2016Affine", HomLib::SolverId::BarathVISAPP2016Affine)
+        .value("BarathVISAPP2016HAF", HomLib::SolverId::BarathVISAPP2016HAF)
+        .value("BarathVISAPP20163PT", HomLib::SolverId::BarathVISAPP20163PT)
         .value("ValtonenOrnhagICPR2026AffineOneSided", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSided)
         .value("ValtonenOrnhagICPR2026AffineOneSidedRight", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSidedRight)
         .value("ValtonenOrnhagICPR2026OrientationOneSided", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationOneSided)
