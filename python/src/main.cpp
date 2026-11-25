@@ -227,6 +227,8 @@ PYBIND11_MODULE(_core, m) {
         .value("BarathVISAPP2016Affine", HomLib::SolverId::BarathVISAPP2016Affine)
         .value("BarathVISAPP2016HAF", HomLib::SolverId::BarathVISAPP2016HAF)
         .value("BarathVISAPP20163PT", HomLib::SolverId::BarathVISAPP20163PT)
+        .value("BarathICCV2019SIFT", HomLib::SolverId::BarathICCV2019SIFT)
+        .value("BarathICCV2019Orientation", HomLib::SolverId::BarathICCV2019Orientation)
         .value("ValtonenOrnhagICPR2026AffineOneSided", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSided)
         .value("ValtonenOrnhagICPR2026AffineOneSidedRight", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSidedRight)
         .value("ValtonenOrnhagICPR2026OrientationOneSided", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationOneSided)
