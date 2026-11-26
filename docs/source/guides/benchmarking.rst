@@ -80,6 +80,14 @@ Common options
    with them (see :ref:`backend_availability`). MAGSAC++ gets the threshold as
    ``sigma_max``, the largest residual of an inlier (see :ref:`backend_guide`).
 
+``--sampler NAME`` (HPatches and HEB)
+   The sampler of the robust estimator: ``uniform`` (default, for every
+   backend), ``prosac``, ``importance`` or ``ar`` (see :ref:`confidence_scores`);
+   LOMSAC has only ``uniform``. PROSAC gets the matches sorted by decreasing
+   score; the importance and AR samplers get the scores: those of the matches
+   files (HPatches) or 1 minus the SNN ratio (HEB). The other benchmarks use
+   uniform sampling with every backend.
+
 ``--seeds N`` (HPatches, default 3; HEB, default 1)
    The number of runs per pair. LOMSAC gets fixed seeds, so its runs are
    reproducible on the same platform (other platforms draw other samples from

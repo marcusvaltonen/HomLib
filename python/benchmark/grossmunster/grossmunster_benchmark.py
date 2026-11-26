@@ -136,7 +136,7 @@ def main():
             results[name][key] = runs
     if args.output:
         settings = dict(matches=Path(args.matches).name, threshold=args.threshold, backend=args.backend,
-                        min_iterations=args.min_iterations, seeds=args.seeds, pairs=keys, **extra)
+                        sampler="uniform", min_iterations=args.min_iterations, seeds=args.seeds, pairs=keys, **extra)
         with open(args.output, "w") as f:
             json.dump(dict(run=run_info(), settings=settings, results=results), f)
     print_results(results, keys, pairs, args.per_pair)
