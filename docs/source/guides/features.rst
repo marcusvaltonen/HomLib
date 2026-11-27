@@ -30,8 +30,8 @@ Overview
    * - :attr:`~homlib.FeatureType.Affine`
      - ``x``, ``y`` (2×N) + ``A`` (N×2×2)
      - Hessian-Affine, AffNet, MSER
-     - 2
-     - 2 solvers
+     - 1–2
+     - 3 solvers
    * - :attr:`~homlib.FeatureType.Orientation`
      - ``x``, ``y`` (2×N) + ``ori`` (2×N)
      - SIFT, ORB (with angle)
