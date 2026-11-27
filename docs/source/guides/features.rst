@@ -41,7 +41,7 @@ Overview
      - ``x``, ``y`` (2×N) + ``ori`` (2×N)
      - SIFT, ORB (with angle)
      - 3
-     - 3 solvers
+     - 2 solvers
 
 A lower minimal sample size means RANSAC needs exponentially fewer iterations
 for the same inlier ratio.  For example, at 50% inliers, a 2-point solver

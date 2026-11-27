@@ -14,7 +14,6 @@
 #include <get_barath_iccv_2019.hpp>
 #include <get_valtonenornhag_icpr_2026.hpp>
 #include <flipped_solver.h>
-#include <scale_orientation_pose_estimator.h>
 
 namespace HomLib {
 
