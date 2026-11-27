@@ -40,6 +40,10 @@ SEEDS = (1, 2, 3)
 # the seeds: a little below the measured values, with a margin for the random number generators,
 # which differ between platforms. The Kukelova and Wadenbäck two-sided solvers are weaker on some
 # illumination pairs, whose homography is the identity: there, any k1 = k2 fits the matches.
+SKIP_SOLVERS = {
+    "BarathVISAPP20163PT",   # requires a fundamental matrix
+}
+
 MIN_RECALL = 0.95
 MIN_RECALL_OF = {
     "KukelovaCVPR2015TwoSided": 0.8,
@@ -76,6 +80,8 @@ class HPatchesTestCase(unittest.TestCase):
 
     def test_point_solvers(self):
         for solver_id in homlib.solver_ids(homlib.FeatureType.Points):
+            if solver_id.name in SKIP_SOLVERS:
+                continue
             with self.subTest(solver=solver_id.name):
                 mean = np.mean([recall(solver_id, *p) for p in self.pairs.values()])
                 self.assertGreater(mean, MIN_RECALL_OF.get(solver_id.name, MIN_RECALL))

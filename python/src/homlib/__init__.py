@@ -244,6 +244,32 @@ class BarathVISAPP2016Affine(Solver):
         super().__init__(SolverId.BarathVISAPP2016Affine)
 
 
+class BarathVISAPP2016HAF(Solver):
+    """Homography from 1 affine correspondence + fundamental matrix (Barath and Hajder, VISAPP 2016).
+
+    Parameters
+    ----------
+    F : numpy.ndarray
+        3x3 fundamental matrix.
+    """
+
+    def __init__(self, F):
+        super().__init__(SolverId.BarathVISAPP2016HAF, F=F)
+
+
+class BarathVISAPP20163PT(Solver):
+    """Homography from 3 points + fundamental matrix (Barath and Hajder, VISAPP 2016).
+
+    Parameters
+    ----------
+    F : numpy.ndarray
+        3x3 fundamental matrix.
+    """
+
+    def __init__(self, F):
+        super().__init__(SolverId.BarathVISAPP20163PT, F=F)
+
+
 class ValtonenOrnhagICPR2026AffineOneSided(Solver):
     """Affine-covariant one-sided radial distortion solver by Valtonen Ornhag (ICPR 2026), 2-point.
 
@@ -913,6 +939,8 @@ __all__ = [
     "GuoPRL2019",
     # Affine-covariant solvers
     "BarathVISAPP2016Affine",
+    "BarathVISAPP2016HAF",
+    "BarathVISAPP20163PT",
     "ValtonenOrnhagICPR2026AffineOneSided",
     "ValtonenOrnhagICPR2026AffineOneSidedRight",
     # Orientation-covariant solvers

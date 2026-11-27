@@ -108,6 +108,77 @@ TestData generate_test_data(int seed, int n_points, int n_outliers, HomLib::Dist
     return data;
 }
 
+struct FTestData {
+    Eigen::Matrix3d H, F;
+    std::vector<Eigen::Vector2d> x, y;
+    std::vector<Eigen::Matrix2d> A;
+    int n_total;
+    int n_outliers;
+};
+
+static Eigen::Matrix3d skew3(const Eigen::Vector3d &v) {
+    Eigen::Matrix3d S;
+    S << 0, -v(2), v(1), v(2), 0, -v(0), -v(1), v(0), 0;
+    return S;
+}
+
+FTestData generate_f_test_data(int seed, int n_points, int n_outliers) {
+    const double kPI = 3.14159265358979323846;
+    double fov = std::tan(70.0 / 2.0 * kPI / 180.0);
+    std::mt19937 rng(seed);
+    std::uniform_real_distribution<double> depth(0.1, 10.0);
+    std::uniform_real_distribution<double> coord(-fov, fov);
+    std::normal_distribution<double> dir(0.0, 1.0);
+    std::normal_distribution<double> outlier_dist(0.0, 5.0);
+
+    FTestData data;
+    data.n_total = n_points;
+    data.n_outliers = n_outliers;
+
+    for (int att = 0; att < 100; ++att) {
+        Eigen::Vector3d t(dir(rng), dir(rng), dir(rng)); t.normalize();
+        Eigen::Quaterniond q(dir(rng), dir(rng), dir(rng), dir(rng)); q.normalize();
+        Eigen::Matrix3d R = q.toRotationMatrix();
+        Eigen::Vector3d n(dir(rng), dir(rng), dir(rng)); n.normalize();
+        double alpha = depth(rng) / n(2);
+        data.H = alpha * R + t * n.transpose();
+        data.F = skew3(t) * R;
+        data.x.clear(); data.y.clear(); data.A.clear();
+        bool ok = true;
+        for (int j = 0; j < n_points; ++j) {
+            bool found = false;
+            for (int tr = 0; tr < 20; ++tr) {
+                Eigen::Vector3d p1{coord(rng), coord(rng), 1.0}; p1.normalize();
+                double lam = alpha / n.dot(p1);
+                if (lam < 0) continue;
+                Eigen::Vector3d p2 = (R * (p1 * lam) + t).normalized();
+                if (p2(2) < 0) continue;
+                Eigen::Vector2d x2h = p2.hnormalized();
+                if (std::abs(x2h(0)) > fov || std::abs(x2h(1)) > fov) continue;
+                Eigen::Vector2d x1h = p1.hnormalized();
+                double s = data.H(2,0)*x1h(0) + data.H(2,1)*x1h(1) + data.H(2,2);
+                Eigen::Matrix2d Aff;
+                Aff(0,0) = (data.H(0,0) - data.H(2,0)*x2h(0))/s;
+                Aff(0,1) = (data.H(0,1) - data.H(2,1)*x2h(0))/s;
+                Aff(1,0) = (data.H(1,0) - data.H(2,0)*x2h(1))/s;
+                Aff(1,1) = (data.H(1,1) - data.H(2,1)*x2h(1))/s;
+                if (Aff.determinant() < 0) continue;
+                data.x.push_back(x1h); data.y.push_back(x2h); data.A.push_back(Aff);
+                found = true; break;
+            }
+            if (!found) { ok = false; break; }
+        }
+        if (!ok) continue;
+        // Add outliers by corrupting the last n_outliers correspondences
+        for (int i = n_points - n_outliers; i < n_points; ++i) {
+            data.x[i] = Eigen::Vector2d(outlier_dist(rng), outlier_dist(rng));
+            data.y[i] = Eigen::Vector2d(outlier_dist(rng), outlier_dist(rng));
+        }
+        return data;
+    }
+    return data;
+}
+
 } // anonymous namespace
 
 
@@ -293,6 +364,7 @@ TEST_CASE("LOMSAC - orientation features") {
     REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
 }
 
+
 TEST_CASE("LOMSAC - overdetermined non-minimal") {
     // Higher noise so non-minimal strategy actually affects the result
     auto data = generate_test_data(42, 500, 100, HomLib::ONE_SIDED_LEFT, 1e-3);
@@ -351,6 +423,44 @@ TEST_CASE("LOMSAC - overdetermined orientation") {
     double expected_inlier_ratio = 1.0 - static_cast<double>(data.n_outliers) / data.n_total;
     REQUIRE(stats.inlier_ratio > 0.8 * expected_inlier_ratio);
     REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
+}
+
+TEST_CASE("LOMSAC - HAF (1AC + F)") {
+    auto data = generate_f_test_data(45, 200, 40);
+    HomLib::BarathVISAPP2016::HAFSolver solver(data.F);
+
+    ransac_lib::LORansacOptions options;
+    options.squared_inlier_threshold_ = 0.005 * 0.005;
+    options.max_num_iterations_ = 5000;
+    options.random_seed_ = 45;
+
+    auto [pose, stats] = HomLib::run_lomsac_affine(
+        solver, data.x, data.y, data.A, {}, options);
+
+    double expected_inlier_ratio = 1.0 - static_cast<double>(data.n_outliers) / data.n_total;
+    REQUIRE(stats.inlier_ratio > 0.9 * expected_inlier_ratio);
+    Eigen::Matrix3d H1 = data.H / data.H(2,2), H2 = pose.homography / pose.homography(2,2);
+    if (H1(0,0) * H2(0,0) < 0) H2 *= -1;
+    REQUIRE((H1 - H2).norm() < 0.1);
+}
+
+TEST_CASE("LOMSAC - 3PT (3pts + F)") {
+    auto data = generate_f_test_data(46, 500, 100);
+    HomLib::BarathVISAPP2016::ThreePTSolver solver(data.F);
+
+    ransac_lib::LORansacOptions options;
+    options.squared_inlier_threshold_ = 0.005 * 0.005;
+    options.max_num_iterations_ = 5000;
+    options.random_seed_ = 46;
+
+    auto [pose, stats] = HomLib::run_lomsac_point(
+        solver, data.x, data.y, {}, options);
+
+    double expected_inlier_ratio = 1.0 - static_cast<double>(data.n_outliers) / data.n_total;
+    REQUIRE(stats.inlier_ratio > 0.9 * expected_inlier_ratio);
+    Eigen::Matrix3d H1 = data.H / data.H(2,2), H2 = pose.homography / pose.homography(2,2);
+    if (H1(0,0) * H2(0,0) < 0) H2 *= -1;
+    REQUIRE((H1 - H2).norm() < 0.1);
 }
 
 TEST_CASE("LOMSAC - overdetermined fallback for non-OD solver") {
@@ -475,6 +585,33 @@ TEST_CASE("Overdetermined beats sample - Barath affine") {
             < affine_od_residual(solver, HomLib::NO_DISTORTION, HomLib::NonMinimalStrategy::Sample));
 }
 
+TEST_CASE("Overdetermined beats sample - HAF") {
+    // HAF needs a valid F; generate one from a deterministic camera pair
+    auto data = generate_f_test_data(99, 100, 0);
+    HomLib::BarathVISAPP2016::HAFSolver solver(data.F);
+    double total_od = 0.0, total_sample = 0.0;
+    for (int seed = 0; seed < 10; ++seed) {
+        auto d = generate_f_test_data(seed, 100, 0);
+        solver.F_ = d.F;
+        HomLib::AffineRansacEstimator<HomLib::BarathVISAPP2016::HAFSolver> est_od(d.x, d.y, d.A, solver);
+        est_od.nm_settings.strategy = HomLib::NonMinimalStrategy::Overdetermined;
+        est_od.nm_settings.refine = false;
+        HomLib::AffineRansacEstimator<HomLib::BarathVISAPP2016::HAFSolver> est_sa(d.x, d.y, d.A, solver);
+        est_sa.nm_settings.strategy = HomLib::NonMinimalStrategy::Sample;
+        est_sa.nm_settings.refine = false;
+        std::vector<int> all(static_cast<int>(d.x.size()));
+        std::iota(all.begin(), all.end(), 0);
+        HomLib::PoseData pose_od, pose_sa;
+        if (!est_od.NonMinimalSolver(all, &pose_od)) { total_od = 1e30; break; }
+        if (!est_sa.NonMinimalSolver(all, &pose_sa)) { total_sample = 1e30; break; }
+        for (int i : all) {
+            total_od += est_od.EvaluateModelOnPoint(pose_od, i);
+            total_sample += est_sa.EvaluateModelOnPoint(pose_sa, i);
+        }
+    }
+    REQUIRE(total_od < total_sample);
+}
+
 TEST_CASE("Overdetermined beats sample - Valtonen Ornhag affine") {
     HomLib::ValtonenOrnhagICPR2026::AffineSolverSingleSided solver;
     REQUIRE(affine_od_residual(solver, HomLib::ONE_SIDED_RIGHT, HomLib::NonMinimalStrategy::Overdetermined)
@@ -581,6 +718,7 @@ TEST_CASE("GC-RANSAC - different seeds give different results") {
     REQUIRE(differs);
 }
 
+
 TEST_CASE("GC-RANSAC - fewer points than a minimal sample") {
     // GC-RANSAC's PROSAC and adaptive reordering samplers drew points that don't exist
     // (an AddressSanitizer error, or a heap corruption): HomLib doesn't run it
@@ -596,6 +734,44 @@ TEST_CASE("GC-RANSAC - fewer points than a minimal sample") {
         CHECK(stats.num_iterations == 0);
         CHECK(stats.inliers.empty());
     }
+}
+
+TEST_CASE("GC-RANSAC - HAF (1AC + F)") {
+    auto data = generate_f_test_data(45, 200, 40);
+    HomLib::BarathVISAPP2016::HAFSolver solver(data.F);
+
+    HomLib::GCRANSACSettings settings;
+    settings.threshold = 0.005;
+    settings.max_iterations = 5000;
+
+    auto [pose, stats] = HomLib::run_gcransac_affine(
+        solver, data.x, data.y, data.A, {}, {}, settings);
+
+    size_t expected_inliers = data.n_total - data.n_outliers;
+    REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
+    Eigen::Matrix3d H1 = data.H / data.H(2,2), H2 = pose.homography / pose.homography(2,2);
+    if (H1(0,0) * H2(0,0) < 0) H2 *= -1;
+    REQUIRE((H1 - H2).norm() < 0.1);
+}
+
+TEST_CASE("GC-RANSAC - 3PT (3pts + F)") {
+    auto data = generate_f_test_data(46, 500, 100);
+    HomLib::BarathVISAPP2016::ThreePTSolver solver(data.F);
+
+    HomLib::GCRANSACSettings settings;
+    settings.threshold = 0.005;
+    settings.max_iterations = 5000;
+
+    bool success = false;
+    for (int attempt = 0; attempt < 3 && !success; ++attempt) {
+        auto [pose, stats] = HomLib::run_gcransac_point(solver, data.x, data.y, {}, {}, settings);
+        size_t expected_inliers = data.n_total - data.n_outliers;
+        Eigen::Matrix3d H1 = data.H / data.H(2,2), H2 = pose.homography / pose.homography(2,2);
+        if (H1(0,0) * H2(0,0) < 0) H2 *= -1;
+        success = (stats.inliers.size() > 0.9 * expected_inliers) &&
+                  ((H1 - H2).norm() < 0.1);
+    }
+    REQUIRE(success);
 }
 
 #endif // HOMLIB_HAS_GCRANSAC
@@ -721,6 +897,42 @@ TEST_CASE("MAGSAC++ - different seeds give different results") {
     REQUIRE(differs);
 }
 
+TEST_CASE("MAGSAC++ - HAF (1AC + F)") {
+    auto data = generate_f_test_data(45, 200, 40);
+    HomLib::BarathVISAPP2016::HAFSolver solver(data.F);
+
+    HomLib::MAGSACSettings settings;
+    settings.sigma_max = 0.01;
+    settings.max_iterations = 5000;
+
+    auto [pose, stats] = HomLib::run_magsac_affine(
+        solver, data.x, data.y, data.A, {}, {}, settings);
+
+    size_t expected_inliers = data.n_total - data.n_outliers;
+    REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
+    Eigen::Matrix3d H1 = data.H / data.H(2,2), H2 = pose.homography / pose.homography(2,2);
+    if (H1(0,0) * H2(0,0) < 0) H2 *= -1;
+    REQUIRE((H1 - H2).norm() < 0.1);
+}
+
+TEST_CASE("MAGSAC++ - 3PT (3pts + F)") {
+    auto data = generate_f_test_data(46, 500, 100);
+    HomLib::BarathVISAPP2016::ThreePTSolver solver(data.F);
+
+    HomLib::MAGSACSettings settings;
+    settings.sigma_max = 0.01;
+    settings.max_iterations = 5000;
+
+    auto [pose, stats] = HomLib::run_magsac_point(
+        solver, data.x, data.y, {}, {}, settings);
+
+    size_t expected_inliers = data.n_total - data.n_outliers;
+    REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
+    Eigen::Matrix3d H1 = data.H / data.H(2,2), H2 = pose.homography / pose.homography(2,2);
+    if (H1(0,0) * H2(0,0) < 0) H2 *= -1;
+    REQUIRE((H1 - H2).norm() < 0.1);
+}
+
 #endif // HOMLIB_HAS_MAGSAC
 
 
@@ -837,6 +1049,45 @@ TEST_CASE("SupeRANSAC - the settings that use grids") {
     settings.scoring = superansac::scoring::ScoringType::GRID;
     REQUIRE_NOTHROW(HomLib::run_superansac_point(solver, data.x, data.y, {}, {}, settings));
 }
+
+TEST_CASE("SupeRANSAC - HAF (1AC + F)") {
+    auto data = generate_f_test_data(45, 200, 40);
+    HomLib::BarathVISAPP2016::HAFSolver solver(data.F);
+
+    superansac::RANSACSettings settings;
+    settings.inlierThreshold = 0.005;
+    settings.maxIterations = 5000;
+    settings.sampler = superansac::samplers::SamplerType::Uniform;
+
+    auto [pose, stats] = HomLib::run_superansac_affine(
+        solver, data.x, data.y, data.A, {}, {}, settings);
+
+    size_t expected_inliers = data.n_total - data.n_outliers;
+    REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
+    Eigen::Matrix3d H1 = data.H / data.H(2,2), H2 = pose.homography / pose.homography(2,2);
+    if (H1(0,0) * H2(0,0) < 0) H2 *= -1;
+    REQUIRE((H1 - H2).norm() < 0.1);
+}
+
+TEST_CASE("SupeRANSAC - 3PT (3pts + F)") {
+    auto data = generate_f_test_data(46, 500, 100);
+    HomLib::BarathVISAPP2016::ThreePTSolver solver(data.F);
+
+    superansac::RANSACSettings settings;
+    settings.inlierThreshold = 0.005;
+    settings.maxIterations = 5000;
+    settings.sampler = superansac::samplers::SamplerType::Uniform;
+
+    auto [pose, stats] = HomLib::run_superansac_point(
+        solver, data.x, data.y, {}, {}, settings);
+
+    size_t expected_inliers = data.n_total - data.n_outliers;
+    REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
+    Eigen::Matrix3d H1 = data.H / data.H(2,2), H2 = pose.homography / pose.homography(2,2);
+    if (H1(0,0) * H2(0,0) < 0) H2 *= -1;
+    REQUIRE((H1 - H2).norm() < 0.1);
+}
+
 
 TEST_CASE("SupeRANSAC - the uniform sampler draws only indices of points") {
     // SupeRANSAC's UniformRandomSampler, initialized on the data, can draw the index of the row
