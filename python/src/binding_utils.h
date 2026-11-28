@@ -93,6 +93,33 @@ inline void preprocess_orientation(
     }
 }
 
+inline void preprocess_scale_orientation(
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &y_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &ori_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic> &scale_,
+    std::vector<Eigen::Vector2d> *x,
+    std::vector<Eigen::Vector2d> *y,
+    std::vector<Eigen::Vector2d> *ori,
+    std::vector<Eigen::Vector2d> *scale
+) {
+    if (x_.cols() != y_.cols()) {
+        throw std::invalid_argument("x and y should be of equal size.");
+    }
+    if (x_.cols() != ori_.cols()) {
+        throw std::invalid_argument("x and ori should be of equal size.");
+    }
+    if (x_.cols() != scale_.cols()) {
+        throw std::invalid_argument("x and scale should be of equal size.");
+    }
+    for (size_t i=0; i < x_.cols(); i++) {
+        x->push_back(x_.col(i));
+        y->push_back(y_.col(i));
+        ori->push_back(ori_.col(i));
+        scale->push_back(scale_.col(i));
+    }
+}
+
 struct PySolver {
     HomLib::SolverId id;
     HomLib::FeatureType feature_type;
@@ -178,6 +205,7 @@ inline HomLib::NonMinimalEstimateFn resolve_non_minimal_fn(const PySolver& py_so
                 const std::vector<Eigen::Vector2d>& y,
                 const std::vector<Eigen::Matrix2d>*,
                 const std::vector<Eigen::Vector2d>*,
+                const std::vector<Eigen::Vector2d>*,
                 std::vector<HomLib::PoseData>* poses) -> int {
                 s.estimate(x, y, poses);
                 return static_cast<int>(poses->size());
@@ -192,9 +220,26 @@ inline HomLib::NonMinimalEstimateFn resolve_non_minimal_fn(const PySolver& py_so
                 const std::vector<Eigen::Vector2d>& y,
                 const std::vector<Eigen::Matrix2d>* A,
                 const std::vector<Eigen::Vector2d>*,
+                const std::vector<Eigen::Vector2d>*,
                 std::vector<HomLib::PoseData>* poses) -> int {
                 if (!A) return 0;
                 s.estimate(x, y, *A, poses);
+                return static_cast<int>(poses->size());
+            };
+        });
+    case HomLib::FeatureType::ScaleAndOrientation:
+        return HomLib::dispatch_scale_orientation_solver(py_solver.id, [&py_solver](auto tag) -> HomLib::NonMinimalEstimateFn {
+            using S = std::decay_t<decltype(tag)>;
+            auto solver = make_solver<S>(py_solver);
+            return [s = std::move(solver)](
+                const std::vector<Eigen::Vector2d>& x,
+                const std::vector<Eigen::Vector2d>& y,
+                const std::vector<Eigen::Matrix2d>*,
+                const std::vector<Eigen::Vector2d>* ori,
+                const std::vector<Eigen::Vector2d>* scale,
+                std::vector<HomLib::PoseData>* poses) -> int {
+                if (!ori || !scale) return 0;
+                s.estimate(x, y, *ori, *scale, poses);
                 return static_cast<int>(poses->size());
             };
         });
@@ -207,6 +252,7 @@ inline HomLib::NonMinimalEstimateFn resolve_non_minimal_fn(const PySolver& py_so
                 const std::vector<Eigen::Vector2d>& y,
                 const std::vector<Eigen::Matrix2d>*,
                 const std::vector<Eigen::Vector2d>* ori,
+                const std::vector<Eigen::Vector2d>*,
                 std::vector<HomLib::PoseData>* poses) -> int {
                 if (!ori) return 0;
                 s.estimate(x, y, *ori, poses);

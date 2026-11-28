@@ -226,6 +226,30 @@ std::pair<PoseData, GCRANSACStatistics> run_gcransac_orientation(
     return result;
 }
 
+template <class Solver>
+std::pair<PoseData, GCRANSACStatistics> run_gcransac_scale_orientation(
+    const Solver& solver,
+    const std::vector<Eigen::Vector2d>& x,
+    const std::vector<Eigen::Vector2d>& y,
+    const std::vector<Eigen::Vector2d>& ori,
+    const std::vector<Eigen::Vector2d>& scale,
+    const std::vector<double>& probabilities,
+    const NonMinimalSettings& nm,
+    const GCRANSACSettings& settings,
+    const NonMinimalEstimateFn& nm_solver_fn = {})
+{
+    constexpr size_t SS = Solver::minimal_sample_size_value;
+    using MinSolver = GCScaleOrientationMinimalSolver<Solver, SS>;
+    using NonMinSolver = GCScaleOrientationNonMinimalSolver<Solver, SS>;
+    using Est = HomLibGCEstimator<Solver, MinSolver, NonMinSolver>;
+
+    auto data = detail::pack_scale_orientation_cvmat(x, y, ori, scale);
+    Est estimator(solver, nm, nm_solver_fn);
+    auto result = detail::run_gcransac_pipeline<8>(estimator, data, probabilities, settings);
+    detail::refine_on_inliers(solver, x, y, result.second.inliers, result.first);
+    return result;
+}
+
 } // namespace HomLib
 
 #endif // HOMLIB_HAS_GCRANSAC

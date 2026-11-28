@@ -35,12 +35,15 @@ enum class SolverId {
     BarathVISAPP20163PT,
     ValtonenOrnhagICPR2026AffineOneSided,
     ValtonenOrnhagICPR2026AffineOneSidedRight,
+    // Scale-and-orientation-based (ScaleOrientationPoseEstimator<T>)
+    BarathICCV2019SIFT,
     // Orientation-based (OrientationPoseEstimator<T>)
+    BarathICCV2019Orientation,
     ValtonenOrnhagICPR2026OrientationOneSided,
     ValtonenOrnhagICPR2026OrientationOneSidedRight,
 };
 
-enum class FeatureType { Points, Affine, Orientation };
+enum class FeatureType { Points, Affine, ScaleAndOrientation, Orientation };
 
 inline FeatureType feature_type_for(SolverId id) {
     switch (id) {
@@ -49,6 +52,9 @@ inline FeatureType feature_type_for(SolverId id) {
         case SolverId::ValtonenOrnhagICPR2026AffineOneSided:
         case SolverId::ValtonenOrnhagICPR2026AffineOneSidedRight:
             return FeatureType::Affine;
+        case SolverId::BarathICCV2019SIFT:
+            return FeatureType::ScaleAndOrientation;
+        case SolverId::BarathICCV2019Orientation:
         case SolverId::ValtonenOrnhagICPR2026OrientationOneSided:
         case SolverId::ValtonenOrnhagICPR2026OrientationOneSidedRight:
             return FeatureType::Orientation;

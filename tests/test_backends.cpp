@@ -35,6 +35,7 @@
 #include "problem_instance.hpp"
 #include "generate_problem_instance.hpp"
 #include "get_barath_visapp_2016.hpp"
+#include "get_barath_iccv_2019.hpp"
 #include "get_dlt.hpp"
 #include "get_fitzgibbon_cvpr_2001.hpp"
 #include "get_kukelova_cvpr_2015.hpp"
@@ -46,6 +47,7 @@
 #include "affine_ransac_estimator.h"
 #include "lomsac_runner.h"
 #include "orientation_ransac_estimator.h"
+#include "scale_orientation_ransac_estimator.h"
 #include "ransac_estimator.h"
 #include "solver_utils.h"
 
@@ -71,6 +73,7 @@ struct TestData {
     std::vector<Eigen::Vector2d> y;
     std::vector<Eigen::Matrix2d> A;
     std::vector<Eigen::Vector2d> ori;
+    std::vector<Eigen::Vector2d> scale;
     int n_total;
     int n_outliers;
 };
@@ -103,6 +106,7 @@ TestData generate_test_data(int seed, int n_points, int n_outliers, HomLib::Dist
     data.y = inst.x2;
     data.A = inst.A;
     data.ori = inst.ori;
+    data.scale = inst.scale;
     data.n_total = n_points;
     data.n_outliers = n_outliers;
     return data;
@@ -364,6 +368,22 @@ TEST_CASE("LOMSAC - orientation features") {
     REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
 }
 
+TEST_CASE("LOMSAC - scale-and-orientation features") {
+    auto data = generate_test_data(44, 200, 40, HomLib::NO_DISTORTION);
+    HomLib::BarathICCV2019::SIFTSolver solver;
+
+    ransac_lib::LORansacOptions options;
+    options.squared_inlier_threshold_ = 0.005 * 0.005;
+    options.max_num_iterations_ = 5000;
+    options.random_seed_ = 44;
+
+    auto [pose, stats] = HomLib::run_lomsac_scale_orientation(
+        solver, data.x, data.y, data.instance.ori, data.instance.scale, {}, options);
+
+    double expected_inlier_ratio = 1.0 - static_cast<double>(data.n_outliers) / data.n_total;
+    REQUIRE(stats.inlier_ratio > 0.9 * expected_inlier_ratio);
+    REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
+}
 
 TEST_CASE("LOMSAC - overdetermined non-minimal") {
     // Higher noise so non-minimal strategy actually affects the result
@@ -718,6 +738,21 @@ TEST_CASE("GC-RANSAC - different seeds give different results") {
     REQUIRE(differs);
 }
 
+TEST_CASE("GC-RANSAC - scale-and-orientation features") {
+    auto data = generate_test_data(44, 200, 40, HomLib::NO_DISTORTION);
+    HomLib::BarathICCV2019::SIFTSolver solver;
+
+    HomLib::GCRANSACSettings settings;
+    settings.threshold = 0.005;
+    settings.max_iterations = 5000;
+
+    auto [pose, stats] = HomLib::run_gcransac_scale_orientation(
+        solver, data.x, data.y, data.instance.ori, data.instance.scale, {}, {}, settings);
+
+    size_t expected_inliers = data.n_total - data.n_outliers;
+    REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
+    REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
+}
 
 TEST_CASE("GC-RANSAC - fewer points than a minimal sample") {
     // GC-RANSAC's PROSAC and adaptive reordering samplers drew points that don't exist
@@ -1088,6 +1123,22 @@ TEST_CASE("SupeRANSAC - 3PT (3pts + F)") {
     REQUIRE((H1 - H2).norm() < 0.1);
 }
 
+TEST_CASE("SupeRANSAC - scale-and-orientation features") {
+    auto data = generate_test_data(44, 200, 40, HomLib::NO_DISTORTION);
+    HomLib::BarathICCV2019::SIFTSolver solver;
+
+    superansac::RANSACSettings settings;
+    settings.inlierThreshold = 0.005;
+    settings.maxIterations = 5000;
+    settings.sampler = superansac::samplers::SamplerType::Uniform;
+
+    auto [pose, stats] = HomLib::run_superansac_scale_orientation(
+        solver, data.x, data.y, data.instance.ori, data.instance.scale, {}, {}, settings);
+
+    size_t expected_inliers = data.n_total - data.n_outliers;
+    REQUIRE(stats.inliers.size() > 0.9 * expected_inliers);
+    REQUIRE(data.instance.hom_error(pose.homography) < 0.1);
+}
 
 TEST_CASE("SupeRANSAC - the uniform sampler draws only indices of points") {
     // SupeRANSAC's UniformRandomSampler, initialized on the data, can draw the index of the row

@@ -11,6 +11,7 @@
 #include <get_guo_prl_2019.hpp>
 #include <get_wadenback_3dv_2026.hpp>
 #include <get_barath_visapp_2016.hpp>
+#include <get_barath_iccv_2019.hpp>
 #include <get_valtonenornhag_icpr_2026.hpp>
 #include <flipped_solver.h>
 
@@ -75,8 +76,20 @@ auto dispatch_affine_solver(SolverId id, Func&& func) {
 }
 
 template <typename Func>
+auto dispatch_scale_orientation_solver(SolverId id, Func&& func) {
+    switch (id) {
+        case SolverId::BarathICCV2019SIFT:
+            return func(BarathICCV2019::SIFTSolver{});
+        default:
+            throw std::invalid_argument("Not a scale-and-orientation-based solver");
+    }
+}
+
+template <typename Func>
 auto dispatch_orientation_solver(SolverId id, Func&& func) {
     switch (id) {
+        case SolverId::BarathICCV2019Orientation:
+            return func(BarathICCV2019::OrientationSolver{});
         case SolverId::ValtonenOrnhagICPR2026OrientationOneSided:
             return func(FlippedOrientationOneSidedSolver<ValtonenOrnhagICPR2026::OrientationSolverSingleSided>{});
         case SolverId::ValtonenOrnhagICPR2026OrientationOneSidedRight:
@@ -93,6 +106,8 @@ auto dispatch_solver(SolverId id, Func&& func) {
             return dispatch_point_solver(id, std::forward<Func>(func));
         case FeatureType::Affine:
             return dispatch_affine_solver(id, std::forward<Func>(func));
+        case FeatureType::ScaleAndOrientation:
+            return dispatch_scale_orientation_solver(id, std::forward<Func>(func));
         case FeatureType::Orientation:
             return dispatch_orientation_solver(id, std::forward<Func>(func));
         default:

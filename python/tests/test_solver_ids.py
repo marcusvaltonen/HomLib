@@ -6,7 +6,8 @@ import homlib
 class SolverIdsTestCase(unittest.TestCase):
     """homlib.solver_ids: the solvers, all of them or those of a feature type."""
 
-    FEATURE_TYPES = (homlib.FeatureType.Points, homlib.FeatureType.Affine, homlib.FeatureType.Orientation)
+    FEATURE_TYPES = (homlib.FeatureType.Points, homlib.FeatureType.Affine,
+                     homlib.FeatureType.ScaleAndOrientation, homlib.FeatureType.Orientation)
 
     def test_all_solvers(self):
         self.assertEqual(homlib.solver_ids(), list(homlib.SolverId))

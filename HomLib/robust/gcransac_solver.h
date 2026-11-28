@@ -129,6 +129,45 @@ private:
     Solver solver_;
 };
 
+// Scale-and-orientation minimal solver: reads ori from cols 4-5, scale from cols 6-7.
+template <class Solver, size_t SampleSize>
+class GCScaleOrientationMinimalSolver : public gcransac::estimator::solver::SolverEngine {
+public:
+    explicit GCScaleOrientationMinimalSolver(const Solver& solver) : solver_(solver) {}
+
+    static constexpr size_t sampleSize() { return SampleSize; }
+    static constexpr size_t maximumSolutions() { return 16; }
+    static constexpr bool returnMultipleModels() { return true; }
+
+    OLGA_INLINE bool estimateModel(
+        const cv::Mat& data_, const size_t* sample_, size_t sample_number_,
+        std::vector<gcransac::Model>& models_,
+        const double* weights_ = nullptr) const override
+    {
+        std::vector<Eigen::Vector2d> x(sample_number_), y(sample_number_);
+        std::vector<Eigen::Vector2d> ori(sample_number_), scale(sample_number_);
+        const double* ptr = reinterpret_cast<const double*>(data_.data);
+        const size_t cols = data_.cols;
+
+        for (size_t i = 0; i < sample_number_; ++i) {
+            const double* row = ptr + cols * sample_[i];
+            x[i] = Eigen::Vector2d(row[0], row[1]);
+            y[i] = Eigen::Vector2d(row[2], row[3]);
+            ori[i] = Eigen::Vector2d(row[4], row[5]);
+            scale[i] = Eigen::Vector2d(row[6], row[7]);
+        }
+
+        std::vector<PoseData> poses;
+        solver_.estimate(x, y, ori, scale, &poses);
+        for (const auto& p : poses)
+            models_.push_back(pose_to_gc_model(p));
+        return !models_.empty();
+    }
+
+private:
+    Solver solver_;
+};
+
 // ---------------------------------------------------------------------------
 // Non-minimal solver engines — use shared select_and_refine
 // ---------------------------------------------------------------------------
@@ -298,6 +337,67 @@ public:
 
         PoseData best;
         if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_, ori)))
+            return false;
+
+        models_.push_back(pose_to_gc_model(best));
+        return true;
+    }
+
+private:
+    Solver solver_;
+    NonMinimalSettings nm_;
+    NonMinimalEstimateFn nm_solver_fn_;
+};
+
+// Scale-and-orientation non-minimal solver.
+template <class Solver, size_t SampleSize>
+class GCScaleOrientationNonMinimalSolver : public gcransac::estimator::solver::SolverEngine {
+public:
+    explicit GCScaleOrientationNonMinimalSolver(const Solver& solver,
+        const NonMinimalSettings& nm = {},
+        const NonMinimalEstimateFn& nm_solver_fn = {})
+        : solver_(solver), nm_(nm), nm_solver_fn_(nm_solver_fn) {}
+
+    static constexpr size_t sampleSize() { return SampleSize; }
+    static constexpr size_t maximumSolutions() { return 1; }
+    static constexpr bool returnMultipleModels() { return false; }
+
+    OLGA_INLINE bool estimateModel(
+        const cv::Mat& data_, const size_t* sample_, size_t sample_number_,
+        std::vector<gcransac::Model>& models_,
+        const double* weights_ = nullptr) const override
+    {
+        if (sample_number_ < SampleSize)
+            return false;
+
+        std::vector<Eigen::Vector2d> x(sample_number_), y(sample_number_);
+        std::vector<Eigen::Vector2d> ori(sample_number_), scale(sample_number_);
+        const double* ptr = reinterpret_cast<const double*>(data_.data);
+        const size_t cols = data_.cols;
+
+        for (size_t i = 0; i < sample_number_; ++i) {
+            const size_t idx = sample_ ? sample_[i] : i;
+            const double* row = ptr + cols * idx;
+            x[i] = Eigen::Vector2d(row[0], row[1]);
+            y[i] = Eigen::Vector2d(row[2], row[3]);
+            ori[i] = Eigen::Vector2d(row[4], row[5]);
+            scale[i] = Eigen::Vector2d(row[6], row[7]);
+        }
+
+        auto est_fn = [&ori, &scale](const Solver& s,
+                             const std::vector<Eigen::Vector2d>& xv,
+                             const std::vector<Eigen::Vector2d>& yv,
+                             const std::vector<size_t>& idx, size_t ss,
+                             std::vector<PoseData>* poses) {
+            std::vector<Eigen::Vector2d> xs(ss), ys(ss), os(ss), sc(ss);
+            for (size_t i = 0; i < ss; ++i) {
+                xs[i] = xv[idx[i]]; ys[i] = yv[idx[i]]; os[i] = ori[idx[i]]; sc[i] = scale[idx[i]];
+            }
+            s.estimate(xs, ys, os, sc, poses);
+        };
+
+        PoseData best;
+        if (!detail::non_minimal_dispatch(solver_, x, y, est_fn, best, nm_, detail::bind_nm(nm_solver_fn_, ori, scale)))
             return false;
 
         models_.push_back(pose_to_gc_model(best));

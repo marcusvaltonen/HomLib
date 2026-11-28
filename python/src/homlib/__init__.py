@@ -22,9 +22,11 @@ from ._core import (
     dispatch_estimate_point as _dispatch_estimate_point,
     dispatch_estimate_affine as _dispatch_estimate_affine,
     dispatch_estimate_orientation as _dispatch_estimate_orientation,
+    dispatch_estimate_scale_orientation as _dispatch_estimate_scale_orientation,
     dispatch_lomsac_point as _dispatch_lomsac_point,
     dispatch_lomsac_affine as _dispatch_lomsac_affine,
     dispatch_lomsac_orientation as _dispatch_lomsac_orientation,
+    dispatch_lomsac_scale_orientation as _dispatch_lomsac_scale_orientation,
 )
 
 # pybind11 enums share a metaclass that lacks __iter__; patch it once so
@@ -56,7 +58,7 @@ class Solver(_CppSolver):
             solver_id = member
         super().__init__(solver_id, **kwargs)
 
-    def estimate(self, x, y, A=None, ori=None):
+    def estimate(self, x, y, A=None, ori=None, scale=None):
         ft = self.feature_type
         if ft == FeatureType.Points:
             return _dispatch_estimate_point(self, x, y)
@@ -64,6 +66,12 @@ class Solver(_CppSolver):
             if A is None:
                 raise ValueError("Affine solver requires A parameter")
             return _dispatch_estimate_affine(self, x, y, A)
+        elif ft == FeatureType.ScaleAndOrientation:
+            if ori is None:
+                raise ValueError("ScaleAndOrientation solver requires ori parameter")
+            if scale is None:
+                raise ValueError("ScaleAndOrientation solver requires scale parameter")
+            return _dispatch_estimate_scale_orientation(self, x, y, ori, scale)
         elif ft == FeatureType.Orientation:
             if ori is None:
                 raise ValueError("Orientation solver requires ori parameter")
@@ -293,8 +301,27 @@ class ValtonenOrnhagICPR2026AffineOneSidedRight(Solver):
 
 
 # ---------------------------------------------------------------------------
+# Scale-and-orientation-covariant solvers
+# ---------------------------------------------------------------------------
+
+
+class BarathICCV2019SIFT(Solver):
+    """2SIFT homography solver by Barath and Kukelova, 2-point."""
+
+    def __init__(self):
+        super().__init__(SolverId.BarathICCV2019SIFT)
+
+
+# ---------------------------------------------------------------------------
 # Orientation-covariant solvers
 # ---------------------------------------------------------------------------
+
+class BarathICCV2019Orientation(Solver):
+    """3-orientation homography solver by Barath and Kukelova, 3-point."""
+
+    def __init__(self):
+        super().__init__(SolverId.BarathICCV2019Orientation)
+
 
 class ValtonenOrnhagICPR2026OrientationOneSided(Solver):
     """Orientation-covariant one-sided radial distortion solver by Valtonen Ornhag (ICPR 2026), 4-point.
@@ -371,7 +398,7 @@ class RobustEstimator(ABC):
         return self._nm_settings
 
     @abstractmethod
-    def estimate(self, x, y, A=None, ori=None, scores=None):
+    def estimate(self, x, y, A=None, ori=None, scale=None, scores=None):
         """Run robust estimation.
 
         Parameters
@@ -384,7 +411,10 @@ class RobustEstimator(ABC):
             4xN local affine transformations (required for affine solvers).
         ori : numpy.ndarray, optional
             2xN keypoint angles in radians: row 0 in the first image, row 1
-            in the second (required for orientation solvers).
+            in the second (required for orientation and scale-and-orientation
+            solvers).
+        scale : numpy.ndarray, optional
+            2xN scale vectors (required for scale-and-orientation solvers).
         scores : numpy.ndarray, optional
             1-D array of per-match confidence scores in [0, 1],
             sorted in descending order.  Used by score-aware
@@ -567,7 +597,7 @@ class LOMSAC(RobustEstimator):
         """The LOMSAC options."""
         return self._options
 
-    def estimate(self, x, y, A=None, ori=None, scores=None):
+    def estimate(self, x, y, A=None, ori=None, scale=None, scores=None):
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
             return _dispatch_lomsac_point(
@@ -578,6 +608,14 @@ class LOMSAC(RobustEstimator):
                 raise ValueError("Affine solver requires A parameter")
             return _dispatch_lomsac_affine(
                 self._solver, x, y, A, self._nm_settings,
+                self._non_minimal_solver, self._options)
+        elif ft == FeatureType.ScaleAndOrientation:
+            if ori is None:
+                raise ValueError("ScaleAndOrientation solver requires ori parameter")
+            if scale is None:
+                raise ValueError("ScaleAndOrientation solver requires scale parameter")
+            return _dispatch_lomsac_scale_orientation(
+                self._solver, x, y, ori, scale, self._nm_settings,
                 self._non_minimal_solver, self._options)
         elif ft == FeatureType.Orientation:
             if ori is None:
@@ -615,6 +653,7 @@ if _HAS_SUPERANSAC:
         dispatch_superansac_point as _dispatch_superansac_point,
         dispatch_superansac_affine as _dispatch_superansac_affine,
         dispatch_superansac_orientation as _dispatch_superansac_orientation,
+        dispatch_superansac_scale_orientation as _dispatch_superansac_scale_orientation,
     )
 
 
@@ -679,7 +718,7 @@ class SupeRANSAC(RobustEstimator):
         """The SupeRANSAC settings."""
         return self._settings
 
-    def estimate(self, x, y, A=None, ori=None, scores=None):
+    def estimate(self, x, y, A=None, ori=None, scale=None, scores=None):
         probs = list(scores) if scores is not None else []
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
@@ -691,6 +730,14 @@ class SupeRANSAC(RobustEstimator):
                 raise ValueError("Affine solver requires A parameter")
             return _dispatch_superansac_affine(
                 self._solver, x, y, A, probs, self._nm_settings,
+                self._non_minimal_solver, self._settings)
+        elif ft == FeatureType.ScaleAndOrientation:
+            if ori is None:
+                raise ValueError("ScaleAndOrientation solver requires ori parameter")
+            if scale is None:
+                raise ValueError("ScaleAndOrientation solver requires scale parameter")
+            return _dispatch_superansac_scale_orientation(
+                self._solver, x, y, ori, scale, probs, self._nm_settings,
                 self._non_minimal_solver, self._settings)
         elif ft == FeatureType.Orientation:
             if ori is None:
@@ -723,6 +770,7 @@ if _HAS_GCRANSAC:
         dispatch_gcransac_point as _dispatch_gcransac_point,
         dispatch_gcransac_affine as _dispatch_gcransac_affine,
         dispatch_gcransac_orientation as _dispatch_gcransac_orientation,
+        dispatch_gcransac_scale_orientation as _dispatch_gcransac_scale_orientation,
     )
 
 
@@ -780,7 +828,7 @@ class GCRANSAC(RobustEstimator):
         """The GC-RANSAC settings."""
         return self._settings
 
-    def estimate(self, x, y, A=None, ori=None, scores=None):
+    def estimate(self, x, y, A=None, ori=None, scale=None, scores=None):
         probs = list(scores) if scores is not None else []
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
@@ -792,6 +840,14 @@ class GCRANSAC(RobustEstimator):
                 raise ValueError("Affine solver requires A parameter")
             return _dispatch_gcransac_affine(
                 self._solver, x, y, A, probs, self._nm_settings,
+                self._non_minimal_solver, self._settings)
+        elif ft == FeatureType.ScaleAndOrientation:
+            if ori is None:
+                raise ValueError("ScaleAndOrientation solver requires ori parameter")
+            if scale is None:
+                raise ValueError("ScaleAndOrientation solver requires scale parameter")
+            return _dispatch_gcransac_scale_orientation(
+                self._solver, x, y, ori, scale, probs, self._nm_settings,
                 self._non_minimal_solver, self._settings)
         elif ft == FeatureType.Orientation:
             if ori is None:
@@ -816,6 +872,7 @@ if _HAS_MAGSAC:
         MAGSACStatistics,
         dispatch_magsac_point as _dispatch_magsac_point,
         dispatch_magsac_affine as _dispatch_magsac_affine,
+        dispatch_magsac_scale_orientation as _dispatch_magsac_scale_orientation,
         dispatch_magsac_orientation as _dispatch_magsac_orientation,
     )
 
@@ -874,7 +931,7 @@ class MAGSAC(RobustEstimator):
         """The MAGSAC settings."""
         return self._settings
 
-    def estimate(self, x, y, A=None, ori=None, scores=None):
+    def estimate(self, x, y, A=None, ori=None, scale=None, scores=None):
         probs = list(scores) if scores is not None else []
         ft = self._solver.feature_type
         if ft == FeatureType.Points:
@@ -886,6 +943,14 @@ class MAGSAC(RobustEstimator):
                 raise ValueError("Affine solver requires A parameter")
             return _dispatch_magsac_affine(
                 self._solver, x, y, A, probs, self._nm_settings,
+                self._non_minimal_solver, self._settings)
+        elif ft == FeatureType.ScaleAndOrientation:
+            if ori is None:
+                raise ValueError("ScaleAndOrientation solver requires ori parameter")
+            if scale is None:
+                raise ValueError("ScaleAndOrientation solver requires scale parameter")
+            return _dispatch_magsac_scale_orientation(
+                self._solver, x, y, ori, scale, probs, self._nm_settings,
                 self._non_minimal_solver, self._settings)
         elif ft == FeatureType.Orientation:
             if ori is None:
@@ -943,7 +1008,10 @@ __all__ = [
     "BarathVISAPP20163PT",
     "ValtonenOrnhagICPR2026AffineOneSided",
     "ValtonenOrnhagICPR2026AffineOneSidedRight",
+    # Scale-and-orientation-covariant solvers
+    "BarathICCV2019SIFT",
     # Orientation-covariant solvers
+    "BarathICCV2019Orientation",
     "ValtonenOrnhagICPR2026OrientationOneSided",
     "ValtonenOrnhagICPR2026OrientationOneSidedRight",
     # RANSAC backends

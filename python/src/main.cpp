@@ -147,6 +147,49 @@ std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_orient
     });
 }
 
+std::vector<HomLib::PoseData> dispatch_estimate_scale_orientation(
+    const PySolver& solver,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& ori_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& scale_)
+{
+    std::vector<Eigen::Vector2d> x, y, ori, scale;
+    preprocess_scale_orientation(x_, y_, ori_, scale_, &x, &y, &ori, &scale);
+
+    return HomLib::dispatch_scale_orientation_solver(solver.id, [&](auto tag) {
+        using Solver = std::decay_t<decltype(tag)>;
+        auto s = make_solver<Solver>(solver);
+        std::vector<HomLib::PoseData> poses;
+        s.solve(x, y, ori, scale, &poses, direct_range(solver, x));
+        return poses;
+    });
+}
+
+std::pair<HomLib::PoseData, ransac_lib::RansacStatistics> dispatch_lomsac_scale_orientation(
+    const PySolver& solver,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& x_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& y_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& ori_,
+    const Eigen::Matrix<double, 2, Eigen::Dynamic>& scale_,
+    HomLib::NonMinimalSettings nm,
+    const py::object& non_minimal_solver_obj,
+    const ransac_lib::LORansacOptions& options)
+{
+    std::vector<Eigen::Vector2d> x, y, ori, scale;
+    preprocess_scale_orientation(x_, y_, ori_, scale_, &x, &y, &ori, &scale);
+
+    HomLib::NonMinimalEstimateFn nm_solver_fn;
+    if (!non_minimal_solver_obj.is_none())
+        nm_solver_fn = resolve_non_minimal_fn(non_minimal_solver_obj.cast<PySolver>());
+
+    return HomLib::dispatch_scale_orientation_solver(solver.id, [&](auto tag) {
+        using Solver = std::decay_t<decltype(tag)>;
+        auto s = make_solver<Solver>(solver);
+        return HomLib::run_lomsac_scale_orientation(s, x, y, ori, scale, nm, options, nm_solver_fn);
+    });
+}
+
 
 PYBIND11_MODULE(_core, m) {
     m.doc() = R"pbdoc(
@@ -184,6 +227,8 @@ PYBIND11_MODULE(_core, m) {
         .value("BarathVISAPP2016Affine", HomLib::SolverId::BarathVISAPP2016Affine)
         .value("BarathVISAPP2016HAF", HomLib::SolverId::BarathVISAPP2016HAF)
         .value("BarathVISAPP20163PT", HomLib::SolverId::BarathVISAPP20163PT)
+        .value("BarathICCV2019SIFT", HomLib::SolverId::BarathICCV2019SIFT)
+        .value("BarathICCV2019Orientation", HomLib::SolverId::BarathICCV2019Orientation)
         .value("ValtonenOrnhagICPR2026AffineOneSided", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSided)
         .value("ValtonenOrnhagICPR2026AffineOneSidedRight", HomLib::SolverId::ValtonenOrnhagICPR2026AffineOneSidedRight)
         .value("ValtonenOrnhagICPR2026OrientationOneSided", HomLib::SolverId::ValtonenOrnhagICPR2026OrientationOneSided)
@@ -195,7 +240,8 @@ PYBIND11_MODULE(_core, m) {
         )pbdoc")
         .value("Points", HomLib::FeatureType::Points)
         .value("Affine", HomLib::FeatureType::Affine)
-        .value("Orientation", HomLib::FeatureType::Orientation);
+        .value("Orientation", HomLib::FeatureType::Orientation)
+        .value("ScaleAndOrientation", HomLib::FeatureType::ScaleAndOrientation);
 
     // --- PySolver ---
 
@@ -467,6 +513,7 @@ PYBIND11_MODULE(_core, m) {
         .def_readwrite("x2", &HomLib::ProblemInstance::x2, "Second set of 2D points.")
         .def_readwrite("A", &HomLib::ProblemInstance::A, "Local affine transformations (2x2).")
         .def_readwrite("ori", &HomLib::ProblemInstance::ori, "Keypoint angles in radians (in the first image, in the second).")
+        .def_readwrite("scale", &HomLib::ProblemInstance::scale, "Scale vectors (2D).")
         .def("hom_error", &HomLib::ProblemInstance::hom_error,
             R"pbdoc(
                 Homography error between an estimate and the ground truth.
@@ -724,6 +771,10 @@ PYBIND11_MODULE(_core, m) {
         )pbdoc",
         "solver"_a, "x"_a, "y"_a, "ori"_a);
 
+    m.def("dispatch_estimate_scale_orientation", &dispatch_estimate_scale_orientation,
+        "Run a scale-and-orientation solver directly (no RANSAC).",
+        "solver"_a, "x"_a, "y"_a, "ori"_a, "scale"_a);
+
     m.def("dispatch_lomsac_point", &dispatch_lomsac_point,
         R"pbdoc(
             Run a point-based solver within the LOMSAC framework.
@@ -802,6 +853,13 @@ PYBIND11_MODULE(_core, m) {
                 Best model and estimation statistics.
         )pbdoc",
         "solver"_a, "x"_a, "y"_a, "ori"_a,
+        "nm"_a = HomLib::NonMinimalSettings{},
+        "non_minimal_solver"_a = py::none(),
+        "options"_a);
+
+    m.def("dispatch_lomsac_scale_orientation", &dispatch_lomsac_scale_orientation,
+        "Run a scale-and-orientation solver within the LOMSAC framework.",
+        "solver"_a, "x"_a, "y"_a, "ori"_a, "scale"_a,
         "nm"_a = HomLib::NonMinimalSettings{},
         "non_minimal_solver"_a = py::none(),
         "options"_a);

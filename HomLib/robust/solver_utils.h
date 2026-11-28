@@ -20,6 +20,7 @@ using NonMinimalEstimateFn = std::function<int(
     const std::vector<Eigen::Vector2d>&,
     const std::vector<Eigen::Matrix2d>*,
     const std::vector<Eigen::Vector2d>*,
+    const std::vector<Eigen::Vector2d>*,
     std::vector<PoseData>*)>;
 
 struct NonMinimalSettings {
@@ -134,21 +135,29 @@ inline BoundNmFn bind_nm(const NonMinimalEstimateFn& fn) {
     if (!fn) return {};
     return [&fn](const std::vector<Eigen::Vector2d>& x,
                  const std::vector<Eigen::Vector2d>& y,
-                 std::vector<PoseData>* p) { return fn(x, y, nullptr, nullptr, p); };
+                 std::vector<PoseData>* p) { return fn(x, y, nullptr, nullptr, nullptr, p); };
 }
 inline BoundNmFn bind_nm(const NonMinimalEstimateFn& fn,
                           const std::vector<Eigen::Matrix2d>& A) {
     if (!fn) return {};
     return [&fn, &A](const std::vector<Eigen::Vector2d>& x,
                      const std::vector<Eigen::Vector2d>& y,
-                     std::vector<PoseData>* p) { return fn(x, y, &A, nullptr, p); };
+                     std::vector<PoseData>* p) { return fn(x, y, &A, nullptr, nullptr, p); };
 }
 inline BoundNmFn bind_nm(const NonMinimalEstimateFn& fn,
                           const std::vector<Eigen::Vector2d>& ori) {
     if (!fn) return {};
     return [&fn, &ori](const std::vector<Eigen::Vector2d>& x,
                        const std::vector<Eigen::Vector2d>& y,
-                       std::vector<PoseData>* p) { return fn(x, y, nullptr, &ori, p); };
+                       std::vector<PoseData>* p) { return fn(x, y, nullptr, &ori, nullptr, p); };
+}
+inline BoundNmFn bind_nm(const NonMinimalEstimateFn& fn,
+                          const std::vector<Eigen::Vector2d>& ori,
+                          const std::vector<Eigen::Vector2d>& scale) {
+    if (!fn) return {};
+    return [&fn, &ori, &scale](const std::vector<Eigen::Vector2d>& x,
+                               const std::vector<Eigen::Vector2d>& y,
+                               std::vector<PoseData>* p) { return fn(x, y, nullptr, &ori, &scale, p); };
 }
 
 template <class Solver, class EstimateFunc>

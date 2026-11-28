@@ -251,6 +251,10 @@ Orientation-covariant solvers
      - Corrs.
      - Distortion
      - Reference
+   * - :class:`~homlib.BarathICCV2019Orientation`
+     - 3+
+     - None
+     - :cite:`BarathKukelova2019`
    * - :class:`~homlib.ValtonenOrnhagICPR2026OrientationOneSided`
      - 3+
      - One-sided (left)
@@ -259,6 +263,22 @@ Orientation-covariant solvers
      - 3+
      - One-sided (right)
      - :cite:`ValtonenOrnhagAdalbjornsson2026`
+
+Scale-and-orientation-covariant solvers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 45 8 15 32
+
+   * - Solver
+     - Corrs.
+     - Distortion
+     - Reference
+   * - :class:`~homlib.BarathICCV2019SIFT`
+     - 2
+     - None
+     - :cite:`BarathKukelova2019`
 
 
 Choosing a solver

@@ -8,6 +8,7 @@
 #include "generate_problem_instance.hpp"
 #include "posedata.hpp"
 #include "problem_instance.hpp"
+#include "scale_orientation_pose_estimator.h"
 #include "solver_dispatch.h"
 
 // Every solver, through estimate() (normalized, with the robust estimators' range) and solve()
@@ -28,9 +29,11 @@ bool finite(const HomLib::PoseData &p) {
 // estimate() or solve(), with the arguments of the solver's feature type
 template <class S>
 void call(const S &s, bool direct, const std::vector<V2> &x, const std::vector<V2> &y, const Affines &A,
-          const std::vector<V2> &ori, Poses *poses) {
+          const std::vector<V2> &ori, const std::vector<V2> &scale, Poses *poses) {
     const HomLib::DistortionRange none;
-    if constexpr (std::is_base_of_v<HomLib::AffinePoseEstimator<S>, S>)
+    if constexpr (std::is_base_of_v<HomLib::ScaleOrientationPoseEstimator<S>, S>)
+        direct ? (void)s.solve(x, y, ori, scale, poses, none) : (void)s.estimate(x, y, ori, scale, poses);
+    else if constexpr (std::is_base_of_v<HomLib::AffinePoseEstimator<S>, S>)
         direct ? (void)s.solve(x, y, A, poses, none) : (void)s.estimate(x, y, A, poses);
     else if constexpr (std::is_base_of_v<HomLib::OrientationPoseEstimator<S>, S>)
         direct ? (void)s.solve(x, y, ori, poses, none) : (void)s.estimate(x, y, ori, poses);
@@ -58,6 +61,7 @@ TEST_CASE("Solvers - every returned solution is finite, also on degenerate sampl
                         const std::vector<V2> x(inst.x1.begin(), inst.x1.begin() + n), y(inst.x2.begin(), inst.x2.begin() + n);
                         const Affines A(inst.A.begin(), inst.A.begin() + n);
                         const std::vector<V2> ori(inst.ori.begin(), inst.ori.begin() + n);
+                        const std::vector<V2> scale(inst.scale.begin(), inst.scale.begin() + n);
 
                         std::vector<std::pair<std::string, std::pair<std::vector<V2>, std::vector<V2>>>> samples;
                         samples.push_back({"synthetic", {x, y}});
@@ -97,7 +101,7 @@ TEST_CASE("Solvers - every returned solution is finite, also on degenerate sampl
                                 INFO("solver " << id << ", " << what << (direct ? ", solve()" : ", estimate()")
                                      << ", distortion case " << dc << ", seed " << seed);
                                 Poses poses;
-                                call(solver, direct, xy.first, xy.second, A, ori, &poses);
+                                call(solver, direct, xy.first, xy.second, A, ori, scale, &poses);
                                 for (auto pose : poses) {
                                     CHECK(finite(pose));
                                     if (!finite(pose))
